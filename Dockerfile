@@ -23,4 +23,4 @@ COPY masters ./masters
 COPY *.html ./
 COPY styles.css script.js ./
 EXPOSE 4177
-CMD ["sh", "-c", "pnpm prisma:deploy && node dist/index.js"]
+CMD ["sh", "-c", "if [ -n \"$DATABASE_URL\" ]; then pnpm prisma:deploy; else echo 'DATABASE_URL is not set; skipping migrations'; fi; node dist/index.js"]

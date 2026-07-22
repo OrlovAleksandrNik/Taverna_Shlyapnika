@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { getBotHealth } from "../bot/status.js";
-import { config, siteOrigins } from "../config.js";
+import { config, databaseConfigured, siteOrigins } from "../config.js";
 import { prisma } from "../db.js";
 import { logger } from "../logger.js";
 import { ConsentRequiredError, CONSENT_REQUIRED_CODE } from "../services/consent.js";
@@ -95,6 +95,13 @@ function publicErrorMessage(error: unknown) {
 
 async function getDatabaseHealth() {
   const started = Date.now();
+  if (!databaseConfigured) {
+    return {
+      database: "not_configured" as const,
+      latencyMs: Date.now() - started
+    };
+  }
+
   try {
     await prisma.$queryRaw`SELECT 1`;
     return {

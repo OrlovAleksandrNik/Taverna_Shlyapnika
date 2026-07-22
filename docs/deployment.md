@@ -37,7 +37,7 @@ docker compose up --build app
 Перед запуском контейнер выполняет:
 
 ```bash
-pnpm prisma:deploy
+pnpm prisma:deploy # только если DATABASE_URL задан
 node dist/index.js
 ```
 
@@ -51,7 +51,9 @@ node dist/index.js
 - `SITE_ORIGINS` - публичный Railway URL без завершающего слеша.
 - `PUBLIC_UPLOADS_URL` - `https://<ваш-домен>/uploads`.
 
-Healthcheck Railway указывает на `/health`. Этот маршрут отвечает `200`, если HTTP-процесс жив, и отдельно показывает состояние базы. Для строгой проверки базы используйте `/ready`.
+Healthcheck Railway указывает на `/health`. Этот маршрут отвечает `200`, если HTTP-процесс жив, и отдельно показывает состояние базы. Если `DATABASE_URL` не задан, `/health` вернёт `database: "not_configured"`, а `/ready` вернёт `503`.
+
+Важно: без `DATABASE_URL` статический сайт поднимется, но афиша, заявки, рейтинг и Telegram-бот не смогут работать с реальными данными.
 
 ## HTTPS и Telegram
 
