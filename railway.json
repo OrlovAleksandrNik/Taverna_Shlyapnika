@@ -5,7 +5,7 @@
     "dockerfilePath": "Dockerfile"
   },
   "deploy": {
-    "startCommand": "sh -c 'if [ -n \"$DATABASE_URL\" ]; then pnpm prisma:deploy; else echo \"DATABASE_URL is not set; skipping migrations\"; fi; node dist/index.js'",
+    "startCommand": "java -jar /app/app.jar",
     "healthcheckPath": "/health",
     "healthcheckTimeout": 300,
     "restartPolicyType": "ON_FAILURE",

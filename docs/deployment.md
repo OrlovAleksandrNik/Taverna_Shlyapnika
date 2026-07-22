@@ -1,6 +1,8 @@
-# Развёртывание
+# Развертывание
 
 ## Локальная разработка
+
+Для обычной разработки сайта и старого Node-кода:
 
 ```bash
 pnpm install
@@ -11,7 +13,15 @@ pnpm prisma:deploy
 pnpm dev
 ```
 
-## Production build
+Для Java backend без установленного Java/Maven используйте переносной runner:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\run-java-module.ps1 backend --% spring-boot:run -Dspring-boot.run.profiles=local
+```
+
+## Production build Node
+
+Node backend сохранен только как rollback-вариант:
 
 ```bash
 pnpm install --frozen-lockfile
@@ -21,6 +31,8 @@ pnpm prisma:deploy
 pnpm start
 ```
 
+Для Docker rollback используйте `Dockerfile.node`.
+
 ## Docker Compose
 
 ```bash
@@ -28,35 +40,60 @@ docker compose up -d postgres
 docker compose up --build app
 ```
 
-В production вынесите PostgreSQL и uploads в постоянные volumes или управляемые сервисы.
+В production PostgreSQL и uploads должны жить в постоянных volumes или управляемых сервисах.
 
-## Railway
+## Railway: основной сайт и Java backend
 
-В репозитории есть `railway.json`, который заставляет Railway использовать `Dockerfile`.
-Также добавлен `nixpacks.toml` с тем же build/start-сценарием на случай, если сервис в Dashboard настроен на Railpack/Nixpacks.
+Корневой `Dockerfile` теперь собирает Java backend и копирует статический сайт в образ. Railway должен использовать:
 
-Перед запуском контейнер выполняет:
+- Builder: `DOCKERFILE`
+- Dockerfile path: `Dockerfile`
+- Start command: `java -jar /app/app.jar`
+- Healthcheck path: `/health`
 
-```bash
-pnpm prisma:deploy # только если DATABASE_URL задан
-node dist/index.js
-```
+Java backend отдает:
 
-Обязательные переменные Railway:
+- статический сайт из `/app/static-site`;
+- публичные API `/api/*`;
+- загрузки из `/uploads`;
+- health endpoints `/health` и `/ready`.
 
-- `DATABASE_URL` - строка подключения PostgreSQL.
-- `INTERNAL_API_TOKEN` - длинная случайная строка для внутренних маршрутов.
-- `TELEGRAM_BOT_TOKEN` - нужен только если бот должен работать на Railway.
-- `BOT_MODE=polling` - для простого запуска одной реплики.
-- `SITE_BASE_URL` - публичный Railway URL.
-- `SITE_ORIGINS` - публичный Railway URL без завершающего слеша.
-- `PUBLIC_UPLOADS_URL` - `https://<ваш-домен>/uploads`.
+Обязательные переменные Railway для web-сервиса:
 
-Healthcheck Railway указывает на `/health`. Этот маршрут отвечает `200`, если HTTP-процесс жив, и отдельно показывает состояние базы. Если `DATABASE_URL` не задан, `/health` вернёт `database: "not_configured"`, а `/ready` вернёт `503`.
+- `DATABASE_URL` - строка подключения PostgreSQL из Railway Postgres.
+- `BOT_BACKEND_SECRET` или `INTERNAL_API_TOKEN` - общий секрет для внутренних маршрутов backend и бота.
+- `SITE_BASE_URL` - публичный URL сайта.
+- `CORS_ALLOWED_ORIGINS` - публичный URL сайта без завершающего слеша.
+- `TAVERN_TIMEZONE` - например `Europe/Minsk`.
 
-Важно: без `DATABASE_URL` статический сайт поднимется, но афиша, заявки, рейтинг и Telegram-бот не смогут работать с реальными данными.
+Рекомендуемые переменные:
 
-Если в логах всё ещё видно `ZodError` по обязательному `DATABASE_URL`, Railway запустил старый deployment. Проверьте, что сервис деплоит ветку `main` и commit не ниже `2a8748d`, затем выполните Redeploy или Clear build cache and redeploy.
+- `SERVE_FRONTEND=true`
+- `FRONTEND_STATIC_DIR=/app/static-site`
+- `FILE_STORAGE_DIR=/app/uploads`
+- `PUBLIC_UPLOADS_URL=/uploads`
+- `AUTO_PUBLISH=true`
+
+Если `DATABASE_URL` не задан, production Java backend завершит запуск с понятной ошибкой. Это ожидаемо: афиша, заявки, рейтинг и Telegram-бот должны работать с постоянной общей базой.
+
+Если в логах Railway виден `ZodError` по `DATABASE_URL`, сервис запускает старый Node deployment. Проверьте, что Railway деплоит ветку `main` с актуальным коммитом, builder выбран как Dockerfile, затем выполните Redeploy или Clear build cache and redeploy.
+
+## Railway: Java Telegram-бот
+
+Бот лучше запускать отдельным Railway service из этого же репозитория:
+
+- Root directory: `apps/telegram-bot-java`
+- Dockerfile path: `apps/telegram-bot-java/Dockerfile` или `Dockerfile`, если root directory уже выбран
+- Replica count: `1`
+
+Переменные бота:
+
+- `TELEGRAM_BOT_TOKEN` - токен от BotFather.
+- `JAVA_BACKEND_INTERNAL_URL` - внутренний URL Java backend web-сервиса Railway.
+- `BOT_BACKEND_SECRET` или `INTERNAL_API_TOKEN` - тот же секрет, что у backend.
+- `BOT_MODE=polling`
+
+Для polling не включайте несколько реплик одного и того же бота, иначе Telegram может вернуть `409 Conflict`.
 
 ## HTTPS и Telegram
 
@@ -69,31 +106,15 @@ BOT_MODE=webhook
 WEBHOOK_URL=https://example.com/<telegram-webhook-path>
 ```
 
-Перед включением webhook нужно убедиться, что hosting действительно принимает запросы Telegram.
+Перед включением webhook убедитесь, что hosting действительно принимает запросы Telegram.
 
 ## Файлы загрузок
 
-Загруженные изображения игр хранятся в `FILE_STORAGE_DIR` и отдаются через `PUBLIC_UPLOADS_URL`. Этот каталог не должен попадать в Git.
+Файлы хранятся в `FILE_STORAGE_DIR` и отдаются через `PUBLIC_UPLOADS_URL`. Каталог uploads не должен попадать в Git. На Railway для долгого хранения нужен Volume или внешний storage.
 
 ## Миграции
 
-В production используйте:
-
-```bash
-pnpm prisma:deploy
-```
-
-Не используйте `prisma migrate dev` на production-базе.
-
-## Резервное копирование
-
-Минимально сохраняйте:
-
-- PostgreSQL dump;
-- каталог uploads;
-- `.env` в защищённом хранилище секретов.
-
-Не храните резервные копии в публичном репозитории.
+Java backend применяет Flyway-миграции при старте приложения. Node/Prisma-миграции больше не должны запускаться в основном Railway web-сервисе после переключения на Java.
 
 ## Health-check
 
@@ -101,10 +122,10 @@ pnpm prisma:deploy
 GET /health
 ```
 
-Ответ показывает состояние backend, базы, режима бота и время последнего Telegram update без вывода секретов.
+Возвращает состояние backend, базы и режима бота без вывода секретов. Этот маршрут используется Railway как liveness healthcheck.
 
 ```http
 GET /ready
 ```
 
-Возвращает `503`, если база недоступна. Этот endpoint лучше использовать для внутренней диагностики, а не как Railway liveness healthcheck.
+Возвращает `503`, если база недоступна. Используйте его для внутренней диагностики, а не как Railway liveness healthcheck.

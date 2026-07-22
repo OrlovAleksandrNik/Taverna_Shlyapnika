@@ -1,11 +1,20 @@
 [phases.setup]
-nixPkgs = ["nodejs_22"]
-
-[phases.install]
-cmds = ["corepack enable", "pnpm install --frozen-lockfile"]
+nixPkgs = ["jdk21", "maven"]
 
 [phases.build]
-cmds = ["pnpm run build"]
+cmds = [
+  "cd apps/backend-java && mvn -B -DskipTests package",
+  "mkdir -p .railway/static-site",
+  "cp -R assets data masters .railway/static-site/",
+  "cp *.html robots.txt sitemap.xml styles.css script.js .railway/static-site/"
+]
+
+[variables]
+SPRING_PROFILES_ACTIVE = "prod"
+SERVE_FRONTEND = "true"
+FRONTEND_STATIC_DIR = "/app/.railway/static-site"
+FILE_STORAGE_DIR = "/app/uploads"
+PUBLIC_UPLOADS_URL = "/uploads"
 
 [start]
-cmd = "sh -c 'if [ -n \"$DATABASE_URL\" ]; then pnpm prisma:deploy; else echo \"DATABASE_URL is not set; skipping migrations\"; fi; node dist/index.js'"
+cmd = "java -jar apps/backend-java/target/shlyapnika-backend-0.1.0.jar"

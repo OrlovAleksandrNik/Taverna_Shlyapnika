@@ -1,28 +1,32 @@
-FROM node:22-alpine AS deps
-WORKDIR /app
-RUN apk add --no-cache openssl
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-RUN corepack enable && pnpm install --frozen-lockfile
+FROM maven:3.9.9-eclipse-temurin-21 AS backend-build
+WORKDIR /workspace/apps/backend-java
+COPY apps/backend-java/pom.xml ./pom.xml
+COPY apps/backend-java/src ./src
+RUN mvn -B -DskipTests package
 
-FROM deps AS build
-COPY prisma ./prisma
-COPY src ./src
-COPY tsconfig.json ./
-RUN pnpm run build
-
-FROM node:22-alpine
+FROM eclipse-temurin:21-jre-jammy
 WORKDIR /app
-ENV NODE_ENV=production
-RUN apk add --no-cache openssl && corepack enable
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/dist ./dist
-COPY prisma ./prisma
-COPY assets ./assets
-COPY data ./data
-COPY masters ./masters
-COPY *.html ./
-COPY robots.txt sitemap.xml ./
-COPY styles.css script.js ./
-EXPOSE 4177
-CMD ["sh", "-c", "if [ -n \"$DATABASE_URL\" ]; then pnpm prisma:deploy; else echo 'DATABASE_URL is not set; skipping migrations'; fi; node dist/index.js"]
+# Railway root deployment: one Java service serves both API and the static site.
+ENV SPRING_PROFILES_ACTIVE=prod
+ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError"
+ENV SERVE_FRONTEND=true
+ENV FRONTEND_STATIC_DIR=/app/static-site
+ENV FILE_STORAGE_DIR=/app/uploads
+ENV PUBLIC_UPLOADS_URL=/uploads
+COPY --from=backend-build /workspace/apps/backend-java/target/shlyapnika-backend-*.jar /app/app.jar
+COPY assets /app/static-site/assets
+COPY data /app/static-site/data
+COPY masters /app/static-site/masters
+COPY *.html /app/static-site/
+COPY robots.txt sitemap.xml /app/static-site/
+COPY styles.css script.js /app/static-site/
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends curl \
+  && rm -rf /var/lib/apt/lists/* \
+  && useradd --system --uid 10001 --create-home taverna \
+  && mkdir -p /app/uploads \
+  && chown -R taverna:taverna /app
+USER taverna
+EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 CMD curl -fsS "http://127.0.0.1:${PORT:-8080}/actuator/health/readiness" || exit 1
+CMD ["java", "-jar", "/app/app.jar"]
