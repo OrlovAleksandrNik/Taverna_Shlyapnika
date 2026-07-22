@@ -70,6 +70,34 @@ public class BackendApiClient {
     }
   }
 
+  public BackendGamesResponse listMasterGames(String masterId, String scope) {
+    try {
+      var request = baseRequest("/api/internal/masters/" + masterId + "/games?scope=" + encode(scope == null ? "all" : scope)).GET().build();
+      var response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+      ensureSuccess(response, "list master games");
+      return mapper.readValue(response.body(), BackendGamesResponse.class);
+    } catch (Exception error) {
+      log.warn("Backend master games lookup failed masterId={}", masterId, error);
+      throw new IllegalStateException("Не удалось загрузить список игр. Попробуйте немного позже.");
+    }
+  }
+
+  public BackendGameResponse setMasterGameStatus(String masterId, String gameId, String status) {
+    try {
+      var body = java.util.Map.of("status", status);
+      var request = baseRequest("/api/internal/masters/" + masterId + "/games/" + gameId + "/status")
+          .header("Content-Type", "application/json")
+          .method("PATCH", HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(body), StandardCharsets.UTF_8))
+          .build();
+      var response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+      ensureSuccess(response, "set master game status");
+      return mapper.readValue(response.body(), BackendGameResponse.class);
+    } catch (Exception error) {
+      log.warn("Backend master game status update failed masterId={} gameId={}", masterId, gameId, error);
+      throw new IllegalStateException("Не удалось изменить статус игры. Попробуйте немного позже.");
+    }
+  }
+
   private HttpRequest.Builder baseRequest(String path) {
     return HttpRequest.newBuilder()
         .uri(URI.create(normalizeBaseUrl(properties.backendUrl()) + path))
@@ -95,5 +123,9 @@ public class BackendApiClient {
   private String normalizeBaseUrl(String value) {
     var url = value == null || value.isBlank() ? "http://localhost:8080" : value.trim();
     return url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
+  }
+
+  private String encode(String value) {
+    return java.net.URLEncoder.encode(value, StandardCharsets.UTF_8);
   }
 }

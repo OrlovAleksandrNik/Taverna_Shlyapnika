@@ -15,6 +15,7 @@ import by.taverna.shlyapnika.schedule.infrastructure.GameRepository;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
+import java.time.Instant;
 import java.util.Set;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -105,6 +106,31 @@ public class InternalService {
     game.setStatus(status);
     games.save(game);
     auditService.write(null, "game.status_" + status, "Game", id, null);
+    return schedule.toDto(game);
+  }
+
+  @Transactional(readOnly = true)
+  public java.util.List<PublicGameDto> listMasterGames(String masterId, String scope) {
+    var now = Instant.now();
+    return games.findByMasterIdForBot(masterId).stream()
+        .filter(game -> switch (scope == null ? "all" : scope) {
+          case "upcoming" -> Set.of("published", "pending").contains(game.getStatus()) && !game.getDateTimeStart().isBefore(now);
+          case "past" -> game.getDateTimeStart().isBefore(now) || Set.of("completed", "cancelled", "archived").contains(game.getStatus());
+          default -> true;
+        })
+        .limit(20)
+        .map(schedule::toDto)
+        .toList();
+  }
+
+  @Transactional
+  public PublicGameDto setMasterGameStatus(String masterId, String gameId, String status) {
+    if (!GAME_STATUSES.contains(status)) throw new IllegalArgumentException("Недопустимый статус игры.");
+    var game = games.findByIdAndMasterIdForBot(gameId, masterId)
+        .orElseThrow(() -> new NotFoundException("Игра не найдена или принадлежит другому мастеру."));
+    game.setStatus(status);
+    games.save(game);
+    auditService.write(String.valueOf(game.getMaster().getTelegramUserId()), "game.status_" + status, "Game", gameId, null);
     return schedule.toDto(game);
   }
 

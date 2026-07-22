@@ -151,6 +151,7 @@ public class TelegramPollingService {
       case "menu" -> sendStart(chatId, userId, username(from));
       case "register" -> beginRegistration(chatId, userId);
       case "create_game" -> beginGameDraft(chatId, userId);
+      case "my_games" -> showMasterGames(chatId, userId);
       case "cancel" -> {
         sessions.reset(userId);
         telegram.sendMessage(chatId, "Отменено.", mainMenu());
@@ -169,7 +170,18 @@ public class TelegramPollingService {
         telegram.sendMessage(chatId, "Введите контакт для записи в формате @username или https://t.me/username.", cancelKeyboard());
       }
       case "confirm_game" -> createGameFromDraft(chatId, userId);
-      default -> handleOptionCallback(chatId, userId, data);
+      default -> {
+        if (data.startsWith("cancel_game:")) {
+          var gameId = data.substring("cancel_game:".length());
+          telegram.sendMessage(chatId, "Вы уверены, что хотите отменить игру? Она исчезнет из активной афиши.", confirmCancelKeyboard(gameId));
+          return;
+        }
+        if (data.startsWith("confirm_cancel:")) {
+          cancelGame(chatId, userId, data.substring("confirm_cancel:".length()));
+          return;
+        }
+        handleOptionCallback(chatId, userId, data);
+      }
     }
   }
 
@@ -391,6 +403,32 @@ public class TelegramPollingService {
     telegram.sendMessage(chatId, message + "\n\n" + game.title() + "\n" + game.startsAtLabel(), mainMenu());
   }
 
+  private void showMasterGames(long chatId, long userId) {
+    var master = requireActiveMaster(chatId, userId);
+    if (master == null) return;
+    var games = backend.listMasterGames(master.id(), "upcoming").games();
+    if (games == null || games.isEmpty()) {
+      telegram.sendMessage(chatId, "Пока нет предстоящих игр.", mainMenu());
+      return;
+    }
+    for (var game : games) {
+      var seats = game.maxPlayers() == null ? "" : "\nСвободно мест: " + game.availableSeats() + " из " + game.maxPlayers();
+      var text = game.title() + "\n" + game.startsAtLabel() + "\nСтатус: " + game.status() + seats;
+      if ("published".equals(game.status()) || "pending".equals(game.status())) {
+        telegram.sendMessage(chatId, text, keyboard(List.of(row(button("Отменить игру", "cancel_game:" + game.id())))));
+      } else {
+        telegram.sendMessage(chatId, text);
+      }
+    }
+  }
+
+  private void cancelGame(long chatId, long userId, String gameId) {
+    var master = requireActiveMaster(chatId, userId);
+    if (master == null) return;
+    var result = backend.setMasterGameStatus(master.id(), gameId, "cancelled");
+    telegram.sendMessage(chatId, "Игра отменена и больше не показывается в активной афише.\n\n" + result.game().title(), mainMenu());
+  }
+
   private String gamePreview(GameDraft draft, String profileContactUrl) {
     return String.join("\n",
         "Проверьте карточку игры:",
@@ -415,7 +453,15 @@ public class TelegramPollingService {
   private Object mainMenu() {
     return keyboard(List.of(
         row(button("Создать игру", "create_game")),
+        row(button("Мои игры", "my_games")),
         row(button("Отмена", "cancel"))
+    ));
+  }
+
+  private Object confirmCancelKeyboard(String gameId) {
+    return keyboard(List.of(
+        row(button("Да, отменить", "confirm_cancel:" + gameId)),
+        row(button("Нет, оставить", "my_games"))
     ));
   }
 

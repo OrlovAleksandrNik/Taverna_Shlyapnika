@@ -29,4 +29,22 @@ public interface GameRepository extends JpaRepository<GameEntity, String> {
       limit 1
       """, nativeQuery = true)
   Optional<GameEntity> findPublicGame(@Param("id") String id, @Param("status") String status, @Param("from") Instant from);
+
+  @EntityGraph(attributePaths = "master")
+  @Query(value = """
+      select * from "Game"
+      where "masterId" = :masterId
+      order by "dateTimeStart" asc
+      limit 100
+      """, nativeQuery = true)
+  List<GameEntity> findByMasterIdForBot(@Param("masterId") String masterId);
+
+  @EntityGraph(attributePaths = "master")
+  @Query(value = """
+      select * from "Game"
+      where "id" = :id
+        and "masterId" = :masterId
+      limit 1
+      """, nativeQuery = true)
+  Optional<GameEntity> findByIdAndMasterIdForBot(@Param("id") String id, @Param("masterId") String masterId);
 }
