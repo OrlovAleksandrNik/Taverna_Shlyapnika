@@ -20,6 +20,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,6 +40,7 @@ public class TelegramPollingService {
   private final BotStatus status;
   private final AtomicBoolean running = new AtomicBoolean(false);
   private final ExecutorService executor = Executors.newSingleThreadExecutor();
+  private final ConcurrentMap<Long, String> telegramUsernames = new ConcurrentHashMap<>();
   private long offset = 0;
 
   public TelegramPollingService(
@@ -131,7 +134,8 @@ public class TelegramPollingService {
     var from = message.path("from");
     var userId = from.path("id").asLong();
     if (userId == 0) return;
-    syncMasterUsername(userId, username(from));
+    var telegramUsername = username(from);
+    syncMasterUsername(userId, telegramUsername);
     if (message.hasNonNull("photo") || message.hasNonNull("document")) {
       handleGalleryMediaMessage(chatId, userId, message);
       return;
@@ -148,13 +152,13 @@ public class TelegramPollingService {
         sessions.reset(userId);
         telegram.sendMessage(chatId, "Отменено.", mainMenu());
       }
-      case "/start", "Главное меню", "Меню" -> sendStart(chatId, userId, username(from));
+      case "/start", "Главное меню", "Меню" -> sendStart(chatId, userId, telegramUsername);
       case "/register", "Регистрация", "Зарегистрироваться как мастер" -> beginRegistration(chatId, userId);
       case "/create_game", "Игра", "Создать игру", "Создать" -> beginGameDraft(chatId, userId);
       case "/my_games", "Мои", "Мои игры" -> showMasterGames(chatId, userId);
       case "/gallery", "Галерея" -> showGalleryMenu(chatId, userId);
       case "/rating", "Рейтинг" -> showRatingMenu(chatId, userId);
-      default -> handleStatefulText(chatId, userId, username(from), text);
+      default -> handleStatefulText(chatId, userId, telegramUsername, text);
     }
   }
 
@@ -165,10 +169,11 @@ public class TelegramPollingService {
     var from = callback.path("from");
     var userId = from.path("id").asLong();
     if (userId == 0 || data.isBlank()) return;
-    syncMasterUsername(userId, username(from));
+    var telegramUsername = username(from);
+    syncMasterUsername(userId, telegramUsername);
 
     switch (data) {
-      case "menu" -> sendStart(chatId, userId, username(from));
+      case "menu" -> sendStart(chatId, userId, telegramUsername);
       case "register" -> beginRegistration(chatId, userId);
       case "create_game" -> beginGameDraft(chatId, userId);
       case "my_games" -> showMasterGames(chatId, userId);
@@ -365,7 +370,7 @@ public class TelegramPollingService {
   }
 
   private BackendMasterResponse requireActiveMaster(long chatId, long userId) {
-    var master = backend.findMasterByTelegram(userId);
+    var master = backend.findMasterByTelegram(userId, telegramUsernames.get(userId));
     if (master == null) {
       telegram.sendMessage(chatId, "Сначала нужно зарегистрироваться как мастер.", startKeyboard());
       return null;
@@ -766,6 +771,14 @@ public class TelegramPollingService {
   private BackendMasterResponse requireRatingAdmin(long chatId, long userId) {
     var master = requireActiveMaster(chatId, userId);
     if (master == null) return null;
+    if (!"admin".equals(master.role()) && telegramUsernames.containsKey(userId)) {
+      master = backend.upsertMaster(new BackendMasterRequest(
+          userId,
+          telegramUsernames.get(userId),
+          master.displayName(),
+          master.contactUrl()
+      ));
+    }
     if (!"admin".equals(master.role())) {
       telegram.sendMessage(chatId, "Управление рейтингом доступно только администраторам Таверны.");
       return null;
@@ -1410,6 +1423,7 @@ public class TelegramPollingService {
 
   private void syncMasterUsername(long userId, String telegramUsername) {
     if (telegramUsername == null || telegramUsername.isBlank()) return;
+    telegramUsernames.put(userId, telegramUsername);
     try {
       backend.findMasterByTelegram(userId, telegramUsername);
     } catch (Exception error) {
