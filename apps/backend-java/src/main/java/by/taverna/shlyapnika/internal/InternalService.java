@@ -84,8 +84,14 @@ public class InternalService {
 
   @Transactional
   public InternalMasterResponse getMasterByTelegram(Long telegramUserId) {
+    return getMasterByTelegram(telegramUserId, null);
+  }
+
+  @Transactional
+  public InternalMasterResponse getMasterByTelegram(Long telegramUserId, String telegramUsername) {
     return masters.findByTelegramUserId(telegramUserId)
         .map(master -> {
+          updateTelegramUsername(master, telegramUsername);
           ensureAdminRole(master);
           return toMasterResponse(master);
         })
@@ -432,6 +438,12 @@ public class InternalService {
     }
   }
 
+  private void updateTelegramUsername(MasterEntity master, String telegramUsername) {
+    var username = trimToNull(telegramUsername);
+    if (username == null || username.equals(master.getTelegramUsername())) return;
+    master.updateProfile(username, master.getDisplayName(), master.getContactUrl());
+  }
+
   private boolean shouldBeAdmin(MasterEntity master) {
     if (master == null || master.getTelegramUserId() == null) return false;
     var telegram = properties.telegram();
@@ -451,7 +463,9 @@ public class InternalService {
           .anyMatch(master::hasTelegramUsername);
       if (usernameMatches) return true;
     }
-    return (adminIds == null || adminIds.isBlank()) && (adminUsernames == null || adminUsernames.isBlank());
+    return (adminIds == null || adminIds.isBlank())
+        && (adminUsernames == null || adminUsernames.isBlank())
+        && masters.countAdmins() == 0;
   }
 
   private MasterEntity requireAdminMaster(String masterId) {

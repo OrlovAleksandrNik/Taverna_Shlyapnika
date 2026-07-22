@@ -145,6 +145,22 @@ public class TelegramApiClient {
     }
   }
 
+  public void setMyShortDescription(String description) {
+    if (description == null || description.isBlank()) return;
+    try {
+      var request = HttpRequest.newBuilder()
+          .uri(apiUri("setMyShortDescription"))
+          .timeout(Duration.ofSeconds(10))
+          .header("Content-Type", "application/json")
+          .POST(HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(Map.of("short_description", description.trim())), StandardCharsets.UTF_8))
+          .build();
+      var response = httpClient.send(request, HttpResponse.BodyHandlers.discarding());
+      if (response.statusCode() >= 400) log.warn("Telegram setMyShortDescription failed status={}", response.statusCode());
+    } catch (Exception error) {
+      log.warn("Telegram setMyShortDescription failed", error);
+    }
+  }
+
   public void setMyCommands(List<Map<String, String>> commands) {
     if (commands == null || commands.isEmpty()) return;
     try {

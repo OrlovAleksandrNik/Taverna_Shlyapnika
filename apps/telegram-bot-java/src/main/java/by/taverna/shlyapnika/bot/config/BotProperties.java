@@ -10,6 +10,7 @@ public record BotProperties(
     String internalToken,
     int pollingTimeoutSeconds,
     String displayName,
+    String shortDescription,
     String cacheChatId,
     long cleanupDelaySeconds
 ) {
@@ -23,5 +24,11 @@ public record BotProperties(
 
   public String safeDisplayName() {
     return displayName == null || displayName.isBlank() ? "Писарь Таверны" : displayName.trim();
+  }
+
+  public String safeShortDescription() {
+    return shortDescription == null || shortDescription.isBlank()
+        ? "Создаёт афиши игр, ведёт галерею и помогает мастерам управлять рейтингом игроков."
+        : shortDescription.trim();
   }
 }

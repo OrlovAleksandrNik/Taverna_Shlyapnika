@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.ByteArrayOutputStream;
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -30,8 +31,16 @@ public class BackendApiClient {
   }
 
   public BackendMasterResponse findMasterByTelegram(long telegramUserId) {
+    return findMasterByTelegram(telegramUserId, null);
+  }
+
+  public BackendMasterResponse findMasterByTelegram(long telegramUserId, String telegramUsername) {
     try {
-      var request = baseRequest("/api/internal/masters/by-telegram/" + telegramUserId).GET().build();
+      var path = "/api/internal/masters/by-telegram/" + telegramUserId;
+      if (telegramUsername != null && !telegramUsername.isBlank()) {
+        path += "?telegramUsername=" + URLEncoder.encode(telegramUsername, StandardCharsets.UTF_8);
+      }
+      var request = baseRequest(path).GET().build();
       var response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
       if (response.statusCode() == 404) return null;
       ensureSuccess(response, "find master");

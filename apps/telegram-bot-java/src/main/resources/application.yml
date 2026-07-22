@@ -23,5 +23,6 @@ taverna:
     internal-token: ${BOT_BACKEND_SECRET:${INTERNAL_API_TOKEN:change-me-local-token}}
     polling-timeout-seconds: ${BOT_POLLING_TIMEOUT_SECONDS:25}
     display-name: ${BOT_DISPLAY_NAME:Писарь Таверны}
+    short-description: ${BOT_SHORT_DESCRIPTION:Создаёт афиши игр, ведёт галерею и помогает мастерам управлять рейтингом игроков.}
     cache-chat-id: ${BOT_CACHE_CHAT_ID:}
     cleanup-delay-seconds: ${BOT_CLEANUP_DELAY_SECONDS:86400}

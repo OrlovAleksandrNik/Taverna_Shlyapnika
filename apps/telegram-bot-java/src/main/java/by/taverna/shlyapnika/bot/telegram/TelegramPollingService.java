@@ -66,6 +66,7 @@ public class TelegramPollingService {
     }
     if (!running.compareAndSet(false, true)) return;
     telegram.setMyName(properties.safeDisplayName());
+    telegram.setMyShortDescription(properties.safeShortDescription());
     telegram.setMyCommands(botCommands());
     telegram.setCommandsMenuButton();
     telegram.deleteWebhook();
@@ -130,6 +131,7 @@ public class TelegramPollingService {
     var from = message.path("from");
     var userId = from.path("id").asLong();
     if (userId == 0) return;
+    syncMasterUsername(userId, username(from));
     if (message.hasNonNull("photo") || message.hasNonNull("document")) {
       handleGalleryMediaMessage(chatId, userId, message);
       return;
@@ -147,9 +149,9 @@ public class TelegramPollingService {
         telegram.sendMessage(chatId, "Отменено.", mainMenu());
       }
       case "/start", "Главное меню", "Меню" -> sendStart(chatId, userId, username(from));
-      case "/register", "Зарегистрироваться как мастер" -> beginRegistration(chatId, userId);
-      case "/create_game", "Создать игру", "Создать" -> beginGameDraft(chatId, userId);
-      case "/my_games", "Мои игры" -> showMasterGames(chatId, userId);
+      case "/register", "Регистрация", "Зарегистрироваться как мастер" -> beginRegistration(chatId, userId);
+      case "/create_game", "Игра", "Создать игру", "Создать" -> beginGameDraft(chatId, userId);
+      case "/my_games", "Мои", "Мои игры" -> showMasterGames(chatId, userId);
       case "/gallery", "Галерея" -> showGalleryMenu(chatId, userId);
       case "/rating", "Рейтинг" -> showRatingMenu(chatId, userId);
       default -> handleStatefulText(chatId, userId, username(from), text);
@@ -163,6 +165,7 @@ public class TelegramPollingService {
     var from = callback.path("from");
     var userId = from.path("id").asLong();
     if (userId == 0 || data.isBlank()) return;
+    syncMasterUsername(userId, username(from));
 
     switch (data) {
       case "menu" -> sendStart(chatId, userId, username(from));
@@ -307,7 +310,7 @@ public class TelegramPollingService {
   }
 
   private void sendStart(long chatId, long userId, String telegramUsername) {
-    var master = backend.findMasterByTelegram(userId);
+    var master = backend.findMasterByTelegram(userId, telegramUsername);
     if (master == null) {
       telegram.sendMessage(
           chatId,
@@ -505,27 +508,43 @@ public class TelegramPollingService {
             telegram.sendMessage(chatId, "Опубликовать сразу или сохранить как черновик?", galleryPublishKeyboard());
           }
         }
-        case "rating:create:name" -> {
-          if (requireRatingAdmin(chatId, userId) == null) return;
-          draft.ratingDisplayName(BotTextParser.title(text));
-          sessions.save(userId, "rating:create:nickname", draft);
-          telegram.sendMessage(chatId, "Введите имя персонажа. Если персонажа пока нет, напишите «нет».", cancelKeyboard());
-        }
-        case "rating:create:nickname" -> {
+        case "rating:create:details" -> {
           var master = requireRatingAdmin(chatId, userId);
-          if (master == null || draft.ratingDisplayName() == null) return;
-          var nickname = "нет".equalsIgnoreCase(text) ? null : BotTextParser.title(text);
+          if (master == null) return;
+          var parts = splitSemicolon(text);
+          var displayName = BotTextParser.title(parts[0]);
+          var nickname = optionalRatingText(parts[1]);
+          var initialPoints = parseIntegerOrZero(parts[2], "очки рейтинга");
+          var initialInspiration = parseIntegerOrZero(parts[3], "вдохновение");
           var player = backend.createRatingPlayer(master.id(), new BackendRatingRequests.CreatePlayer(
-              draft.ratingDisplayName(),
+              displayName,
               nickname,
               null,
               userId,
-              "rating:create:" + userId + ":" + draft.ratingDisplayName().toLowerCase()
+              "rating:create:" + userId + ":" + displayName.toLowerCase() + ":" + (nickname == null ? "" : nickname.toLowerCase())
           )).player();
+          if (initialPoints != 0) {
+            backend.adjustRatingPoints(master.id(), new BackendRatingRequests.PointsAdjustment(
+                player.id(),
+                initialPoints,
+                "Начальное значение рейтинга.",
+                userId,
+                "rating:create:points:" + userId + ":" + player.id() + ":" + initialPoints
+            ));
+          }
+          if (initialInspiration != 0) {
+            backend.adjustRatingInspiration(master.id(), new BackendRatingRequests.InspirationAdjustment(
+                player.id(),
+                initialInspiration,
+                "Начальное значение вдохновения.",
+                userId,
+                "rating:create:inspiration:" + userId + ":" + player.id() + ":" + initialInspiration
+            ));
+          }
           sessions.reset(userId);
-          showRatingMenu(chatId, userId, "Игрок добавлен: " + player.displayName() + (player.nickname() == null ? "" : " — " + player.nickname()) + ".");
+          showRatingPlayerActions(chatId, userId, player.id(), "Игрок добавлен: " + player.displayName() + (player.nickname() == null ? "" : " — " + player.nickname()) + ".");
         }
-        default -> telegram.sendMessage(chatId, "Я вас слышу. Используйте меню или команды /register, /create_game и /my_games.", mainMenu());
+        default -> telegram.sendMessage(chatId, "Я вас слышу. Используйте нижнее меню или команды /register, /create_game и /my_games.", mainMenu());
       }
     } catch (IllegalArgumentException error) {
       telegram.sendMessage(chatId, error.getMessage(), cancelKeyboard());
@@ -767,8 +786,18 @@ public class TelegramPollingService {
 
   private void beginRatingPlayer(long chatId, long userId) {
     if (requireRatingAdmin(chatId, userId) == null) return;
-    sessions.save(userId, "rating:create:name", new GameDraft());
-    telegram.sendMessage(chatId, "Введите имя игрока.", cancelKeyboard());
+    sessions.save(userId, "rating:create:details", new GameDraft());
+    telegram.sendMessage(
+        chatId,
+        String.join("\n",
+            "Введите игрока одной строкой:",
+            "Имя игрока; персонаж; очки рейтинга; вдохновение",
+            "",
+            "Пример: Саша; Торин; 10; 1",
+            "Если персонажа нет: Саша; нет; 0; 0"
+        ),
+        cancelKeyboard()
+    );
   }
 
   private void showRatingPlayers(long chatId, long userId) {
@@ -1167,17 +1196,32 @@ public class TelegramPollingService {
     }
   }
 
+  private int parseIntegerOrZero(String value, String fieldName) {
+    var text = BotTextParser.clean(value);
+    if (text.isBlank() || "нет".equalsIgnoreCase(text)) return 0;
+    var parsed = parseSignedInteger(text);
+    if (parsed == null) {
+      throw new IllegalArgumentException("Поле «" + fieldName + "» должно быть числом. Пример: Саша; Торин; 10; 1");
+    }
+    return parsed;
+  }
+
+  private String optionalRatingText(String text) {
+    var value = BotTextParser.clean(text);
+    return value.isBlank() || "нет".equalsIgnoreCase(value) ? null : BotTextParser.title(value);
+  }
+
   private String signed(int value) {
     return value > 0 ? "+" + value : String.valueOf(value);
   }
 
   private Object startKeyboard() {
-    return replyKeyboard(List.of(replyRow("Зарегистрироваться как мастер"), replyRow("Отмена")));
+    return replyKeyboard(List.of(replyRow("Регистрация"), replyRow("Отмена")));
   }
 
   private Object mainMenu() {
     return replyKeyboard(List.of(
-        replyRow("Создать", "Мои игры"),
+        replyRow("Игра", "Мои"),
         replyRow("Галерея", "Рейтинг"),
         replyRow("Отмена")
     ));
@@ -1362,6 +1406,15 @@ public class TelegramPollingService {
   private String username(JsonNode from) {
     var value = from.path("username").asText("");
     return value.isBlank() ? null : value;
+  }
+
+  private void syncMasterUsername(long userId, String telegramUsername) {
+    if (telegramUsername == null || telegramUsername.isBlank()) return;
+    try {
+      backend.findMasterByTelegram(userId, telegramUsername);
+    } catch (Exception error) {
+      log.debug("Master username sync skipped telegramUserId={}", userId);
+    }
   }
 
   private String formatDuration(int minutes) {

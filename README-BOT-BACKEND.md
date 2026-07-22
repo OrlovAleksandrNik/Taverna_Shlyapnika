@@ -60,6 +60,7 @@ INTERNAL_API_TOKEN=длинная_случайная_строка
 ADMIN_TELEGRAM_IDS=123456789,987654321
 ADMIN_TELEGRAM_USERNAMES=MisterHatter
 BOT_DISPLAY_NAME=Писарь Таверны
+BOT_SHORT_DESCRIPTION=Создаёт афиши игр, ведёт галерею и помогает мастерам управлять рейтингом игроков.
 BOT_CACHE_CHAT_ID=
 BOT_CLEANUP_DELAY_SECONDS=86400
 AUTO_PUBLISH=true

@@ -41,8 +41,8 @@ public class InternalController {
   }
 
   @GetMapping("/api/internal/masters/by-telegram/{telegramUserId}")
-  public InternalMasterResponse getMasterByTelegram(@PathVariable Long telegramUserId) {
-    return service.getMasterByTelegram(telegramUserId);
+  public InternalMasterResponse getMasterByTelegram(@PathVariable Long telegramUserId, @RequestParam(required = false) String telegramUsername) {
+    return service.getMasterByTelegram(telegramUserId, telegramUsername);
   }
 
   @PostMapping("/api/internal/masters")
