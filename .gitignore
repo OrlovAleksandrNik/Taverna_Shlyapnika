@@ -21,6 +21,7 @@ uploads/private/
 logs/
 .postgres/
 .postgres-data/
+.tools/
 database-dumps/
 backups/
 backup-*/
