@@ -557,7 +557,7 @@ Railway запускает Node backend через `railway.json` и Dockerfile.
 | Auto archive | `archivePastGames`, job, internal endpoint | `ScheduleService.archivePastGames`, `@Scheduled`, internal endpoint | PARTIAL | Требуется integration test | Косвенно | Ops | Java архивирует в `archived`, как Node; нужен тест по `dateTimeEnd` и 6h default. |
 | Privacy withdrawal | `POST /api/internal/privacy/withdraw-consent` | `InternalService.withdrawConsent` | PARTIAL | Требуется integration test | Нет | Админ/ops | Есть update/anonymize и audit; нужна идемпотентность и точная стратегия audit retention. |
 | Internal token security | Express middleware | `SecurityConfig`, `InternalApiTokenFilter` | TESTED | `InternalApiTokenFilterTest` | Нет | Да | Фильтр покрыт unit-тестом; нужен MockMvc тест всего security chain. |
-| CORS | Express `cors` + `SITE_ORIGINS` | `WebConfig`, Spring Security CORS | PARTIAL | Требуется MockMvc test | Да | Нет | Поддерживает configured origins и `null` для `file://`. |
+| CORS | Express `cors` + `SITE_ORIGINS` | `WebConfig`, Spring Security CORS | MIGRATED | `WebConfigTest` | Да | Нет | Поддерживает configured origins и `null` для `file://`; preflight проверен через MockMvc. |
 | DATABASE_URL parser | `src/config.ts` + Prisma | `DatabaseConfig.parseDatabaseUrl` | TESTED | `DatabaseConfigTest` | Нет | Railway | Покрыты Railway URL, JDBC URL и Prisma `schema` param. |
 | Consent validation | `requireConsent` | `ConsentService` | TESTED | `ConsentServiceTest` | Да | Нет | Возвращает `CONSENT_REQUIRED` через Java exception handler. |
 | Rate limit public POST | `src/api/rateLimit.ts` | `PublicPostRateLimitFilter` | TESTED | `PublicPostRateLimitFilterTest` | Да | Нет | In-memory; для горизонтального scaling нужен Redis/Bucket4j. |
