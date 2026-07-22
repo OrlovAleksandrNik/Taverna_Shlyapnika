@@ -10,8 +10,9 @@
 
 ## Что добавлено
 
-- `src/api/server.ts` — Express API, статика сайта, CORS, rate limiting.
-- `src/bot/index.ts` — Telegram-бот на grammY: регистрация мастера, профиль, создание игры, просмотр, редактирование, отмена.
+- `apps/backend-java` — основной Spring Boot backend, API, статика сайта, CORS, заявки, афиша, галерея и рейтинг.
+- `apps/telegram-bot-java` — основной Telegram-бот мастеров: регистрация, профиль, создание игры, галерея, рейтинг, просмотр, редактирование, отмена.
+- `src/api/server.ts` и `src/bot/index.ts` — legacy Node-реализация, оставлена в проекте как резерв до полного удаления старого слоя.
 - `src/services/games.ts` — публичные DTO, публикация статусов, автоархивация прошедших игр.
 - `prisma/schema.prisma` — модели `Master`, `Game`, `AuditLog`, `BotSession`.
 - `prisma/migrations/.../migration.sql` — начальная миграция PostgreSQL.
@@ -57,6 +58,9 @@ TELEGRAM_BOT_TOKEN=токен_от_BotFather
 DATABASE_URL=postgresql://taverna:taverna@localhost:5432/taverna_shlyapnika?schema=public
 INTERNAL_API_TOKEN=длинная_случайная_строка
 ADMIN_TELEGRAM_IDS=123456789,987654321
+BOT_DISPLAY_NAME=Писарь таверны
+BOT_CACHE_CHAT_ID=
+BOT_CLEANUP_DELAY_SECONDS=86400
 AUTO_PUBLISH=true
 TAVERN_TIMEZONE=Europe/Minsk
 ```

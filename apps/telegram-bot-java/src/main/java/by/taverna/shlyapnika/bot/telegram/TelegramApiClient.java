@@ -3,6 +3,7 @@ package by.taverna.shlyapnika.bot.telegram;
 import by.taverna.shlyapnika.bot.config.BotProperties;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.annotation.PreDestroy;
 import java.util.Map;
 import java.net.URI;
 import java.net.URLEncoder;
@@ -11,6 +12,9 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -21,6 +25,7 @@ public class TelegramApiClient {
   private final BotProperties properties;
   private final ObjectMapper mapper;
   private final HttpClient httpClient;
+  private final ScheduledExecutorService cleanupExecutor = Executors.newSingleThreadScheduledExecutor();
 
   public TelegramApiClient(BotProperties properties, ObjectMapper mapper) {
     this.properties = properties;
@@ -36,11 +41,15 @@ public class TelegramApiClient {
     return mapper.readTree(response.body()).path("result");
   }
 
-  public void sendMessage(long chatId, String text) {
-    sendMessage(chatId, text, null);
+  public Long sendMessage(long chatId, String text) {
+    return sendMessage(chatId, text, null);
   }
 
-  public void sendMessage(long chatId, String text, Object replyMarkup) {
+  public Long sendMessage(long chatId, String text, Object replyMarkup) {
+    return sendMessageInternal(chatId, text, replyMarkup, true);
+  }
+
+  private Long sendMessageInternal(long chatId, String text, Object replyMarkup, boolean managedLifecycle) {
     try {
       var payload = replyMarkup == null
           ? Map.of("chat_id", chatId, "text", text)
@@ -51,10 +60,20 @@ public class TelegramApiClient {
           .header("Content-Type", "application/json")
           .POST(HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(payload), StandardCharsets.UTF_8))
           .build();
-      var response = httpClient.send(request, HttpResponse.BodyHandlers.discarding());
-      if (response.statusCode() >= 400) log.warn("Telegram sendMessage failed chatId={} status={}", chatId, response.statusCode());
+      var response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+      if (response.statusCode() >= 400) {
+        log.warn("Telegram sendMessage failed chatId={} status={}", chatId, response.statusCode());
+        return null;
+      }
+      var messageId = mapper.readTree(response.body()).path("result").path("message_id").asLong(0);
+      if (managedLifecycle && messageId > 0) {
+        mirrorToCache(chatId, text);
+        scheduleCleanup(chatId, messageId);
+      }
+      return messageId == 0 ? null : messageId;
     } catch (Exception error) {
       log.warn("Telegram sendMessage failed chatId={}", chatId, error);
+      return null;
     }
   }
 
@@ -109,8 +128,71 @@ public class TelegramApiClient {
     }
   }
 
+  public void setMyName(String name) {
+    if (name == null || name.isBlank()) return;
+    try {
+      var request = HttpRequest.newBuilder()
+          .uri(apiUri("setMyName"))
+          .timeout(Duration.ofSeconds(10))
+          .header("Content-Type", "application/json")
+          .POST(HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(Map.of("name", name.trim())), StandardCharsets.UTF_8))
+          .build();
+      var response = httpClient.send(request, HttpResponse.BodyHandlers.discarding());
+      if (response.statusCode() >= 400) log.warn("Telegram setMyName failed status={}", response.statusCode());
+    } catch (Exception error) {
+      log.warn("Telegram setMyName failed", error);
+    }
+  }
+
+  public void deleteMessage(long chatId, long messageId) {
+    try {
+      var request = HttpRequest.newBuilder()
+          .uri(apiUri("deleteMessage?chat_id=" + chatId + "&message_id=" + messageId))
+          .timeout(Duration.ofSeconds(10))
+          .POST(HttpRequest.BodyPublishers.noBody())
+          .build();
+      var response = httpClient.send(request, HttpResponse.BodyHandlers.discarding());
+      if (response.statusCode() >= 400) log.debug("Telegram deleteMessage skipped chatId={} messageId={} status={}", chatId, messageId, response.statusCode());
+    } catch (Exception error) {
+      log.debug("Telegram deleteMessage failed chatId={} messageId={}", chatId, messageId);
+    }
+  }
+
+  @PreDestroy
+  public void shutdown() {
+    cleanupExecutor.shutdownNow();
+  }
+
   private URI apiUri(String methodAndQuery) {
     return URI.create("https://api.telegram.org/bot" + properties.token() + "/" + methodAndQuery);
+  }
+
+  private void mirrorToCache(long sourceChatId, String text) {
+    var cacheChatId = parseChatId(properties.cacheChatId());
+    if (cacheChatId == null || cacheChatId == sourceChatId) return;
+    var archived = "Кэш сообщений бота\nЧат: " + sourceChatId + "\n\n" + truncate(text, 3400);
+    sendMessageInternal(cacheChatId, archived, null, false);
+  }
+
+  private void scheduleCleanup(long chatId, long messageId) {
+    var delay = properties.cleanupDelaySeconds();
+    if (delay <= 0) return;
+    cleanupExecutor.schedule(() -> deleteMessage(chatId, messageId), delay, TimeUnit.SECONDS);
+  }
+
+  private Long parseChatId(String value) {
+    if (value == null || value.isBlank()) return null;
+    try {
+      return Long.parseLong(value.trim());
+    } catch (NumberFormatException error) {
+      log.warn("Invalid BOT_CACHE_CHAT_ID is ignored");
+      return null;
+    }
+  }
+
+  private String truncate(String value, int limit) {
+    if (value == null) return "";
+    return value.length() <= limit ? value : value.substring(0, limit - 1) + "…";
   }
 
   private String encode(String value) {

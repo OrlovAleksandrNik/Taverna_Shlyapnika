@@ -60,6 +60,10 @@ public class MasterEntity {
     this.contactUrl = contactUrl;
   }
 
+  public void grantAdminRole() {
+    this.role = "admin";
+  }
+
   @PrePersist
   void onCreate() {
     if (id == null) id = Ids.newId("mst");

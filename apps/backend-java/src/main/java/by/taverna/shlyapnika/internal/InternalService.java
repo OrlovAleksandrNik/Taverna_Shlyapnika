@@ -34,6 +34,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Set;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -81,10 +82,13 @@ public class InternalService {
     this.objectMapper = objectMapper;
   }
 
-  @Transactional(readOnly = true)
+  @Transactional
   public InternalMasterResponse getMasterByTelegram(Long telegramUserId) {
     return masters.findByTelegramUserId(telegramUserId)
-        .map(this::toMasterResponse)
+        .map(master -> {
+          ensureAdminRole(master);
+          return toMasterResponse(master);
+        })
         .orElseThrow(() -> new NotFoundException("Мастер не найден."));
   }
 
@@ -99,6 +103,7 @@ public class InternalService {
           return existing;
         })
         .orElseGet(() -> MasterEntity.create(request.telegramUserId(), telegramUsername, displayName, contactUrl));
+    ensureAdminRole(master);
     master = masters.save(master);
     auditService.write(String.valueOf(request.telegramUserId()), "master.upserted", "Master", master.getId(), null);
     return toMasterResponse(master);
@@ -419,6 +424,25 @@ public class InternalService {
 
   private boolean isAdmin(MasterEntity master) {
     return "admin".equals(master.getRole());
+  }
+
+  private void ensureAdminRole(MasterEntity master) {
+    if (!"admin".equals(master.getRole()) && shouldBeAdmin(master.getTelegramUserId())) {
+      master.grantAdminRole();
+    }
+  }
+
+  private boolean shouldBeAdmin(Long telegramUserId) {
+    if (telegramUserId == null) return false;
+    var telegram = properties.telegram();
+    var adminIds = telegram == null ? null : telegram.adminIds();
+    if (adminIds != null && !adminIds.isBlank()) {
+      return Arrays.stream(adminIds.split(","))
+          .map(String::trim)
+          .filter(value -> !value.isBlank())
+          .anyMatch(value -> value.equals(String.valueOf(telegramUserId)));
+    }
+    return masters.countAdmins() == 0;
   }
 
   private MasterEntity requireAdminMaster(String masterId) {

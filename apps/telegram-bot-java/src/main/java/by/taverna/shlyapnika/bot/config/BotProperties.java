@@ -8,7 +8,10 @@ public record BotProperties(
     String mode,
     String backendUrl,
     String internalToken,
-    int pollingTimeoutSeconds
+    int pollingTimeoutSeconds,
+    String displayName,
+    String cacheChatId,
+    long cleanupDelaySeconds
 ) {
   public boolean tokenConfigured() {
     return token != null && !token.isBlank();

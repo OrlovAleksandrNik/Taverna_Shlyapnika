@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test;
 class BotPropertiesTest {
   @Test
   void detectsConfiguredToken() {
-    var properties = new BotProperties("token", "polling", "http://localhost:8080", "secret", 25);
+    var properties = new BotProperties("token", "polling", "http://localhost:8080", "secret", 25, "Писарь таверны", "", 86400);
 
     assertThat(properties.tokenConfigured()).isTrue();
     assertThat(properties.polling()).isTrue();
@@ -15,7 +15,7 @@ class BotPropertiesTest {
 
   @Test
   void disablesEmptyToken() {
-    var properties = new BotProperties("", "webhook", "http://localhost:8080", "secret", 25);
+    var properties = new BotProperties("", "webhook", "http://localhost:8080", "secret", 25, "Писарь таверны", "", 86400);
 
     assertThat(properties.tokenConfigured()).isFalse();
     assertThat(properties.polling()).isFalse();

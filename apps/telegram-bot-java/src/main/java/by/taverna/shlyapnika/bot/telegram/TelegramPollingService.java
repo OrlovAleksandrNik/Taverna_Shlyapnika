@@ -64,6 +64,7 @@ public class TelegramPollingService {
       return;
     }
     if (!running.compareAndSet(false, true)) return;
+    telegram.setMyName(properties.displayName());
     telegram.deleteWebhook();
     status.markRunning(true);
     executor.submit(this::pollLoop);
@@ -138,12 +139,16 @@ public class TelegramPollingService {
         sessions.reset(userId);
         telegram.sendMessage(chatId, "Отменено.", mainMenu());
       }
-      case "/start" -> sendStart(chatId, userId, username(from));
-      case "/register" -> beginRegistration(chatId, userId);
-      case "/create_game" -> beginGameDraft(chatId, userId);
-      case "/my_games" -> showMasterGames(chatId, userId);
-      case "/gallery" -> showGalleryMenu(chatId, userId);
-      case "/rating" -> showRatingMenu(chatId, userId);
+      case "Отмена" -> {
+        sessions.reset(userId);
+        telegram.sendMessage(chatId, "Отменено.", mainMenu());
+      }
+      case "/start", "Главное меню", "Меню" -> sendStart(chatId, userId, username(from));
+      case "/register", "Зарегистрироваться как мастер" -> beginRegistration(chatId, userId);
+      case "/create_game", "Создать игру" -> beginGameDraft(chatId, userId);
+      case "/my_games", "Мои игры" -> showMasterGames(chatId, userId);
+      case "/gallery", "Галерея" -> showGalleryMenu(chatId, userId);
+      case "/rating", "Рейтинг" -> showRatingMenu(chatId, userId);
       default -> handleStatefulText(chatId, userId, username(from), text);
     }
   }
@@ -1002,16 +1007,14 @@ public class TelegramPollingService {
   }
 
   private Object startKeyboard() {
-    return keyboard(List.of(row(button("Зарегистрироваться как мастер", "register"))));
+    return replyKeyboard(List.of(replyRow("Зарегистрироваться как мастер"), replyRow("Отмена")));
   }
 
   private Object mainMenu() {
-    return keyboard(List.of(
-        row(button("Создать игру", "create_game")),
-        row(button("Мои игры", "my_games")),
-        row(button("Галерея", "gallery_menu")),
-        row(button("Рейтинг", "rating_menu")),
-        row(button("Отмена", "cancel"))
+    return replyKeyboard(List.of(
+        replyRow("Создать игру", "Мои игры"),
+        replyRow("Галерея", "Рейтинг"),
+        replyRow("Отмена")
     ));
   }
 
@@ -1159,6 +1162,16 @@ public class TelegramPollingService {
     return Map.of("inline_keyboard", rows);
   }
 
+  private Map<String, Object> replyKeyboard(List<List<String>> rows) {
+    return Map.of(
+        "keyboard", rows,
+        "resize_keyboard", true,
+        "is_persistent", true,
+        "one_time_keyboard", false,
+        "input_field_placeholder", "Выберите действие"
+    );
+  }
+
   @SafeVarargs
   private final List<Map<String, String>> row(Map<String, String>... buttons) {
     return List.of(buttons);
@@ -1166,6 +1179,10 @@ public class TelegramPollingService {
 
   private Map<String, String> button(String text, String callbackData) {
     return Map.of("text", text, "callback_data", callbackData);
+  }
+
+  private List<String> replyRow(String... buttons) {
+    return List.of(buttons);
   }
 
   private String username(JsonNode from) {
