@@ -1,10 +1,17 @@
 package by.taverna.shlyapnika.internal;
 
 import by.taverna.shlyapnika.audit.AuditService;
+import by.taverna.shlyapnika.common.Ids;
 import by.taverna.shlyapnika.common.NotFoundException;
 import by.taverna.shlyapnika.config.TavernaProperties;
+import by.taverna.shlyapnika.gallery.GalleryTextFormatter;
+import by.taverna.shlyapnika.gallery.domain.GalleryMediaEntity;
+import by.taverna.shlyapnika.gallery.domain.GalleryPostEntity;
+import by.taverna.shlyapnika.gallery.infrastructure.GalleryPostRepository;
 import by.taverna.shlyapnika.internal.api.InternalBotSessionRequest;
 import by.taverna.shlyapnika.internal.api.InternalBotSessionResponse;
+import by.taverna.shlyapnika.internal.api.InternalGalleryPostRequest;
+import by.taverna.shlyapnika.internal.api.InternalGalleryResponses.InternalGalleryPostDto;
 import by.taverna.shlyapnika.internal.api.InternalGameRequest;
 import by.taverna.shlyapnika.internal.api.InternalGameUpdateRequest;
 import by.taverna.shlyapnika.internal.api.InternalMasterRequest;
@@ -29,9 +36,13 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class InternalService {
   private static final Set<String> GAME_STATUSES = Set.of("draft", "pending", "published", "completed", "cancelled", "archived");
+  private static final Set<String> GALLERY_TYPES = Set.of("photo", "story", "character_sheet");
+  private static final Set<String> GALLERY_CATEGORIES = Set.of("games", "events", "heroes", "tavern", "miniatures", "other");
+  private static final Set<String> GALLERY_STATUSES = Set.of("draft", "published", "hidden");
 
   private final MasterRepository masters;
   private final GameRepository games;
+  private final GalleryPostRepository galleryPosts;
   private final ScheduleService schedule;
   private final TavernaProperties properties;
   private final JdbcTemplate jdbcTemplate;
@@ -41,6 +52,7 @@ public class InternalService {
   public InternalService(
       MasterRepository masters,
       GameRepository games,
+      GalleryPostRepository galleryPosts,
       ScheduleService schedule,
       TavernaProperties properties,
       JdbcTemplate jdbcTemplate,
@@ -49,6 +61,7 @@ public class InternalService {
   ) {
     this.masters = masters;
     this.games = games;
+    this.galleryPosts = galleryPosts;
     this.schedule = schedule;
     this.properties = properties;
     this.jdbcTemplate = jdbcTemplate;
@@ -211,6 +224,71 @@ public class InternalService {
     return schedule.toDto(game);
   }
 
+  @Transactional(readOnly = true)
+  public java.util.List<InternalGalleryPostDto> listMasterGalleryPosts(String masterId) {
+    var master = requireMaster(masterId);
+    var posts = isAdmin(master)
+        ? galleryPosts.findTop12ByOrderByCreatedAtDesc()
+        : galleryPosts.findTop12ByAuthorMaster_IdOrderByCreatedAtDesc(masterId);
+    return posts.stream().map(this::toInternalGalleryPost).toList();
+  }
+
+  @Transactional
+  public InternalGalleryPostDto createMasterGalleryPost(String masterId, InternalGalleryPostRequest request) {
+    var master = requireMaster(masterId);
+    var type = allowed(request.type(), GALLERY_TYPES, "Неизвестный тип публикации.");
+    var category = allowed(request.category(), GALLERY_CATEGORIES, "Неизвестная категория галереи.");
+    var status = allowed(request.status(), GALLERY_STATUSES, "Неизвестный статус публикации.");
+    var media = request.media() == null ? java.util.List.<GalleryMediaEntity>of() : request.media().stream()
+        .map(item -> GalleryMediaEntity.create(
+            item.fileUrl().trim(),
+            item.thumbnailUrl().trim(),
+            item.mediumUrl().trim(),
+            item.width(),
+            item.height(),
+            item.mimeType().trim(),
+            trimToNull(item.altText()),
+            item.sortOrder()
+        ))
+        .toList();
+    if ("photo".equals(type) && media.isEmpty()) throw new IllegalArgumentException("Для фотопубликации добавьте хотя бы одно изображение.");
+
+    var eventDate = request.eventDate() == null || request.eventDate().isBlank()
+        ? null
+        : LocalDate.parse(request.eventDate()).atStartOfDay(ZoneId.of(properties.timezone())).toInstant();
+    var storyContent = trimToNull(request.storyContent());
+    var post = GalleryPostEntity.create(
+        Ids.newId("gal"),
+        type,
+        request.title().trim(),
+        trimToNull(request.description()),
+        storyContent,
+        GalleryTextFormatter.formatStory(storyContent),
+        category,
+        eventDate,
+        master,
+        status,
+        media
+    );
+    post = galleryPosts.save(post);
+    auditService.write(String.valueOf(master.getTelegramUserId()), "gallery.post_created", "GalleryPost", post.getId(), "{\"status\":\"" + status + "\"}");
+    return toInternalGalleryPost(post);
+  }
+
+  @Transactional
+  public InternalGalleryPostDto setMasterGalleryPostStatus(String masterId, String postId, String status) {
+    var master = requireMaster(masterId);
+    var nextStatus = allowed(status, GALLERY_STATUSES, "Неизвестный статус публикации.");
+    var post = isAdmin(master)
+        ? galleryPosts.findById(postId)
+        : galleryPosts.findByIdAndAuthorMaster_Id(postId, masterId);
+    var entity = post.orElseThrow(() -> new NotFoundException("Публикация не найдена или принадлежит другому мастеру."));
+    entity.setStatus(nextStatus);
+    galleryPosts.save(entity);
+    auditService.write(String.valueOf(master.getTelegramUserId()), "gallery.post_" + nextStatus, "GalleryPost", postId, null);
+    return toInternalGalleryPost(entity);
+  }
+
   public int archivePastGames() {
     return schedule.archivePastGames();
   }
@@ -247,6 +325,37 @@ public class InternalService {
         master.getRole(),
         master.getStatus()
     );
+  }
+
+  private InternalGalleryPostDto toInternalGalleryPost(GalleryPostEntity post) {
+    return new InternalGalleryPostDto(
+        post.getId(),
+        post.getPublicId(),
+        post.getType(),
+        post.getTitle(),
+        post.getDescription(),
+        post.getCategory(),
+        post.getEventDate(),
+        post.getStatus(),
+        post.getMedia().size(),
+        post.getCreatedAt(),
+        post.getPublishedAt()
+    );
+  }
+
+  private MasterEntity requireMaster(String masterId) {
+    return masters.findById(masterId)
+        .orElseThrow(() -> new NotFoundException("Мастер не найден."));
+  }
+
+  private boolean isAdmin(MasterEntity master) {
+    return "admin".equals(master.getRole());
+  }
+
+  private String allowed(String value, Set<String> allowed, String message) {
+    var normalized = value == null ? "" : value.trim();
+    if (!allowed.contains(normalized)) throw new IllegalArgumentException(message);
+    return normalized;
   }
 
   private String trimToNull(String value) {

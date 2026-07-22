@@ -21,6 +21,9 @@ Java 21 + Spring Boot 3 backend для постепенной замены те�
 - `GET /api/internal/masters/{masterId}/games`
 - `PATCH /api/internal/masters/{masterId}/games/{gameId}`
 - `PATCH /api/internal/masters/{masterId}/games/{gameId}/status`
+- `GET /api/internal/masters/{masterId}/gallery-posts`
+- `POST /api/internal/masters/{masterId}/gallery-posts`
+- `PATCH /api/internal/masters/{masterId}/gallery-posts/{postId}/status`
 - `GET /api/internal/bot-sessions/{telegramUserId}`
 - `POST /api/internal/bot-sessions/{telegramUserId}`
 - `DELETE /api/internal/bot-sessions/{telegramUserId}`

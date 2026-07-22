@@ -1,6 +1,8 @@
 package by.taverna.shlyapnika.internal.api;
 
 import by.taverna.shlyapnika.internal.InternalService;
+import by.taverna.shlyapnika.internal.api.InternalGalleryResponses.InternalGalleryListResponse;
+import by.taverna.shlyapnika.internal.api.InternalGalleryResponses.InternalGalleryPostResponse;
 import by.taverna.shlyapnika.schedule.api.GameResponses.GameResponse;
 import by.taverna.shlyapnika.schedule.api.GameResponses.GamesListResponse;
 import jakarta.validation.Valid;
@@ -64,6 +66,22 @@ public class InternalController {
   @PatchMapping("/api/internal/masters/{masterId}/games/{gameId}")
   public GameResponse updateMasterGame(@PathVariable String masterId, @PathVariable String gameId, @Valid @RequestBody InternalGameUpdateRequest request) {
     return new GameResponse(service.updateMasterGame(masterId, gameId, request));
+  }
+
+  @GetMapping("/api/internal/masters/{masterId}/gallery-posts")
+  public InternalGalleryListResponse listMasterGalleryPosts(@PathVariable String masterId) {
+    return new InternalGalleryListResponse(service.listMasterGalleryPosts(masterId));
+  }
+
+  @PostMapping("/api/internal/masters/{masterId}/gallery-posts")
+  @ResponseStatus(HttpStatus.CREATED)
+  public InternalGalleryPostResponse createMasterGalleryPost(@PathVariable String masterId, @Valid @RequestBody InternalGalleryPostRequest request) {
+    return new InternalGalleryPostResponse(service.createMasterGalleryPost(masterId, request));
+  }
+
+  @PatchMapping("/api/internal/masters/{masterId}/gallery-posts/{postId}/status")
+  public InternalGalleryPostResponse setMasterGalleryPostStatus(@PathVariable String masterId, @PathVariable String postId, @Valid @RequestBody StatusRequest request) {
+    return new InternalGalleryPostResponse(service.setMasterGalleryPostStatus(masterId, postId, request.status()));
   }
 
   @PostMapping("/api/internal/games")

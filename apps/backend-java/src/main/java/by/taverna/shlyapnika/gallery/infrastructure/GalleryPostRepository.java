@@ -28,4 +28,13 @@ public interface GalleryPostRepository extends JpaRepository<GalleryPostEntity, 
       limit 1
       """, nativeQuery = true)
   Optional<GalleryPostEntity> findPublicPost(@Param("publicId") String publicId);
+
+  @EntityGraph(attributePaths = {"authorMaster", "media"})
+  List<GalleryPostEntity> findTop12ByOrderByCreatedAtDesc();
+
+  @EntityGraph(attributePaths = {"authorMaster", "media"})
+  List<GalleryPostEntity> findTop12ByAuthorMaster_IdOrderByCreatedAtDesc(String masterId);
+
+  @EntityGraph(attributePaths = {"authorMaster", "media"})
+  Optional<GalleryPostEntity> findByIdAndAuthorMaster_Id(String id, String masterId);
 }

@@ -1,11 +1,13 @@
 package by.taverna.shlyapnika.gallery.domain;
 
+import by.taverna.shlyapnika.common.Ids;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.time.Instant;
 
@@ -46,6 +48,38 @@ public class GalleryMediaEntity {
 
   @Column(name = "\"createdAt\"", nullable = false)
   private Instant createdAt;
+
+  public static GalleryMediaEntity create(
+      String fileUrl,
+      String thumbnailUrl,
+      String mediumUrl,
+      Integer width,
+      Integer height,
+      String mimeType,
+      String altText,
+      Integer sortOrder
+  ) {
+    var media = new GalleryMediaEntity();
+    media.fileUrl = fileUrl;
+    media.thumbnailUrl = thumbnailUrl;
+    media.mediumUrl = mediumUrl;
+    media.width = width;
+    media.height = height;
+    media.mimeType = mimeType;
+    media.altText = altText;
+    media.sortOrder = sortOrder == null ? 0 : sortOrder;
+    return media;
+  }
+
+  @PrePersist
+  void onCreate() {
+    if (id == null) id = Ids.newId("gmd");
+    if (createdAt == null) createdAt = Instant.now();
+  }
+
+  void attachTo(GalleryPostEntity galleryPost) {
+    this.galleryPost = galleryPost;
+  }
 
   public String getId() { return id; }
   public String getFileUrl() { return fileUrl; }
