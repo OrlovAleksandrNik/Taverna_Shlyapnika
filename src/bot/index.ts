@@ -506,26 +506,68 @@ function parseRatingDate(value?: string) {
   return date.isValid ? toUtcDate(date.startOf("day")) : undefined;
 }
 
-async function storeTelegramPhoto(ctx: Context) {
-  if (!ctx.message || !("photo" in ctx.message)) return null;
-  const photos = ctx.message.photo;
-  if (!photos?.length) return null;
-  const photo = photos.at(-1);
-  if (!photo) return null;
+const imageMimeExtensions: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/jpg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/gif": "gif"
+};
 
-  const file = await ctx.api.getFile(photo.file_id);
+const allowedImageExtensions = new Set(Object.values(imageMimeExtensions));
+
+function normalizeImageExtension(value?: string) {
+  const extension = value?.split("?")[0]?.split(".").pop()?.toLowerCase();
+  if (!extension) return null;
+  const normalized = extension === "jpeg" ? "jpg" : extension;
+  return allowedImageExtensions.has(normalized) ? normalized : null;
+}
+
+function telegramImageFile(ctx: Context) {
+  const message = ctx.message as any;
+  if (!message) return null;
+
+  if (Array.isArray(message.photo) && message.photo.length) {
+    const photo = message.photo.at(-1);
+    return photo?.file_id ? { fileId: photo.file_id as string, extension: "jpg" } : null;
+  }
+
+  const document = message.document;
+  if (!document?.file_id) return null;
+
+  const mimeExtension = imageMimeExtensions[String(document.mime_type || "").toLowerCase()];
+  const nameExtension = normalizeImageExtension(document.file_name);
+  const extension = mimeExtension || nameExtension;
+  if (!extension) return null;
+
+  return { fileId: document.file_id as string, extension };
+}
+
+async function storeTelegramImage(ctx: Context) {
+  const image = telegramImageFile(ctx);
+  if (!image) return null;
+
+  const file = await ctx.api.getFile(image.fileId);
   if (!file.file_path) return null;
 
-  const extension = file.file_path.split(".").pop() || "jpg";
-  if (!["jpg", "jpeg", "png", "webp"].includes(extension.toLowerCase())) return null;
+  const extension = normalizeImageExtension(file.file_path) || image.extension;
 
   await mkdir(config.FILE_STORAGE_DIR, { recursive: true });
   const filename = `${randomUUID()}.${extension}`;
   const response = await fetch(`https://api.telegram.org/file/bot${config.TELEGRAM_BOT_TOKEN}/${file.file_path}`);
   if (!response.ok) return null;
 
+  const contentType = response.headers.get("content-type")?.split(";")[0]?.toLowerCase();
+  if (contentType && !contentType.startsWith("image/")) {
+    logger.warn({ contentType }, "telegram file download returned non-image content");
+    return null;
+  }
+
   const buffer = Buffer.from(await response.arrayBuffer());
+  if (!buffer.byteLength) return null;
+
   await writeFile(join(config.FILE_STORAGE_DIR, filename), buffer);
+  logger.info({ filename, bytes: buffer.byteLength, contentType }, "telegram image saved");
   return `${config.PUBLIC_UPLOADS_URL}/${filename}`;
 }
 
@@ -1074,13 +1116,13 @@ async function handleCallback(ctx: Context) {
   }
 }
 
-async function handlePhoto(ctx: Context) {
+async function handleImage(ctx: Context) {
   const id = userId(ctx);
   if (!id) return;
   const session = await getSession(id);
   if (session.state !== "create:image") return;
 
-  const imageUrl = await storeTelegramPhoto(ctx);
+  const imageUrl = await storeTelegramImage(ctx);
   if (!imageUrl) {
     await ctx.reply("Не удалось сохранить изображение. Поддерживаются Telegram photo, JPG, PNG и WEBP.");
     return;
@@ -1124,7 +1166,8 @@ export async function startBot() {
     await ctx.reply(`Администрирование\n\nМастеров: ${masters}\nИгр: ${games}\nОжидают модерации: ${pending}`);
   });
   bot.on("callback_query:data", handleCallback);
-  bot.on("message:photo", handlePhoto);
+  bot.on("message:photo", handleImage);
+  bot.on("message:document", handleImage);
   bot.on("message:text", handleText);
   bot.catch((error) => {
     markBotError(error);

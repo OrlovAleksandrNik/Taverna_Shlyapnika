@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+
+Sitemap: https://tavernashlyapnika-production.up.railway.app/sitemap.xml

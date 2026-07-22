@@ -314,7 +314,13 @@ export function createApp() {
     }
   });
 
-  app.use("/uploads", express.static(join(root, config.FILE_STORAGE_DIR)));
+  app.use("/uploads", express.static(join(root, config.FILE_STORAGE_DIR), {
+    immutable: true,
+    maxAge: "30d"
+  }));
+  app.use("/uploads", (_request, response) => {
+    response.status(404).type("text/plain").send("Upload not found");
+  });
   app.use(express.static(root));
   app.get("/rating", (_request, response) => response.sendFile(join(root, "rating.html")));
   app.get("*", (_request, response) => response.sendFile(join(root, "index.html")));
