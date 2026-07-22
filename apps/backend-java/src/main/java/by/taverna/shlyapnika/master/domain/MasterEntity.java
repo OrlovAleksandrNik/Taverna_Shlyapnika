@@ -90,8 +90,31 @@ public class MasterEntity {
   }
 
   public boolean hasTelegramUsername(String username) {
-    if (telegramUsername == null || username == null) return false;
-    return telegramUsername.replace("@", "").equalsIgnoreCase(username.replace("@", ""));
+    return telegramHandleMatches(telegramUsername, username) || telegramHandleMatches(contactUrl, username);
+  }
+
+  private boolean telegramHandleMatches(String candidate, String expected) {
+    var normalizedCandidate = normalizeTelegramHandle(candidate);
+    var normalizedExpected = normalizeTelegramHandle(expected);
+    return normalizedCandidate != null
+        && normalizedExpected != null
+        && normalizedCandidate.equalsIgnoreCase(normalizedExpected);
+  }
+
+  private String normalizeTelegramHandle(String value) {
+    if (value == null || value.isBlank()) return null;
+    var normalized = value.trim();
+    var queryIndex = normalized.indexOf('?');
+    if (queryIndex >= 0) normalized = normalized.substring(0, queryIndex);
+    normalized = normalized
+        .replace("https://t.me/", "")
+        .replace("http://t.me/", "")
+        .replace("https://telegram.me/", "")
+        .replace("http://telegram.me/", "")
+        .replace("@", "")
+        .replace("/", "")
+        .trim();
+    return normalized.isBlank() ? null : normalized;
   }
 
   public String getDisplayName() {
