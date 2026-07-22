@@ -536,8 +536,8 @@ Railway запускает Node backend через `railway.json` и Dockerfile.
 
 | Функция | Node endpoint или handler | Java endpoint или service | Статус | Тесты | Используется frontend | Используется Telegram-ботом | Комментарий |
 |---|---|---|---|---|---|---|---|
-| Health | `GET /health` в `src/api/server.ts` | `HealthController.health` | PARTIAL | Unit/MockMvc ещё нужны | Да | Railway/ops | Совместимый endpoint есть; нужно проверить latency и bot status на staging. |
-| Readiness | `GET /ready` | `HealthController.ready` | PARTIAL | Unit/MockMvc ещё нужны | Нет | Railway/ops | Проверяет БД; Flyway readiness через actuator требует staging-проверки. |
+| Health | `GET /health` в `src/api/server.ts` | `HealthController.health` | MIGRATED | `HealthControllerTest` | Да | Railway/ops | Совместимый endpoint отвечает `200` даже при ошибке базы и показывает состояние БД без секретов. |
+| Readiness | `GET /ready` | `HealthController.ready` | MIGRATED | `HealthControllerTest` | Нет | Railway/ops | Возвращает `503`, если БД недоступна, и `200`, если `select 1` успешен. |
 | Афиша: список игр | `GET /api/games`, `listPublicGames` | `ScheduleController.listGames`, `ScheduleService.listPublicGames` | MIGRATED | Требуется integration test | Да | Нет | Добавлены фильтры, лимит/offset и совместимые поля старого DTO. |
 | Афиша: одна игра | `GET /api/games/:id`, `getPublicGame` | `ScheduleController.getGame` | MIGRATED | Требуется integration test | Возможно | Нет | Возвращает только будущую `published` игру. |
 | Алиас расписания | Нет отдельного Node endpoint | `GET /api/schedule` | MIGRATED | Требуется integration test | Потенциально | Нет | Совместимый алиас для будущего frontend. |
