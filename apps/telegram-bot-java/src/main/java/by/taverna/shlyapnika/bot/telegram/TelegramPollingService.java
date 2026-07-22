@@ -2,6 +2,7 @@ package by.taverna.shlyapnika.bot.telegram;
 
 import by.taverna.shlyapnika.bot.backend.BackendApiClient;
 import by.taverna.shlyapnika.bot.backend.BackendGameRequest;
+import by.taverna.shlyapnika.bot.backend.BackendGameUpdateRequest;
 import by.taverna.shlyapnika.bot.backend.BackendMasterRequest;
 import by.taverna.shlyapnika.bot.backend.BackendMasterResponse;
 import by.taverna.shlyapnika.bot.config.BotProperties;
@@ -9,6 +10,7 @@ import by.taverna.shlyapnika.bot.health.BotStatus;
 import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.annotation.PreDestroy;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -106,6 +108,10 @@ public class TelegramPollingService {
         telegram.answerCallback(callback.path("id").asText(""));
         handleCallback(callback);
       }
+    } catch (IllegalArgumentException | IllegalStateException error) {
+      var chatId = update.path("message").path("chat").path("id").asLong(update.path("callback_query").path("message").path("chat").path("id").asLong());
+      if (chatId != 0) telegram.sendMessage(chatId, error.getMessage(), mainMenu());
+      log.warn("Telegram update rejected updateId={} message={}", updateId, error.getMessage());
     } catch (Exception error) {
       log.warn("Telegram update handling failed updateId={}", updateId, error);
     }
@@ -118,25 +124,17 @@ public class TelegramPollingService {
     var text = BotTextParser.clean(message.path("text").asText(""));
     if (userId == 0 || text.isBlank()) return;
 
-    if ("/cancel".equals(text)) {
-      sessions.reset(userId);
-      telegram.sendMessage(chatId, "Отменено.", mainMenu());
-      return;
+    switch (text) {
+      case "/cancel" -> {
+        sessions.reset(userId);
+        telegram.sendMessage(chatId, "Отменено.", mainMenu());
+      }
+      case "/start" -> sendStart(chatId, userId, username(from));
+      case "/register" -> beginRegistration(chatId, userId);
+      case "/create_game" -> beginGameDraft(chatId, userId);
+      case "/my_games" -> showMasterGames(chatId, userId);
+      default -> handleStatefulText(chatId, userId, username(from), text);
     }
-    if ("/start".equals(text)) {
-      sendStart(chatId, userId, username(from));
-      return;
-    }
-    if ("/register".equals(text)) {
-      beginRegistration(chatId, userId);
-      return;
-    }
-    if ("/create_game".equals(text)) {
-      beginGameDraft(chatId, userId);
-      return;
-    }
-
-    handleStatefulText(chatId, userId, username(from), text);
   }
 
   private void handleCallback(JsonNode callback) {
@@ -156,33 +154,36 @@ public class TelegramPollingService {
         sessions.reset(userId);
         telegram.sendMessage(chatId, "Отменено.", mainMenu());
       }
-      case "use_profile_contact" -> {
-        var master = requireActiveMaster(chatId, userId);
-        if (master == null) return;
-        var session = sessions.get(userId);
-        var draft = session.draft();
-        sessions.save(userId, "create:preview", draft);
-        telegram.sendMessage(chatId, gamePreview(draft, master.contactUrl()), publishKeyboard());
-      }
+      case "use_profile_contact" -> useProfileContact(chatId, userId);
       case "manual_game_contact" -> {
         var session = sessions.get(userId);
         sessions.save(userId, "create:contact_manual", session.draft());
         telegram.sendMessage(chatId, "Введите контакт для записи в формате @username или https://t.me/username.", cancelKeyboard());
       }
       case "confirm_game" -> createGameFromDraft(chatId, userId);
-      default -> {
-        if (data.startsWith("cancel_game:")) {
-          var gameId = data.substring("cancel_game:".length());
-          telegram.sendMessage(chatId, "Вы уверены, что хотите отменить игру? Она исчезнет из активной афиши.", confirmCancelKeyboard(gameId));
-          return;
-        }
-        if (data.startsWith("confirm_cancel:")) {
-          cancelGame(chatId, userId, data.substring("confirm_cancel:".length()));
-          return;
-        }
-        handleOptionCallback(chatId, userId, data);
-      }
+      default -> handleDynamicCallback(chatId, userId, data);
     }
+  }
+
+  private void handleDynamicCallback(long chatId, long userId, String data) {
+    if (data.startsWith("cancel_game:")) {
+      var gameId = data.substring("cancel_game:".length());
+      telegram.sendMessage(chatId, "Вы уверены, что хотите отменить игру? Она исчезнет из активной афиши.", confirmCancelKeyboard(gameId));
+      return;
+    }
+    if (data.startsWith("confirm_cancel:")) {
+      cancelGame(chatId, userId, data.substring("confirm_cancel:".length()));
+      return;
+    }
+    if (data.startsWith("edit_game:")) {
+      showEditFields(chatId, userId, data.substring("edit_game:".length()));
+      return;
+    }
+    if (data.startsWith("edit_field:")) {
+      beginEditField(chatId, userId, data);
+      return;
+    }
+    handleOptionCallback(chatId, userId, data);
   }
 
   private void handleOptionCallback(long chatId, long userId, String data) {
@@ -292,6 +293,11 @@ public class TelegramPollingService {
     var session = sessions.get(userId);
     var draft = session.draft();
     try {
+      if (session.state().startsWith("edit:")) {
+        updateGameField(chatId, userId, session.state(), text);
+        return;
+      }
+
       switch (session.state()) {
         case "register:name" -> {
           draft.displayName(BotTextParser.shortText(text, "Имя мастера", 2, 80));
@@ -367,11 +373,20 @@ public class TelegramPollingService {
           sessions.save(userId, "create:preview", draft);
           telegram.sendMessage(chatId, gamePreview(draft, master.contactUrl()), publishKeyboard());
         }
-        default -> telegram.sendMessage(chatId, "Я вас слышу. Используйте меню или команды /register и /create_game.", mainMenu());
+        default -> telegram.sendMessage(chatId, "Я вас слышу. Используйте меню или команды /register, /create_game и /my_games.", mainMenu());
       }
     } catch (IllegalArgumentException error) {
       telegram.sendMessage(chatId, error.getMessage(), cancelKeyboard());
     }
+  }
+
+  private void useProfileContact(long chatId, long userId) {
+    var master = requireActiveMaster(chatId, userId);
+    if (master == null) return;
+    var session = sessions.get(userId);
+    var draft = session.draft();
+    sessions.save(userId, "create:preview", draft);
+    telegram.sendMessage(chatId, gamePreview(draft, master.contactUrl()), publishKeyboard());
   }
 
   private void createGameFromDraft(long chatId, long userId) {
@@ -415,7 +430,10 @@ public class TelegramPollingService {
       var seats = game.maxPlayers() == null ? "" : "\nСвободно мест: " + game.availableSeats() + " из " + game.maxPlayers();
       var text = game.title() + "\n" + game.startsAtLabel() + "\nСтатус: " + game.status() + seats;
       if ("published".equals(game.status()) || "pending".equals(game.status())) {
-        telegram.sendMessage(chatId, text, keyboard(List.of(row(button("Отменить игру", "cancel_game:" + game.id())))));
+        telegram.sendMessage(chatId, text, keyboard(List.of(
+            row(button("Изменить", "edit_game:" + game.id())),
+            row(button("Отменить игру", "cancel_game:" + game.id()))
+        )));
       } else {
         telegram.sendMessage(chatId, text);
       }
@@ -427,6 +445,29 @@ public class TelegramPollingService {
     if (master == null) return;
     var result = backend.setMasterGameStatus(master.id(), gameId, "cancelled");
     telegram.sendMessage(chatId, "Игра отменена и больше не показывается в активной афише.\n\n" + result.game().title(), mainMenu());
+  }
+
+  private void showEditFields(long chatId, long userId, String gameId) {
+    if (requireActiveMaster(chatId, userId) == null) return;
+    telegram.sendMessage(chatId, "Что изменить?", editFieldsKeyboard(gameId));
+  }
+
+  private void beginEditField(long chatId, long userId, String data) {
+    var parts = data.split(":", 3);
+    if (parts.length != 3) return;
+    if (requireActiveMaster(chatId, userId) == null) return;
+    sessions.save(userId, "edit:" + parts[1] + ":" + parts[2], new GameDraft());
+    telegram.sendMessage(chatId, editPrompt(parts[2]), cancelKeyboard());
+  }
+
+  private void updateGameField(long chatId, long userId, String state, String text) {
+    var parts = state.split(":", 3);
+    if (parts.length != 3) return;
+    var master = requireActiveMaster(chatId, userId);
+    if (master == null) return;
+    var result = backend.updateMasterGame(master.id(), parts[1], updateRequest(parts[2], text));
+    sessions.reset(userId);
+    telegram.sendMessage(chatId, "Игра обновлена.\n\n" + result.game().title() + "\n" + result.game().startsAtLabel(), mainMenu());
   }
 
   private String gamePreview(GameDraft draft, String profileContactUrl) {
@@ -446,6 +487,39 @@ public class TelegramPollingService {
     );
   }
 
+  private BackendGameUpdateRequest updateRequest(String field, String text) {
+    return switch (field) {
+      case "title" -> new BackendGameUpdateRequest(BotTextParser.title(text), null, null, null, null, null, null, null, null, null, null, null, null);
+      case "description" -> new BackendGameUpdateRequest(null, BotTextParser.description(text), null, null, null, null, null, null, null, null, null, null, null);
+      case "system" -> new BackendGameUpdateRequest(null, null, BotTextParser.shortText(text, "Игровая система", 2, 80), null, null, null, null, null, null, null, null, null, null);
+      case "experience" -> new BackendGameUpdateRequest(null, null, null, BotTextParser.shortText(text, "Уровень игроков", 2, 80), null, null, null, null, null, null, null, null, null);
+      case "age" -> new BackendGameUpdateRequest(null, null, null, null, BotTextParser.shortText(text, "Возрастное ограничение", 2, 30), null, null, null, null, null, null, null, null);
+      case "datetime" -> dateTimeUpdate(text);
+      case "duration" -> new BackendGameUpdateRequest(null, null, null, null, null, null, null, BotTextParser.durationMinutes(text), null, null, null, null, null);
+      case "players" -> playersUpdate(text);
+      case "price" -> priceUpdate(text);
+      case "contact" -> new BackendGameUpdateRequest(null, null, null, null, null, null, null, null, null, null, null, null, BotTextParser.contact(text));
+      default -> throw new IllegalArgumentException("Неизвестное поле для изменения.");
+    };
+  }
+
+  private BackendGameUpdateRequest dateTimeUpdate(String text) {
+    var parts = BotTextParser.clean(text).split("\\s+", 2);
+    if (parts.length != 2) throw new IllegalArgumentException("Введите дату и время в формате YYYY-MM-DD HH:MM.");
+    BotTextParser.validateDateTime(parts[0], parts[1]);
+    return new BackendGameUpdateRequest(null, null, null, null, null, parts[0], parts[1], null, null, null, null, null, null);
+  }
+
+  private BackendGameUpdateRequest playersUpdate(String text) {
+    var players = BotTextParser.players(text);
+    return new BackendGameUpdateRequest(null, null, null, null, null, null, null, null, players.minPlayers(), players.maxPlayers(), null, null, null);
+  }
+
+  private BackendGameUpdateRequest priceUpdate(String text) {
+    var price = BotTextParser.price(text);
+    return new BackendGameUpdateRequest(null, null, null, null, null, null, null, null, null, null, price.amount(), price.currency(), null);
+  }
+
   private Object startKeyboard() {
     return keyboard(List.of(row(button("Зарегистрироваться как мастер", "register"))));
   }
@@ -463,6 +537,33 @@ public class TelegramPollingService {
         row(button("Да, отменить", "confirm_cancel:" + gameId)),
         row(button("Нет, оставить", "my_games"))
     ));
+  }
+
+  private Object editFieldsKeyboard(String gameId) {
+    return keyboard(List.of(
+        row(button("Название", "edit_field:" + gameId + ":title"), button("Дата и время", "edit_field:" + gameId + ":datetime")),
+        row(button("Описание", "edit_field:" + gameId + ":description"), button("Игроки", "edit_field:" + gameId + ":players")),
+        row(button("Стоимость", "edit_field:" + gameId + ":price"), button("Система", "edit_field:" + gameId + ":system")),
+        row(button("Уровень", "edit_field:" + gameId + ":experience"), button("Возраст", "edit_field:" + gameId + ":age")),
+        row(button("Контакт", "edit_field:" + gameId + ":contact"), button("Длительность", "edit_field:" + gameId + ":duration")),
+        row(button("Назад", "my_games"))
+    ));
+  }
+
+  private String editPrompt(String field) {
+    return switch (field) {
+      case "title" -> "Введите новое название игры.";
+      case "datetime" -> "Введите новую дату и время в формате YYYY-MM-DD HH:MM.";
+      case "description" -> "Введите новое описание игры.";
+      case "players" -> "Введите новое количество игроков или диапазон, например 3-5.";
+      case "price" -> "Введите новую стоимость, например 35 BYN.";
+      case "system" -> "Введите новую игровую систему.";
+      case "experience" -> "Введите новый уровень игроков.";
+      case "age" -> "Введите новое возрастное ограничение.";
+      case "contact" -> "Введите новый контакт для записи: @username или https://t.me/username.";
+      case "duration" -> "Введите новую длительность в часах, например 3.5.";
+      default -> "Введите новое значение.";
+    };
   }
 
   private Object cancelKeyboard() {
@@ -494,7 +595,7 @@ public class TelegramPollingService {
   }
 
   private Object dateKeyboard() {
-    var rows = new java.util.ArrayList<List<Map<String, String>>>();
+    var rows = new ArrayList<List<Map<String, String>>>();
     var today = LocalDate.now();
     for (var i = 0; i < 7; i += 1) {
       var date = today.plusDays(i);
@@ -506,7 +607,7 @@ public class TelegramPollingService {
   }
 
   private Object optionKeyboard(String prefix, List<String> values) {
-    var rows = new java.util.ArrayList<List<Map<String, String>>>();
+    var rows = new ArrayList<List<Map<String, String>>>();
     for (var value : values) {
       rows.add(row(button(value, prefix + ":" + value)));
     }

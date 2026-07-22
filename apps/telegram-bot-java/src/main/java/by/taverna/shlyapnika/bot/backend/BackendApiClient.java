@@ -139,6 +139,21 @@ public class BackendApiClient {
     }
   }
 
+  public BackendGameResponse updateMasterGame(String masterId, String gameId, BackendGameUpdateRequest body) {
+    try {
+      var request = baseRequest("/api/internal/masters/" + masterId + "/games/" + gameId)
+          .header("Content-Type", "application/json")
+          .method("PATCH", HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(body), StandardCharsets.UTF_8))
+          .build();
+      var response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+      ensureSuccess(response, "update master game");
+      return mapper.readValue(response.body(), BackendGameResponse.class);
+    } catch (Exception error) {
+      log.warn("Backend master game update failed masterId={} gameId={}", masterId, gameId, error);
+      throw new IllegalStateException("Не удалось изменить игру. Проверьте данные или попробуйте немного позже.");
+    }
+  }
+
   private HttpRequest.Builder baseRequest(String path) {
     return HttpRequest.newBuilder()
         .uri(URI.create(normalizeBaseUrl(properties.backendUrl()) + path))

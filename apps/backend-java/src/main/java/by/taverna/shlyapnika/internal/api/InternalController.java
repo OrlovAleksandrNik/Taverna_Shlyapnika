@@ -61,6 +61,11 @@ public class InternalController {
     return new GameResponse(service.setMasterGameStatus(masterId, gameId, request.status()));
   }
 
+  @PatchMapping("/api/internal/masters/{masterId}/games/{gameId}")
+  public GameResponse updateMasterGame(@PathVariable String masterId, @PathVariable String gameId, @Valid @RequestBody InternalGameUpdateRequest request) {
+    return new GameResponse(service.updateMasterGame(masterId, gameId, request));
+  }
+
   @PostMapping("/api/internal/games")
   @ResponseStatus(HttpStatus.CREATED)
   public GameResponse createGame(@Valid @RequestBody InternalGameRequest request) {

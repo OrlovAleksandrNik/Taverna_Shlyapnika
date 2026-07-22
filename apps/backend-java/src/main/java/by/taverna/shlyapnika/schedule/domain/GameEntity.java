@@ -161,4 +161,31 @@ public class GameEntity {
     if ("completed".equals(status) || "archived".equals(status)) completedAt = Instant.now();
     if ("cancelled".equals(status)) cancelledAt = Instant.now();
   }
+
+  public void updateTitle(String value) { title = value; }
+  public void updateDescription(String value) { description = value; }
+  public void updateGameSystem(String value) { gameSystem = value; }
+  public void updateExperienceLevel(String value) { experienceLevel = value; }
+  public void updateAgeRating(String value) { ageRating = value; }
+  public void updateDateTimeStart(Instant value) {
+    dateTimeStart = value;
+    refreshDateTimeEnd();
+  }
+  public void updateDurationMinutes(Integer value) {
+    durationMinutes = value;
+    refreshDateTimeEnd();
+  }
+  public void updatePlayers(Integer minPlayers, Integer maxPlayers) {
+    this.minPlayers = minPlayers;
+    this.maxPlayers = maxPlayers;
+  }
+  public void updatePrice(BigDecimal price, String currency) {
+    this.price = price;
+    if (currency != null && !currency.isBlank()) this.currency = currency;
+  }
+  public void updateContactUrl(String value) { contactUrl = value; }
+
+  private void refreshDateTimeEnd() {
+    dateTimeEnd = durationMinutes == null ? null : dateTimeStart.plusSeconds(durationMinutes.longValue() * 60);
+  }
 }

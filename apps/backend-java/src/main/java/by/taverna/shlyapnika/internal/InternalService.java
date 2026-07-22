@@ -6,6 +6,7 @@ import by.taverna.shlyapnika.config.TavernaProperties;
 import by.taverna.shlyapnika.internal.api.InternalBotSessionRequest;
 import by.taverna.shlyapnika.internal.api.InternalBotSessionResponse;
 import by.taverna.shlyapnika.internal.api.InternalGameRequest;
+import by.taverna.shlyapnika.internal.api.InternalGameUpdateRequest;
 import by.taverna.shlyapnika.internal.api.InternalMasterRequest;
 import by.taverna.shlyapnika.internal.api.InternalMasterResponse;
 import by.taverna.shlyapnika.master.domain.MasterEntity;
@@ -178,6 +179,35 @@ public class InternalService {
     game.setStatus(status);
     games.save(game);
     auditService.write(String.valueOf(game.getMaster().getTelegramUserId()), "game.status_" + status, "Game", gameId, null);
+    return schedule.toDto(game);
+  }
+
+  @Transactional
+  public PublicGameDto updateMasterGame(String masterId, String gameId, InternalGameUpdateRequest request) {
+    var game = games.findByIdAndMasterIdForBot(gameId, masterId)
+        .orElseThrow(() -> new NotFoundException("Игра не найдена или принадлежит другому мастеру."));
+
+    if (request.title() != null) game.updateTitle(request.title().trim());
+    if (request.description() != null) game.updateDescription(request.description().trim());
+    if (request.gameSystem() != null) game.updateGameSystem(request.gameSystem().trim());
+    if (request.experienceLevel() != null) game.updateExperienceLevel(request.experienceLevel().trim());
+    if (request.ageRating() != null) game.updateAgeRating(request.ageRating().trim());
+    if (request.date() != null || request.time() != null) {
+      if (request.date() == null || request.time() == null) throw new IllegalArgumentException("Для изменения времени укажите дату и время.");
+      var start = LocalDate.parse(request.date()).atTime(LocalTime.parse(request.time())).atZone(ZoneId.of(properties.timezone())).toInstant();
+      game.updateDateTimeStart(start);
+    }
+    if (request.durationMinutes() != null) game.updateDurationMinutes(request.durationMinutes());
+    if (request.minPlayers() != null || request.maxPlayers() != null) {
+      if (request.minPlayers() == null || request.maxPlayers() == null) throw new IllegalArgumentException("Для изменения игроков укажите минимум и максимум.");
+      if (request.minPlayers() > request.maxPlayers()) throw new IllegalArgumentException("Минимум игроков не может быть больше максимума.");
+      game.updatePlayers(request.minPlayers(), request.maxPlayers());
+    }
+    if (request.price() != null) game.updatePrice(request.price(), request.currency());
+    if (request.contactUrl() != null) game.updateContactUrl(request.contactUrl().trim());
+
+    games.save(game);
+    auditService.write(String.valueOf(game.getMaster().getTelegramUserId()), "game.updated", "Game", gameId, null);
     return schedule.toDto(game);
   }
 
