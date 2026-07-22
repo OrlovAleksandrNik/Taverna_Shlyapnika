@@ -463,9 +463,7 @@ public class InternalService {
           .anyMatch(master::hasTelegramUsername);
       if (usernameMatches) return true;
     }
-    return (adminIds == null || adminIds.isBlank())
-        && (adminUsernames == null || adminUsernames.isBlank())
-        && masters.countAdmins() == 0;
+    return masters.countAdmins() == 0 && masters.findActiveMasters().size() == 1;
   }
 
   private MasterEntity requireAdminMaster(String masterId) {
