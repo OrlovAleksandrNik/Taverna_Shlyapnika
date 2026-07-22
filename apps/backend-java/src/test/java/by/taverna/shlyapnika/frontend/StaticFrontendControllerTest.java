@@ -46,7 +46,7 @@ class StaticFrontendControllerTest {
         true,
         serveFrontend,
         frontendDir.toString(),
-        new TavernaProperties.Telegram("", "")
+        new TavernaProperties.Telegram("", "", "")
     );
   }
 }

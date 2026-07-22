@@ -427,22 +427,31 @@ public class InternalService {
   }
 
   private void ensureAdminRole(MasterEntity master) {
-    if (!"admin".equals(master.getRole()) && shouldBeAdmin(master.getTelegramUserId())) {
+    if (!"admin".equals(master.getRole()) && shouldBeAdmin(master)) {
       master.grantAdminRole();
     }
   }
 
-  private boolean shouldBeAdmin(Long telegramUserId) {
-    if (telegramUserId == null) return false;
+  private boolean shouldBeAdmin(MasterEntity master) {
+    if (master == null || master.getTelegramUserId() == null) return false;
     var telegram = properties.telegram();
     var adminIds = telegram == null ? null : telegram.adminIds();
     if (adminIds != null && !adminIds.isBlank()) {
-      return Arrays.stream(adminIds.split(","))
+      var idMatches = Arrays.stream(adminIds.split(","))
           .map(String::trim)
           .filter(value -> !value.isBlank())
-          .anyMatch(value -> value.equals(String.valueOf(telegramUserId)));
+          .anyMatch(value -> value.equals(String.valueOf(master.getTelegramUserId())));
+      if (idMatches) return true;
     }
-    return true;
+    var adminUsernames = telegram == null ? null : telegram.adminUsernames();
+    if (adminUsernames != null && !adminUsernames.isBlank()) {
+      var usernameMatches = Arrays.stream(adminUsernames.split(","))
+          .map(String::trim)
+          .filter(value -> !value.isBlank())
+          .anyMatch(master::hasTelegramUsername);
+      if (usernameMatches) return true;
+    }
+    return (adminIds == null || adminIds.isBlank()) && (adminUsernames == null || adminUsernames.isBlank());
   }
 
   private MasterEntity requireAdminMaster(String masterId) {

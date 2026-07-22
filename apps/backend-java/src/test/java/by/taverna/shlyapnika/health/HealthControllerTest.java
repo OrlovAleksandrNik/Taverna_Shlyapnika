@@ -58,7 +58,7 @@ class HealthControllerTest {
         true,
         false,
         "static-site",
-        new TavernaProperties.Telegram("", "")
+        new TavernaProperties.Telegram("", "", "")
     );
   }
 }

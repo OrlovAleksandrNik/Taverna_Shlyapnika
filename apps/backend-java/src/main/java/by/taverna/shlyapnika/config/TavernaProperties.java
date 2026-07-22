@@ -32,6 +32,6 @@ public record TavernaProperties(
         .toList();
   }
 
-  public record Telegram(String botToken, String adminIds) {
+  public record Telegram(String botToken, String adminIds, String adminUsernames) {
   }
 }

@@ -11,6 +11,7 @@
 TELEGRAM_BOT_TOKEN=
 BOT_MODE=polling
 ADMIN_TELEGRAM_IDS=
+ADMIN_TELEGRAM_USERNAMES=MisterHatter
 BOT_DISPLAY_NAME=Писарь Таверны
 BOT_CACHE_CHAT_ID=
 BOT_CLEANUP_DELAY_SECONDS=86400
@@ -62,7 +63,7 @@ pnpm local:java:bot
 
 Административные действия доступны мастерам с ролью `admin`.
 
-Если указан `ADMIN_TELEGRAM_IDS`, мастер с таким Telegram ID автоматически получает роль `admin` при регистрации или следующем обращении к backend. Если список пустой, все активные мастера внутреннего бота получают доступ к рейтингу.
+Если указан `ADMIN_TELEGRAM_IDS` или `ADMIN_TELEGRAM_USERNAMES`, подходящий мастер автоматически получает роль `admin` при регистрации или следующем обращении к backend. По умолчанию в админах указан `MisterHatter`. Если оба списка пустые, все активные мастера внутреннего бота получают доступ к рейтингу.
 
 ## Чистота чата
 

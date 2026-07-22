@@ -89,6 +89,11 @@ public class MasterEntity {
     return telegramUsername;
   }
 
+  public boolean hasTelegramUsername(String username) {
+    if (telegramUsername == null || username == null) return false;
+    return telegramUsername.replace("@", "").equalsIgnoreCase(username.replace("@", ""));
+  }
+
   public String getDisplayName() {
     return displayName;
   }

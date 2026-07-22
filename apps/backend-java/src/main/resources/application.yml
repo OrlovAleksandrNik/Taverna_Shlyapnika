@@ -50,5 +50,6 @@ taverna:
   telegram:
     bot-token: ${TELEGRAM_BOT_TOKEN:}
     admin-ids: ${ADMIN_TELEGRAM_IDS:}
+    admin-usernames: ${ADMIN_TELEGRAM_USERNAMES:MisterHatter}
   media:
     storage: ${MEDIA_STORAGE:local}
