@@ -402,6 +402,25 @@ h3 {
   color: var(--muted);
 }
 
+.adventure-section .section-copy .eyebrow,
+.schedule-band .section-copy .eyebrow {
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 800;
+  line-height: 1.06;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+.adventure-section .section-copy .eyebrow {
+  margin-bottom: 14px;
+  font-size: clamp(25px, 3.2vw, 36px);
+}
+
+.schedule-band .section-copy .eyebrow {
+  margin-bottom: 12px;
+  font-size: clamp(31px, 4vw, 50px);
+}
+
 .masters-grid {
   display: grid;
   gap: 18px;
@@ -1316,8 +1335,7 @@ h3 {
 }
 
 .hatter-quote,
-.story-card,
-.about-window {
+.story-card {
   border: 1px solid rgba(215, 168, 79, 0.2);
   border-radius: var(--radius);
   box-shadow: 0 22px 64px rgba(0, 0, 0, 0.34);
@@ -1388,20 +1406,6 @@ h3 {
   line-height: 1.18;
 }
 
-.story-kicker {
-  position: relative;
-  display: inline-grid;
-  place-items: center;
-  width: 46px;
-  height: 46px;
-  margin-bottom: 20px;
-  border: 1px solid rgba(215, 168, 79, 0.3);
-  border-radius: 50%;
-  color: var(--brass);
-  font-family: Georgia, "Times New Roman", serif;
-  font-weight: 800;
-}
-
 .story-divider {
   display: grid;
   place-items: center;
@@ -1423,24 +1427,6 @@ h3 {
   border: 1px solid rgba(215, 168, 79, 0.72);
   background: var(--bg-2);
   transform: rotate(45deg);
-}
-
-.about-window {
-  padding: clamp(26px, 5vw, 56px);
-  background:
-    linear-gradient(180deg, rgba(18, 14, 16, 0.12), rgba(18, 14, 16, 0.82)),
-    radial-gradient(circle at 50% 20%, rgba(215, 168, 79, 0.22), transparent 36%),
-    linear-gradient(135deg, var(--wine-2), var(--green-2));
-}
-
-.about-window p {
-  max-width: 780px;
-  margin: 0 auto;
-  color: var(--paper);
-  text-align: center;
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: clamp(25px, 4vw, 44px);
-  line-height: 1.15;
 }
 
 .story-final {
@@ -1499,6 +1485,12 @@ h3 {
 .footer-legal {
   display: grid;
   gap: 8px;
+}
+
+.footer-contacts,
+.footer-legal {
+  padding-left: 16px;
+  border-left: 1px solid rgba(215, 168, 79, 0.18);
 }
 
 .footer-grid strong {
@@ -1649,6 +1641,12 @@ h3 {
     text-align: left;
   }
 
+  .footer-contacts,
+  .footer-legal {
+    padding-left: 0;
+    border-left: 0;
+  }
+
   .contact-grid {
     grid-template-columns: 1fr;
   }
@@ -1692,8 +1690,7 @@ h3 {
   }
 
   .story-card,
-  .hatter-quote,
-  .about-window {
+  .hatter-quote {
     box-shadow: 0 18px 46px rgba(0, 0, 0, 0.3);
   }
 }

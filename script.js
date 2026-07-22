@@ -3,11 +3,12 @@ const apiRoot = window.location.protocol === "file:" ? "http://localhost:4177/" 
 const masters = window.TAVERNA_MASTERS || [];
 const hatterDiaryEntries = window.TAVERNA_HATTER_DIARY || [];
 const siteSettings = {
-  ADDRESS: "Могилёв, точный адрес будет добавлен позже",
+  ADDRESS: "Могилёв, улица Ленинская, 29, третий этаж, направо от входа",
   ADDRESS_MAP_URL: "",
   PHONE_NUMBER: "",
   TELEGRAM_COMMUNITY_URL: "",
-  TELEGRAM_COMMUNITY_LABEL: "Таинный Шляпника",
+  TELEGRAM_COMMUNITY_LABEL: "Таверна Шляпника",
+  TELEGRAM_COMMUNITY_DESCRIPTION: "Новости, анонсы, файлы.",
   WORKING_HOURS_WEEKDAYS: "Понедельник-пятница: 17:00-22:00",
   WORKING_HOURS_WEEKEND: "Суббота-воскресенье: 10:00-00:00",
   UNP: "",
@@ -247,7 +248,7 @@ function gameCard(game, index) {
 }
 
 function telegramSignupUrl(game) {
-  const base = game.contactUrl || "https://t.me/MisterHatter";
+  const base = game.contactUrl || siteSettings.TELEGRAM_COMMUNITY_URL || "https://t.me/Taverna_Shlyapnika";
   const message = `Здравствуйте! Хочу записаться на игру "${game.title}" ${game.dateLabel} в ${game.time}.`;
   return `${base}${base.includes("?") ? "&" : "?"}text=${encodeURIComponent(message)}`;
 }
@@ -645,13 +646,14 @@ function renderContactBlock() {
   if (!contact) return;
 
   const phone = sanitizePhone(siteSettings.PHONE_NUMBER);
+  const communityDescription = siteSettings.TELEGRAM_COMMUNITY_DESCRIPTION || "Новости, анонсы, файлы.";
   const phoneCard = phone
     ? `<a class="contact-link" href="tel:${escapeHtml(phone)}"><span class="contact-icon" aria-hidden="true">ТЛ</span><span class="contact-link-body"><span>Телефон</span><strong>${escapeHtml(siteSettings.PHONE_NUMBER)}</strong></span></a>`
     : `<div class="contact-link contact-link-muted" role="note"><span class="contact-icon" aria-hidden="true">ТЛ</span><span class="contact-link-body"><span>Телефон</span><strong>Шляпник пока изучает устройство под названием “мобильный телефон”. Номер появится здесь, как только он разберётся, с какой стороны его держать.</strong></span></div>`;
 
   const communityCard = siteSettings.TELEGRAM_COMMUNITY_URL
-    ? `<a class="contact-link" href="${escapeHtml(siteSettings.TELEGRAM_COMMUNITY_URL)}" target="_blank" rel="noreferrer"><span class="contact-icon" aria-hidden="true">TG</span><span class="contact-link-body"><span>Telegram-группа</span><strong>${escapeHtml(siteSettings.TELEGRAM_COMMUNITY_LABEL)}</strong><small>Анонсы игр, специальные события, новости таверны и истории, которые уже ищут своих героев.</small></span></a>`
-    : `<div class="contact-link contact-link-muted" role="note"><span class="contact-icon" aria-hidden="true">TG</span><span class="contact-link-body"><span>Telegram-группа</span><strong>${escapeHtml(siteSettings.TELEGRAM_COMMUNITY_LABEL)}</strong><small>Анонсы игр, специальные события, новости таверны и истории, которые уже ищут своих героев.</small><em>[ССЫЛКА НА TELEGRAM-ГРУППУ]</em></span></div>`;
+    ? `<a class="contact-link" href="${escapeHtml(siteSettings.TELEGRAM_COMMUNITY_URL)}" target="_blank" rel="noreferrer"><span class="contact-icon" aria-hidden="true">TG</span><span class="contact-link-body"><span>Telegram-группа</span><strong>${escapeHtml(siteSettings.TELEGRAM_COMMUNITY_LABEL)}</strong><small>${escapeHtml(communityDescription)}</small></span></a>`
+    : `<div class="contact-link contact-link-muted" role="note"><span class="contact-icon" aria-hidden="true">TG</span><span class="contact-link-body"><span>Telegram-группа</span><strong>${escapeHtml(siteSettings.TELEGRAM_COMMUNITY_LABEL)}</strong><small>${escapeHtml(communityDescription)}</small><em>[ССЫЛКА НА TELEGRAM-ГРУППУ]</em></span></div>`;
 
   const addressCard = siteSettings.ADDRESS_MAP_URL
     ? `<a class="contact-link" href="${escapeHtml(siteSettings.ADDRESS_MAP_URL)}" target="_blank" rel="noreferrer"><span class="contact-icon" aria-hidden="true">АД</span><span class="contact-link-body"><span>Адрес</span><strong>${escapeHtml(siteSettings.ADDRESS)}</strong><small>Открыть геолокацию на карте</small></span></a>`
@@ -669,10 +671,6 @@ function renderContactBlock() {
         <a class="contact-link" href="https://www.instagram.com/taverna_shlyapnika/" target="_blank" rel="noreferrer">
           <span class="contact-icon" aria-hidden="true">IG</span>
           <span class="contact-link-body"><span>Instagram</span><strong>@taverna_shlyapnika</strong></span>
-        </a>
-        <a class="contact-link" href="https://t.me/MisterHatter" target="_blank" rel="noreferrer">
-          <span class="contact-icon" aria-hidden="true">TG</span>
-          <span class="contact-link-body"><span>Telegram</span><strong>@MisterHatter</strong></span>
         </a>
         ${communityCard}
         ${phoneCard}
@@ -1172,8 +1170,9 @@ function renderFooter() {
       <div class="footer-contacts">
         <strong>Контакты</strong>
         <a href="${assetPath("index.html#contacts")}">Раздел контактов</a>
-        ${siteSettings.ADDRESS_MAP_URL ? `<a href="${escapeHtml(siteSettings.ADDRESS_MAP_URL)}" target="_blank" rel="noreferrer">Геолокация</a>` : ""}
-        ${siteSettings.TELEGRAM_COMMUNITY_URL ? `<a href="${escapeHtml(siteSettings.TELEGRAM_COMMUNITY_URL)}" target="_blank" rel="noreferrer">${escapeHtml(siteSettings.TELEGRAM_COMMUNITY_LABEL)}</a>` : ""}
+        <span>${escapeHtml(siteSettings.ADDRESS)}</span>
+        ${siteSettings.ADDRESS_MAP_URL ? `<a href="${escapeHtml(siteSettings.ADDRESS_MAP_URL)}" target="_blank" rel="noreferrer">Открыть на карте</a>` : ""}
+        ${siteSettings.TELEGRAM_COMMUNITY_URL ? `<a href="${escapeHtml(siteSettings.TELEGRAM_COMMUNITY_URL)}" target="_blank" rel="noreferrer">${escapeHtml(siteSettings.TELEGRAM_COMMUNITY_LABEL)}</a><span>${escapeHtml(siteSettings.TELEGRAM_COMMUNITY_DESCRIPTION || "Новости, анонсы, файлы.")}</span>` : ""}
         <span>${escapeHtml(siteSettings.WORKING_HOURS_WEEKDAYS)}</span>
         <span>${escapeHtml(siteSettings.WORKING_HOURS_WEEKEND)}</span>
       </div>
