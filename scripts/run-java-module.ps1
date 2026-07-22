@@ -16,7 +16,7 @@ $modulePath = switch ($Module) {
   "bot" { Join-Path $repoRoot "apps\telegram-bot-java" }
 }
 
-if ($MavenArgs.Count -gt 0 -and $MavenArgs[0] -eq "--") {
+if ($MavenArgs.Count -gt 0 -and ($MavenArgs[0] -eq "--" -or $MavenArgs[0] -eq "--%")) {
   $MavenArgs = if ($MavenArgs.Count -gt 1) { $MavenArgs[1..($MavenArgs.Count - 1)] } else { @() }
 }
 

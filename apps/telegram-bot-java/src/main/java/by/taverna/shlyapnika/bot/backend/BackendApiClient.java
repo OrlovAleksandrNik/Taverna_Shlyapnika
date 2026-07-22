@@ -82,6 +82,47 @@ public class BackendApiClient {
     }
   }
 
+  public BackendBotSessionResponse getBotSession(long telegramUserId) {
+    try {
+      var request = baseRequest("/api/internal/bot-sessions/" + telegramUserId).GET().build();
+      var response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+      if (response.statusCode() == 404) return null;
+      ensureSuccess(response, "get bot session");
+      return mapper.readValue(response.body(), BackendBotSessionResponse.class);
+    } catch (Exception error) {
+      log.warn("Backend bot session lookup failed telegramUserId={}", telegramUserId, error);
+      throw new IllegalStateException("Не удалось загрузить черновик диалога. Попробуйте немного позже.");
+    }
+  }
+
+  public BackendBotSessionResponse saveBotSession(long telegramUserId, BackendBotSessionRequest body) {
+    try {
+      var request = baseRequest("/api/internal/bot-sessions/" + telegramUserId)
+          .header("Content-Type", "application/json")
+          .POST(HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(body), StandardCharsets.UTF_8))
+          .build();
+      var response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+      ensureSuccess(response, "save bot session");
+      return mapper.readValue(response.body(), BackendBotSessionResponse.class);
+    } catch (Exception error) {
+      log.warn("Backend bot session save failed telegramUserId={}", telegramUserId, error);
+      throw new IllegalStateException("Не удалось сохранить черновик диалога. Попробуйте немного позже.");
+    }
+  }
+
+  public void deleteBotSession(long telegramUserId) {
+    try {
+      var request = baseRequest("/api/internal/bot-sessions/" + telegramUserId).DELETE().build();
+      var response = httpClient.send(request, HttpResponse.BodyHandlers.discarding());
+      if (response.statusCode() >= 400 && response.statusCode() != 404) {
+        throw new IllegalStateException("Backend delete bot session failed with status " + response.statusCode());
+      }
+    } catch (Exception error) {
+      log.warn("Backend bot session delete failed telegramUserId={}", telegramUserId, error);
+      throw new IllegalStateException("Не удалось сбросить черновик диалога. Попробуйте немного позже.");
+    }
+  }
+
   public BackendGameResponse setMasterGameStatus(String masterId, String gameId, String status) {
     try {
       var body = java.util.Map.of("status", status);

@@ -5,6 +5,7 @@ import by.taverna.shlyapnika.schedule.api.GameResponses.GameResponse;
 import by.taverna.shlyapnika.schedule.api.GameResponses.GamesListResponse;
 import jakarta.validation.Valid;
 import java.util.Map;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -32,6 +33,22 @@ public class InternalController {
   @ResponseStatus(HttpStatus.CREATED)
   public InternalMasterResponse upsertMaster(@Valid @RequestBody InternalMasterRequest request) {
     return service.upsertMaster(request);
+  }
+
+  @GetMapping("/api/internal/bot-sessions/{telegramUserId}")
+  public InternalBotSessionResponse getBotSession(@PathVariable Long telegramUserId) {
+    return service.getBotSession(telegramUserId);
+  }
+
+  @PostMapping("/api/internal/bot-sessions/{telegramUserId}")
+  public InternalBotSessionResponse saveBotSession(@PathVariable Long telegramUserId, @Valid @RequestBody InternalBotSessionRequest request) {
+    return service.saveBotSession(telegramUserId, request);
+  }
+
+  @DeleteMapping("/api/internal/bot-sessions/{telegramUserId}")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  public void deleteBotSession(@PathVariable Long telegramUserId) {
+    service.deleteBotSession(telegramUserId);
   }
 
   @GetMapping("/api/internal/masters/{masterId}/games")

@@ -1,23 +1,32 @@
 package by.taverna.shlyapnika.bot.telegram;
 
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import by.taverna.shlyapnika.bot.backend.BackendApiClient;
+import by.taverna.shlyapnika.bot.backend.BackendBotSessionRequest;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Component;
 
 @Component
 public class BotSessionStore {
-  private final Map<Long, Session> sessions = new ConcurrentHashMap<>();
+  private final BackendApiClient backend;
+  private final ObjectMapper mapper;
+
+  public BotSessionStore(BackendApiClient backend, ObjectMapper mapper) {
+    this.backend = backend;
+    this.mapper = mapper;
+  }
 
   public Session get(long userId) {
-    return sessions.getOrDefault(userId, new Session("idle", new GameDraft()));
+    var session = backend.getBotSession(userId);
+    if (session == null) return new Session("idle", new GameDraft());
+    return new Session(session.state(), mapper.convertValue(session.draft(), GameDraft.class));
   }
 
   public void save(long userId, String state, GameDraft draft) {
-    sessions.put(userId, new Session(state, draft));
+    backend.saveBotSession(userId, new BackendBotSessionRequest(state, mapper.valueToTree(draft)));
   }
 
   public void reset(long userId) {
-    sessions.remove(userId);
+    backend.deleteBotSession(userId);
   }
 
   public record Session(String state, GameDraft draft) {

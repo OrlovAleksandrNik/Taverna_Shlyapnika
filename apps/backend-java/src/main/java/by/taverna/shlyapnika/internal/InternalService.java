@@ -3,6 +3,8 @@ package by.taverna.shlyapnika.internal;
 import by.taverna.shlyapnika.audit.AuditService;
 import by.taverna.shlyapnika.common.NotFoundException;
 import by.taverna.shlyapnika.config.TavernaProperties;
+import by.taverna.shlyapnika.internal.api.InternalBotSessionRequest;
+import by.taverna.shlyapnika.internal.api.InternalBotSessionResponse;
 import by.taverna.shlyapnika.internal.api.InternalGameRequest;
 import by.taverna.shlyapnika.internal.api.InternalMasterRequest;
 import by.taverna.shlyapnika.internal.api.InternalMasterResponse;
@@ -12,6 +14,8 @@ import by.taverna.shlyapnika.schedule.ScheduleService;
 import by.taverna.shlyapnika.schedule.api.GameResponses.PublicGameDto;
 import by.taverna.shlyapnika.schedule.domain.GameEntity;
 import by.taverna.shlyapnika.schedule.infrastructure.GameRepository;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
@@ -31,6 +35,7 @@ public class InternalService {
   private final TavernaProperties properties;
   private final JdbcTemplate jdbcTemplate;
   private final AuditService auditService;
+  private final ObjectMapper objectMapper;
 
   public InternalService(
       MasterRepository masters,
@@ -38,7 +43,8 @@ public class InternalService {
       ScheduleService schedule,
       TavernaProperties properties,
       JdbcTemplate jdbcTemplate,
-      AuditService auditService
+      AuditService auditService,
+      ObjectMapper objectMapper
   ) {
     this.masters = masters;
     this.games = games;
@@ -46,6 +52,7 @@ public class InternalService {
     this.properties = properties;
     this.jdbcTemplate = jdbcTemplate;
     this.auditService = auditService;
+    this.objectMapper = objectMapper;
   }
 
   @Transactional(readOnly = true)
@@ -69,6 +76,46 @@ public class InternalService {
     master = masters.save(master);
     auditService.write(String.valueOf(request.telegramUserId()), "master.upserted", "Master", master.getId(), null);
     return toMasterResponse(master);
+  }
+
+  @Transactional(readOnly = true)
+  public InternalBotSessionResponse getBotSession(Long telegramUserId) {
+    var rows = jdbcTemplate.query(
+        "select \"telegramUserId\", \"state\", \"draft\"::text as \"draft\" from \"BotSession\" where \"telegramUserId\" = ?",
+        (rs, row) -> new InternalBotSessionResponse(
+            rs.getLong("telegramUserId"),
+            rs.getString("state"),
+            parseDraft(rs.getString("draft"))
+        ),
+        telegramUserId
+    );
+    return rows.stream()
+        .findFirst()
+        .orElseThrow(() -> new NotFoundException("Сессия бота не найдена."));
+  }
+
+  @Transactional
+  public InternalBotSessionResponse saveBotSession(Long telegramUserId, InternalBotSessionRequest request) {
+    var draft = request.draft() == null || request.draft().isNull() ? objectMapper.createObjectNode() : request.draft();
+    jdbcTemplate.update(
+        """
+        insert into "BotSession" ("telegramUserId", "state", "draft", "createdAt", "updatedAt")
+        values (?, ?, ?::jsonb, current_timestamp, current_timestamp)
+        on conflict ("telegramUserId") do update
+        set "state" = excluded."state",
+            "draft" = excluded."draft",
+            "updatedAt" = current_timestamp
+        """,
+        telegramUserId,
+        request.state(),
+        draft.toString()
+    );
+    return new InternalBotSessionResponse(telegramUserId, request.state(), draft);
+  }
+
+  @Transactional
+  public void deleteBotSession(Long telegramUserId) {
+    jdbcTemplate.update("delete from \"BotSession\" where \"telegramUserId\" = ?", telegramUserId);
   }
 
   @Transactional
@@ -174,5 +221,13 @@ public class InternalService {
 
   private String trimToNull(String value) {
     return value == null || value.isBlank() ? null : value.trim();
+  }
+
+  private JsonNode parseDraft(String value) {
+    try {
+      return value == null || value.isBlank() ? objectMapper.createObjectNode() : objectMapper.readTree(value);
+    } catch (Exception error) {
+      return objectMapper.createObjectNode();
+    }
   }
 }
