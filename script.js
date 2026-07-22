@@ -151,7 +151,6 @@ function normalizeApiGame(game) {
     age: game.ageRating || "",
     masterName: game.master?.name || "",
     contactUrl: game.contactUrl || "",
-    imageUrl: game.imageUrl || "",
     tags: game.tags || [],
     availableSeats,
     bookedSeats: Number(game.bookedSeats || 0),
@@ -204,16 +203,6 @@ async function loadScheduleFromApi(schedule) {
   }
 }
 
-function gameImage(game, index) {
-  const src = game.imageUrl || assetPath("assets/hero-tavern.png");
-  const alt = game.imageUrl ? `Афиша игры ${game.title}` : "Тематическая заглушка Таверны Шляпника";
-  return `
-    <button class="game-image-button" type="button" data-full-image="${escapeHtml(src)}" data-full-alt="${escapeHtml(alt)}">
-      <img loading="${index > 2 ? "lazy" : "eager"}" src="${escapeHtml(src)}" alt="${escapeHtml(alt)}">
-    </button>
-  `;
-}
-
 function gameCard(game, index) {
   const descId = `game-desc-${escapeHtml(game.id)}`;
   const signupDisabled = game.availableSeats <= 0 ? " disabled" : "";
@@ -221,7 +210,6 @@ function gameCard(game, index) {
 
   return `
     <article class="game-card reveal" data-type="${escapeHtml(tags)}" data-game-id="${escapeHtml(game.id)}">
-      <div class="game-art">${gameImage(game, index)}</div>
       <div class="game-card-body">
         <div class="game-card-topline">
           <span>${escapeHtml(game.system)}</span>

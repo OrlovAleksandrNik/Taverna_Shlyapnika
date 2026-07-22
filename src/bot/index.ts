@@ -1,8 +1,5 @@
 import { Bot, Context, InlineKeyboard } from "grammy";
 import { run } from "@grammyjs/runner";
-import { mkdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
-import { randomUUID } from "node:crypto";
 import { DateTime } from "luxon";
 import { config, adminTelegramIds } from "../config.js";
 import { prisma } from "../db.js";
@@ -36,7 +33,6 @@ type Draft = {
   gameSystem?: string;
   experienceLevel?: string;
   ageRating?: string;
-  imageUrl?: string;
   contactOverride?: string;
   ratingDisplayName?: string;
 };
@@ -111,6 +107,13 @@ function navKeyboard() {
     .text("Главное меню", "menu");
 }
 
+function contactChoiceKeyboard() {
+  return new InlineKeyboard()
+    .text("Использовать контакт профиля", "use_profile_contact")
+    .row()
+    .text("Указать другой", "manual_game_contact");
+}
+
 async function getSession(id: bigint): Promise<Session> {
   const session = await prisma.botSession.upsert({
     where: { telegramUserId: id },
@@ -183,7 +186,6 @@ function gamePreview(draft: Draft) {
     `Игроки: ${draft.minPlayers}-${draft.maxPlayers}`,
     `Стоимость: ${draft.price} ${draft.currency}`,
     `Контакт: ${draft.contactOverride || draft.contactUrl}`,
-    `Изображение: ${draft.imageUrl ? "загружено" : "стандартная заглушка"}`
   ].join("\n");
 }
 
@@ -506,71 +508,6 @@ function parseRatingDate(value?: string) {
   return date.isValid ? toUtcDate(date.startOf("day")) : undefined;
 }
 
-const imageMimeExtensions: Record<string, string> = {
-  "image/jpeg": "jpg",
-  "image/jpg": "jpg",
-  "image/png": "png",
-  "image/webp": "webp",
-  "image/gif": "gif"
-};
-
-const allowedImageExtensions = new Set(Object.values(imageMimeExtensions));
-
-function normalizeImageExtension(value?: string) {
-  const extension = value?.split("?")[0]?.split(".").pop()?.toLowerCase();
-  if (!extension) return null;
-  const normalized = extension === "jpeg" ? "jpg" : extension;
-  return allowedImageExtensions.has(normalized) ? normalized : null;
-}
-
-function telegramImageFile(ctx: Context) {
-  const message = ctx.message as any;
-  if (!message) return null;
-
-  if (Array.isArray(message.photo) && message.photo.length) {
-    const photo = message.photo.at(-1);
-    return photo?.file_id ? { fileId: photo.file_id as string, extension: "jpg" } : null;
-  }
-
-  const document = message.document;
-  if (!document?.file_id) return null;
-
-  const mimeExtension = imageMimeExtensions[String(document.mime_type || "").toLowerCase()];
-  const nameExtension = normalizeImageExtension(document.file_name);
-  const extension = mimeExtension || nameExtension;
-  if (!extension) return null;
-
-  return { fileId: document.file_id as string, extension };
-}
-
-async function storeTelegramImage(ctx: Context) {
-  const image = telegramImageFile(ctx);
-  if (!image) return null;
-
-  const file = await ctx.api.getFile(image.fileId);
-  if (!file.file_path) return null;
-
-  const extension = normalizeImageExtension(file.file_path) || image.extension;
-
-  await mkdir(config.FILE_STORAGE_DIR, { recursive: true });
-  const filename = `${randomUUID()}.${extension}`;
-  const response = await fetch(`https://api.telegram.org/file/bot${config.TELEGRAM_BOT_TOKEN}/${file.file_path}`);
-  if (!response.ok) return null;
-
-  const contentType = response.headers.get("content-type")?.split(";")[0]?.toLowerCase();
-  if (contentType && !contentType.startsWith("image/")) {
-    logger.warn({ contentType }, "telegram file download returned non-image content");
-    return null;
-  }
-
-  const buffer = Buffer.from(await response.arrayBuffer());
-  if (!buffer.byteLength) return null;
-
-  await writeFile(join(config.FILE_STORAGE_DIR, filename), buffer);
-  logger.info({ filename, bytes: buffer.byteLength, contentType }, "telegram image saved");
-  return `${config.PUBLIC_UPLOADS_URL}/${filename}`;
-}
-
 async function createGameFromDraft(ctx: Context, draft: Draft) {
   const id = userId(ctx);
   const master = await requireActiveMaster(ctx);
@@ -598,7 +535,6 @@ async function createGameFromDraft(ctx: Context, draft: Draft) {
       maxPlayers: draft.maxPlayers!,
       price: draft.price!,
       currency: draft.currency || "BYN",
-      imageUrl: draft.imageUrl,
       contactUrl: draft.contactOverride || master.contactUrl,
       status: config.AUTO_PUBLISH ? "published" : "pending",
       publishedAt: config.AUTO_PUBLISH ? new Date() : null
@@ -625,6 +561,14 @@ async function handleText(ctx: Context) {
   const draft = session.draft;
 
   try {
+    if (session.state === "create:image") {
+      await saveSession(id, "create:contact", draft);
+      await ctx.reply("Изображения для афиши больше не нужны. Использовать контакт мастера для записи или указать другой?", {
+        reply_markup: contactChoiceKeyboard()
+      });
+      return;
+    }
+
     if (session.state === "register:name") {
       const displayName = gameText.title.parse(text);
       await askContact(ctx, { ...draft, displayName });
@@ -709,9 +653,9 @@ async function handleText(ctx: Context) {
     }
 
     if (session.state === "create:age_manual") {
-      await saveSession(id, "create:image", { ...draft, ageRating: gameText.ageRating.parse(text) });
-      await ctx.reply("Загрузите изображение афиши или пропустите этот шаг.", {
-        reply_markup: new InlineKeyboard().text("Пропустить", "skip_image").row().text("Отмена", "cancel")
+      await saveSession(id, "create:contact", { ...draft, ageRating: gameText.ageRating.parse(text) });
+      await ctx.reply("Использовать контакт мастера для записи или указать другой?", {
+        reply_markup: contactChoiceKeyboard()
       });
       return;
     }
@@ -1036,20 +980,13 @@ async function handleCallback(ctx: Context) {
       await ctx.reply("Введите возрастное ограничение.");
       return;
     }
-    await saveSession(id, "create:image", { ...draft, ageRating: value });
-    await ctx.reply("Загрузите изображение афиши или пропустите этот шаг.", {
-      reply_markup: new InlineKeyboard().text("Пропустить", "skip_image").row().text("Отмена", "cancel")
+    await saveSession(id, "create:contact", { ...draft, ageRating: value });
+    await ctx.reply("Использовать контакт мастера для записи или указать другой?", {
+      reply_markup: contactChoiceKeyboard()
     });
     return;
   }
 
-  if (data === "skip_image") {
-    await saveSession(id, "create:contact", draft);
-    await ctx.reply("Использовать контакт мастера для записи или указать другой?", {
-      reply_markup: new InlineKeyboard().text("Использовать контакт профиля", "use_profile_contact").row().text("Указать другой", "manual_game_contact")
-    });
-    return;
-  }
   if (data === "use_profile_contact") {
     const nextDraft = { ...draft };
     await saveSession(id, "create:preview", nextDraft);
@@ -1116,24 +1053,6 @@ async function handleCallback(ctx: Context) {
   }
 }
 
-async function handleImage(ctx: Context) {
-  const id = userId(ctx);
-  if (!id) return;
-  const session = await getSession(id);
-  if (session.state !== "create:image") return;
-
-  const imageUrl = await storeTelegramImage(ctx);
-  if (!imageUrl) {
-    await ctx.reply("Не удалось сохранить изображение. Поддерживаются Telegram photo, JPG, PNG и WEBP.");
-    return;
-  }
-
-  await saveSession(id, "create:contact", { ...session.draft, imageUrl });
-  await ctx.reply("Изображение сохранено. Использовать контакт мастера для записи или указать другой?", {
-    reply_markup: new InlineKeyboard().text("Использовать контакт профиля", "use_profile_contact").row().text("Указать другой", "manual_game_contact")
-  });
-}
-
 export async function startBot() {
   if (!config.TELEGRAM_BOT_TOKEN) {
     markBotDisabled(config.BOT_MODE);
@@ -1166,8 +1085,6 @@ export async function startBot() {
     await ctx.reply(`Администрирование\n\nМастеров: ${masters}\nИгр: ${games}\nОжидают модерации: ${pending}`);
   });
   bot.on("callback_query:data", handleCallback);
-  bot.on("message:photo", handleImage);
-  bot.on("message:document", handleImage);
   bot.on("message:text", handleText);
   bot.catch((error) => {
     markBotError(error);

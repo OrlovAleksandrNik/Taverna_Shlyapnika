@@ -126,7 +126,6 @@ export function publicGameDto(game: any) {
     availableSeats,
     price: game.price.toString(),
     currency: game.currency,
-    imageUrl: game.imageUrl || null,
     contactUrl: game.contactUrl,
     status: game.status,
     masterId: game.master.id,

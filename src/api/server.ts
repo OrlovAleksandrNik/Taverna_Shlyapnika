@@ -46,7 +46,6 @@ const internalGameSchema = z.object({
   maxPlayers: z.number().int().min(1).max(20),
   price: z.string(),
   currency: z.string().default("BYN"),
-  imageUrl: z.string().url().optional(),
   contactUrl: z.string().url()
 });
 
@@ -282,7 +281,6 @@ export function createApp() {
           maxPlayers: body.maxPlayers,
           price: body.price,
           currency: body.currency,
-          imageUrl: body.imageUrl,
           contactUrl: body.contactUrl,
           status: config.AUTO_PUBLISH ? "published" : "pending",
           publishedAt: config.AUTO_PUBLISH ? new Date() : null
