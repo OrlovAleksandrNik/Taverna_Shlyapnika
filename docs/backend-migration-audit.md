@@ -562,7 +562,7 @@ Railway запускает Node backend через `railway.json` и Dockerfile.
 | Consent validation | `requireConsent` | `ConsentService` | TESTED | `ConsentServiceTest` | Да | Нет | Возвращает `CONSENT_REQUIRED` через Java exception handler. |
 | Rate limit public POST | `src/api/rateLimit.ts` | `PublicPostRateLimitFilter` | TESTED | `PublicPostRateLimitFilterTest` | Да | Нет | In-memory; для горизонтального scaling нужен Redis/Bucket4j. |
 | Telegram bot process | `src/bot/index.ts` | `apps/telegram-bot-java`, polling service | PARTIAL | `BotPropertiesTest` | Нет | Да | Java-процесс, health, polling и `/start` добавлены; Node-бот не отключать до переноса сценариев. |
-| Bot sessions | `BotSession` через Prisma | Java service отсутствует | NOT_STARTED | Нет | Нет | Да | Нельзя переносить в static Map; нужен repository/service. |
+| Bot sessions | `BotSession` через Prisma | Java internal API + `BotSessionStore` в Java-боте | MIGRATED | Проверено Java bot test | Нет | Да | Сессии сохраняются через backend API и не теряются при перезапуске Java-бота. |
 | Notifications | `notifyTelegram`, `notifyAdmins` | `TelegramNotificationService` | PARTIAL | Требуется mock HTTP test | Нет | Косвенно | Best-effort отправка без логирования токенов. |
 | Static frontend serving | Express static root | Java static serving не перенесён | NOT_STARTED | Нет | Да | Нет | Можно оставить frontend отдельным сервисом или добавить resource handler позже. |
 
