@@ -1,6 +1,8 @@
 package by.taverna.shlyapnika.bot.telegram;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 
 public class GameDraft {
   private String displayName;
@@ -18,6 +20,13 @@ public class GameDraft {
   private String experienceLevel;
   private String ageRating;
   private String contactOverride;
+  private String galleryType;
+  private String galleryTitle;
+  private String galleryDescription;
+  private String galleryStoryContent;
+  private String galleryCategory;
+  private String galleryEventDate;
+  private List<GalleryMediaDraft> galleryMedia = new ArrayList<>();
 
   public String displayName() { return displayName; }
   public String getDisplayName() { return displayName; }
@@ -79,4 +88,44 @@ public class GameDraft {
   public String getContactOverride() { return contactOverride; }
   public void contactOverride(String value) { contactOverride = value; }
   public void setContactOverride(String value) { contactOverride = value; }
+  public String galleryType() { return galleryType; }
+  public String getGalleryType() { return galleryType; }
+  public void galleryType(String value) { galleryType = value; }
+  public void setGalleryType(String value) { galleryType = value; }
+  public String galleryTitle() { return galleryTitle; }
+  public String getGalleryTitle() { return galleryTitle; }
+  public void galleryTitle(String value) { galleryTitle = value; }
+  public void setGalleryTitle(String value) { galleryTitle = value; }
+  public String galleryDescription() { return galleryDescription; }
+  public String getGalleryDescription() { return galleryDescription; }
+  public void galleryDescription(String value) { galleryDescription = value; }
+  public void setGalleryDescription(String value) { galleryDescription = value; }
+  public String galleryStoryContent() { return galleryStoryContent; }
+  public String getGalleryStoryContent() { return galleryStoryContent; }
+  public void galleryStoryContent(String value) { galleryStoryContent = value; }
+  public void setGalleryStoryContent(String value) { galleryStoryContent = value; }
+  public String galleryCategory() { return galleryCategory; }
+  public String getGalleryCategory() { return galleryCategory; }
+  public void galleryCategory(String value) { galleryCategory = value; }
+  public void setGalleryCategory(String value) { galleryCategory = value; }
+  public String galleryEventDate() { return galleryEventDate; }
+  public String getGalleryEventDate() { return galleryEventDate; }
+  public void galleryEventDate(String value) { galleryEventDate = value; }
+  public void setGalleryEventDate(String value) { galleryEventDate = value; }
+  public List<GalleryMediaDraft> galleryMedia() { return galleryMedia; }
+  public List<GalleryMediaDraft> getGalleryMedia() { return galleryMedia; }
+  public void galleryMedia(List<GalleryMediaDraft> value) { galleryMedia = value == null ? new ArrayList<>() : value; }
+  public void setGalleryMedia(List<GalleryMediaDraft> value) { galleryMedia(value); }
+
+  public record GalleryMediaDraft(
+      String fileUrl,
+      String thumbnailUrl,
+      String mediumUrl,
+      Integer width,
+      Integer height,
+      String mimeType,
+      String altText,
+      Integer sortOrder
+  ) {
+  }
 }

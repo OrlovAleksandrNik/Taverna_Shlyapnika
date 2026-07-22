@@ -1,6 +1,8 @@
 package by.taverna.shlyapnika.bot.telegram;
 
 import by.taverna.shlyapnika.bot.backend.BackendApiClient;
+import by.taverna.shlyapnika.bot.backend.BackendGalleryMediaRequest;
+import by.taverna.shlyapnika.bot.backend.BackendGalleryPostRequest;
 import by.taverna.shlyapnika.bot.backend.BackendGameRequest;
 import by.taverna.shlyapnika.bot.backend.BackendGameUpdateRequest;
 import by.taverna.shlyapnika.bot.backend.BackendMasterRequest;
@@ -121,8 +123,13 @@ public class TelegramPollingService {
     var chatId = message.path("chat").path("id").asLong();
     var from = message.path("from");
     var userId = from.path("id").asLong();
+    if (userId == 0) return;
+    if (message.hasNonNull("photo") || message.hasNonNull("document")) {
+      handleGalleryMediaMessage(chatId, userId, message);
+      return;
+    }
     var text = BotTextParser.clean(message.path("text").asText(""));
-    if (userId == 0 || text.isBlank()) return;
+    if (text.isBlank()) return;
 
     switch (text) {
       case "/cancel" -> {
@@ -133,6 +140,7 @@ public class TelegramPollingService {
       case "/register" -> beginRegistration(chatId, userId);
       case "/create_game" -> beginGameDraft(chatId, userId);
       case "/my_games" -> showMasterGames(chatId, userId);
+      case "/gallery" -> showGalleryMenu(chatId, userId);
       default -> handleStatefulText(chatId, userId, username(from), text);
     }
   }
@@ -150,6 +158,16 @@ public class TelegramPollingService {
       case "register" -> beginRegistration(chatId, userId);
       case "create_game" -> beginGameDraft(chatId, userId);
       case "my_games" -> showMasterGames(chatId, userId);
+      case "gallery_menu" -> showGalleryMenu(chatId, userId);
+      case "gallery_add_photo" -> beginGalleryPhoto(chatId, userId);
+      case "gallery_add_story" -> beginGalleryStory(chatId, userId);
+      case "gallery_posts" -> listGalleryPosts(chatId, userId);
+      case "gallery_media_done" -> finishGalleryMediaStep(chatId, userId);
+      case "gallery_story_add_media" -> beginGalleryStoryMedia(chatId, userId);
+      case "gallery_story_skip_media" -> askGalleryPublishMode(chatId, userId);
+      case "gallery_publish" -> previewGalleryPost(chatId, userId, "published");
+      case "gallery_draft" -> previewGalleryPost(chatId, userId, "draft");
+      case "gallery_confirm" -> createGalleryPostFromDraft(chatId, userId);
       case "cancel" -> {
         sessions.reset(userId);
         telegram.sendMessage(chatId, "Отменено.", mainMenu());
@@ -181,6 +199,14 @@ public class TelegramPollingService {
     }
     if (data.startsWith("edit_field:")) {
       beginEditField(chatId, userId, data);
+      return;
+    }
+    if (data.startsWith("gallery_category:")) {
+      setGalleryCategory(chatId, userId, data.substring("gallery_category:".length()));
+      return;
+    }
+    if (data.startsWith("gallery_set_")) {
+      setGalleryPostStatus(chatId, userId, data);
       return;
     }
     handleOptionCallback(chatId, userId, data);
@@ -274,6 +300,34 @@ public class TelegramPollingService {
     draft.contactUrl(master.contactUrl());
     sessions.save(userId, "create:title", draft);
     telegram.sendMessage(chatId, "Напишите название игры.", cancelKeyboard());
+  }
+
+  private void showGalleryMenu(long chatId, long userId) {
+    var master = requireActiveMaster(chatId, userId);
+    if (master == null) return;
+    telegram.sendMessage(chatId, "Галерея таверны: фотографии, истории и следы прошедших событий.", galleryMenuKeyboard());
+  }
+
+  private void beginGalleryPhoto(long chatId, long userId) {
+    if (requireActiveMaster(chatId, userId) == null) return;
+    var draft = new GameDraft();
+    draft.galleryType("photo");
+    sessions.save(userId, "gallery:photo:media", draft);
+    telegram.sendMessage(chatId, "Отправьте одну или несколько фотографий. Когда закончите, нажмите «Далее».", galleryMediaKeyboard());
+  }
+
+  private void beginGalleryStory(long chatId, long userId) {
+    if (requireActiveMaster(chatId, userId) == null) return;
+    var draft = new GameDraft();
+    draft.galleryType("story");
+    sessions.save(userId, "gallery:story:title", draft);
+    telegram.sendMessage(chatId, "Напишите название истории.", cancelKeyboard());
+  }
+
+  private void beginGalleryStoryMedia(long chatId, long userId) {
+    var draft = sessions.get(userId).draft();
+    sessions.save(userId, "gallery:story:media", draft);
+    telegram.sendMessage(chatId, "Отправьте фотографии для истории. Когда закончите, нажмите «Далее».", galleryMediaKeyboard());
   }
 
   private BackendMasterResponse requireActiveMaster(long chatId, long userId) {
@@ -373,6 +427,41 @@ public class TelegramPollingService {
           sessions.save(userId, "create:preview", draft);
           telegram.sendMessage(chatId, gamePreview(draft, master.contactUrl()), publishKeyboard());
         }
+        case "gallery:photo:title" -> {
+          draft.galleryTitle(BotTextParser.title(text));
+          sessions.save(userId, "gallery:photo:description", draft);
+          telegram.sendMessage(chatId, "Добавьте короткое описание публикации. Если описание не нужно, напишите «нет».", cancelKeyboard());
+        }
+        case "gallery:photo:description" -> {
+          draft.galleryDescription(optionalText(text, 700));
+          sessions.save(userId, "gallery:category", draft);
+          telegram.sendMessage(chatId, "Выберите категорию публикации.", galleryCategoryKeyboard());
+        }
+        case "gallery:story:title" -> {
+          draft.galleryTitle(BotTextParser.title(text));
+          sessions.save(userId, "gallery:story:content", draft);
+          telegram.sendMessage(chatId, "Напишите историю публикации. Можно использовать абзацы, цитаты и списки.", cancelKeyboard());
+        }
+        case "gallery:story:content" -> {
+          draft.galleryStoryContent(BotTextParser.shortText(text, "История", 20, 8000));
+          sessions.save(userId, "gallery:story:description", draft);
+          telegram.sendMessage(chatId, "Добавьте короткое описание. Если описание не нужно, напишите «нет».", cancelKeyboard());
+        }
+        case "gallery:story:description" -> {
+          draft.galleryDescription(optionalText(text, 700));
+          sessions.save(userId, "gallery:category", draft);
+          telegram.sendMessage(chatId, "Выберите категорию истории.", galleryCategoryKeyboard());
+        }
+        case "gallery:date" -> {
+          draft.galleryEventDate(optionalDate(text));
+          if ("story".equals(draft.galleryType())) {
+            sessions.save(userId, "gallery:story:media-choice", draft);
+            telegram.sendMessage(chatId, "Хотите добавить фотографии к истории?", galleryStoryMediaChoiceKeyboard());
+          } else {
+            sessions.save(userId, "gallery:publish", draft);
+            telegram.sendMessage(chatId, "Опубликовать сразу или сохранить как черновик?", galleryPublishKeyboard());
+          }
+        }
         default -> telegram.sendMessage(chatId, "Я вас слышу. Используйте меню или команды /register, /create_game и /my_games.", mainMenu());
       }
     } catch (IllegalArgumentException error) {
@@ -470,6 +559,128 @@ public class TelegramPollingService {
     telegram.sendMessage(chatId, "Игра обновлена.\n\n" + result.game().title() + "\n" + result.game().startsAtLabel(), mainMenu());
   }
 
+  private void handleGalleryMediaMessage(long chatId, long userId, JsonNode message) {
+    var session = sessions.get(userId);
+    if (!"gallery:photo:media".equals(session.state()) && !"gallery:story:media".equals(session.state())) return;
+    var master = requireActiveMaster(chatId, userId);
+    if (master == null) return;
+    var fileId = galleryFileId(message);
+    if (fileId == null) {
+      telegram.sendMessage(chatId, "Отправьте изображение как фото или документ JPEG, PNG или WEBP.", galleryMediaKeyboard());
+      return;
+    }
+    var telegramFile = telegram.downloadFile(fileId);
+    var draft = session.draft();
+    var media = draft.galleryMedia();
+    var uploaded = backend.uploadGalleryMedia(
+        telegramFile.bytes(),
+        telegramFile.filename(),
+        telegramFile.contentType(),
+        "gallery/telegram/" + userId,
+        draft.galleryTitle() == null ? "Галерея Таверны Шляпника" : draft.galleryTitle()
+    ).media();
+    media.add(new GameDraft.GalleryMediaDraft(
+        uploaded.fileUrl(),
+        uploaded.thumbnailUrl(),
+        uploaded.mediumUrl(),
+        uploaded.width(),
+        uploaded.height(),
+        uploaded.mimeType(),
+        uploaded.altText(),
+        media.size()
+    ));
+    draft.galleryMedia(media);
+    sessions.save(userId, session.state(), draft);
+    telegram.sendMessage(chatId, "Изображение добавлено. Сейчас в черновике: " + media.size() + ".", galleryMediaKeyboard());
+  }
+
+  private void finishGalleryMediaStep(long chatId, long userId) {
+    var session = sessions.get(userId);
+    var draft = session.draft();
+    if ("photo".equals(draft.galleryType()) && draft.galleryMedia().isEmpty()) {
+      telegram.sendMessage(chatId, "Для фотопубликации нужна хотя бы одна фотография.", galleryMediaKeyboard());
+      return;
+    }
+    if ("gallery:story:media".equals(session.state())) {
+      askGalleryPublishMode(chatId, userId);
+      return;
+    }
+    sessions.save(userId, "gallery:photo:title", draft);
+    telegram.sendMessage(chatId, "Напишите название публикации.", cancelKeyboard());
+  }
+
+  private void setGalleryCategory(long chatId, long userId, String category) {
+    var draft = sessions.get(userId).draft();
+    draft.galleryCategory(category);
+    sessions.save(userId, "gallery:date", draft);
+    telegram.sendMessage(chatId, "Укажите дату события в формате YYYY-MM-DD или напишите «нет».", cancelKeyboard());
+  }
+
+  private void askGalleryPublishMode(long chatId, long userId) {
+    var draft = sessions.get(userId).draft();
+    sessions.save(userId, "gallery:publish", draft);
+    telegram.sendMessage(chatId, "Опубликовать сразу или сохранить как черновик?", galleryPublishKeyboard());
+  }
+
+  private void previewGalleryPost(long chatId, long userId, String status) {
+    var draft = sessions.get(userId).draft();
+    sessions.save(userId, "gallery:confirm:" + status, draft);
+    telegram.sendMessage(chatId, galleryPreview(draft, status), galleryConfirmKeyboard());
+  }
+
+  private void createGalleryPostFromDraft(long chatId, long userId) {
+    var master = requireActiveMaster(chatId, userId);
+    if (master == null) return;
+    var session = sessions.get(userId);
+    var status = session.state().startsWith("gallery:confirm:") ? session.state().substring("gallery:confirm:".length()) : "draft";
+    var draft = session.draft();
+    var media = draft.galleryMedia().stream()
+        .map(item -> new BackendGalleryMediaRequest(item.fileUrl(), item.thumbnailUrl(), item.mediumUrl(), item.width(), item.height(), item.mimeType(), item.altText(), item.sortOrder()))
+        .toList();
+    var result = backend.createGalleryPost(master.id(), new BackendGalleryPostRequest(
+        draft.galleryType(),
+        draft.galleryTitle(),
+        draft.galleryDescription(),
+        draft.galleryStoryContent(),
+        draft.galleryCategory(),
+        draft.galleryEventDate(),
+        status,
+        media
+    ));
+    sessions.reset(userId);
+    var post = result.post();
+    var message = "published".equals(post.status()) ? "Публикация добавлена в галерею." : "Черновик публикации сохранён.";
+    telegram.sendMessage(chatId, message + "\n\n" + post.title(), galleryMenuKeyboard());
+  }
+
+  private void listGalleryPosts(long chatId, long userId) {
+    var master = requireActiveMaster(chatId, userId);
+    if (master == null) return;
+    var posts = backend.listGalleryPosts(master.id()).posts();
+    if (posts == null || posts.isEmpty()) {
+      telegram.sendMessage(chatId, "Публикаций пока нет.", galleryMenuKeyboard());
+      return;
+    }
+    for (var post : posts) {
+      var text = post.title() + "\nКатегория: " + post.category() + "\nСтатус: " + post.status() + "\nФотографий: " + post.mediaCount();
+      var rows = new ArrayList<List<Map<String, String>>>();
+      if (!"published".equals(post.status())) rows.add(row(button("Опубликовать", "gallery_set_published:" + post.id())));
+      if (!"hidden".equals(post.status())) rows.add(row(button("Скрыть", "gallery_set_hidden:" + post.id())));
+      if ("hidden".equals(post.status())) rows.add(row(button("Вернуть", "gallery_set_published:" + post.id())));
+      rows.add(row(button("Назад", "gallery_menu")));
+      telegram.sendMessage(chatId, text, keyboard(rows));
+    }
+  }
+
+  private void setGalleryPostStatus(long chatId, long userId, String data) {
+    var master = requireActiveMaster(chatId, userId);
+    if (master == null) return;
+    var parts = data.replace("gallery_set_", "").split(":", 2);
+    if (parts.length != 2) return;
+    var result = backend.setGalleryPostStatus(master.id(), parts[1], parts[0]);
+    telegram.sendMessage(chatId, "Статус публикации обновлён: " + result.post().status() + "\n\n" + result.post().title(), galleryMenuKeyboard());
+  }
+
   private String gamePreview(GameDraft draft, String profileContactUrl) {
     return String.join("\n",
         "Проверьте карточку игры:",
@@ -520,6 +731,47 @@ public class TelegramPollingService {
     return new BackendGameUpdateRequest(null, null, null, null, null, null, null, null, null, null, price.amount(), price.currency(), null);
   }
 
+  private String galleryFileId(JsonNode message) {
+    var photos = message.path("photo");
+    if (photos.isArray() && !photos.isEmpty()) return photos.get(photos.size() - 1).path("file_id").asText(null);
+    var document = message.path("document");
+    var mimeType = document.path("mime_type").asText("");
+    if (mimeType.startsWith("image/")) return document.path("file_id").asText(null);
+    return null;
+  }
+
+  private String optionalText(String text, int maxLength) {
+    var value = BotTextParser.clean(text);
+    if (value.isBlank() || "нет".equalsIgnoreCase(value)) return null;
+    return value.length() > maxLength ? value.substring(0, maxLength) : value;
+  }
+
+  private String optionalDate(String text) {
+    var value = BotTextParser.clean(text);
+    if (value.isBlank() || "нет".equalsIgnoreCase(value)) return null;
+    LocalDate.parse(value);
+    return value;
+  }
+
+  private String galleryPreview(GameDraft draft, String status) {
+    return String.join("\n",
+        "Проверьте публикацию галереи:",
+        "",
+        "Тип: " + ("story".equals(draft.galleryType()) ? "история" : "фотографии"),
+        "Название: " + draft.galleryTitle(),
+        "Категория: " + draft.galleryCategory(),
+        draft.galleryDescription() == null ? "" : "Описание: " + draft.galleryDescription(),
+        draft.galleryStoryContent() == null ? "" : "История: " + preview(draft.galleryStoryContent(), 700),
+        draft.galleryEventDate() == null ? "" : "Дата события: " + draft.galleryEventDate(),
+        "Фотографий: " + draft.galleryMedia().size(),
+        "Статус: " + status
+    );
+  }
+
+  private String preview(String value, int maxLength) {
+    return value.length() <= maxLength ? value : value.substring(0, maxLength) + "...";
+  }
+
   private Object startKeyboard() {
     return keyboard(List.of(row(button("Зарегистрироваться как мастер", "register"))));
   }
@@ -528,6 +780,53 @@ public class TelegramPollingService {
     return keyboard(List.of(
         row(button("Создать игру", "create_game")),
         row(button("Мои игры", "my_games")),
+        row(button("Галерея", "gallery_menu")),
+        row(button("Отмена", "cancel"))
+    ));
+  }
+
+  private Object galleryMenuKeyboard() {
+    return keyboard(List.of(
+        row(button("Добавить фотографии", "gallery_add_photo")),
+        row(button("Добавить историю", "gallery_add_story")),
+        row(button("Список публикаций", "gallery_posts")),
+        row(button("Назад", "menu"))
+    ));
+  }
+
+  private Object galleryMediaKeyboard() {
+    return keyboard(List.of(
+        row(button("Далее", "gallery_media_done")),
+        row(button("Отмена", "cancel"))
+    ));
+  }
+
+  private Object galleryCategoryKeyboard() {
+    return keyboard(List.of(
+        row(button("Игры", "gallery_category:games"), button("События", "gallery_category:events")),
+        row(button("Герои", "gallery_category:heroes"), button("Таверна", "gallery_category:tavern")),
+        row(button("Миниатюры", "gallery_category:miniatures"), button("Другое", "gallery_category:other")),
+        row(button("Отмена", "cancel"))
+    ));
+  }
+
+  private Object galleryPublishKeyboard() {
+    return keyboard(List.of(
+        row(button("Опубликовать", "gallery_publish"), button("Сохранить черновик", "gallery_draft")),
+        row(button("Отмена", "cancel"))
+    ));
+  }
+
+  private Object galleryStoryMediaChoiceKeyboard() {
+    return keyboard(List.of(
+        row(button("Добавить фото", "gallery_story_add_media"), button("Без фото", "gallery_story_skip_media")),
+        row(button("Отмена", "cancel"))
+    ));
+  }
+
+  private Object galleryConfirmKeyboard() {
+    return keyboard(List.of(
+        row(button("Подтвердить", "gallery_confirm")),
         row(button("Отмена", "cancel"))
     ));
   }

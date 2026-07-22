@@ -3,12 +3,14 @@ package by.taverna.shlyapnika.bot.backend;
 import by.taverna.shlyapnika.bot.config.BotProperties;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.ByteArrayOutputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -154,6 +156,66 @@ public class BackendApiClient {
     }
   }
 
+  public BackendGalleryPostResponse.PostsResponse listGalleryPosts(String masterId) {
+    try {
+      var request = baseRequest("/api/internal/masters/" + masterId + "/gallery-posts").GET().build();
+      var response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+      ensureSuccess(response, "list gallery posts");
+      return mapper.readValue(response.body(), BackendGalleryPostResponse.PostsResponse.class);
+    } catch (Exception error) {
+      log.warn("Backend gallery posts lookup failed masterId={}", masterId, error);
+      throw new IllegalStateException("Не удалось загрузить публикации галереи. Попробуйте немного позже.");
+    }
+  }
+
+  public BackendGalleryPostResponse createGalleryPost(String masterId, BackendGalleryPostRequest body) {
+    try {
+      var request = baseRequest("/api/internal/masters/" + masterId + "/gallery-posts")
+          .header("Content-Type", "application/json")
+          .POST(HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(body), StandardCharsets.UTF_8))
+          .build();
+      var response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+      ensureSuccess(response, "create gallery post");
+      return mapper.readValue(response.body(), BackendGalleryPostResponse.class);
+    } catch (Exception error) {
+      log.warn("Backend gallery post creation failed masterId={}", masterId, error);
+      throw new IllegalStateException("Не удалось сохранить публикацию галереи. Проверьте данные или попробуйте позже.");
+    }
+  }
+
+  public BackendGalleryPostResponse setGalleryPostStatus(String masterId, String postId, String status) {
+    try {
+      var body = java.util.Map.of("status", status);
+      var request = baseRequest("/api/internal/masters/" + masterId + "/gallery-posts/" + postId + "/status")
+          .header("Content-Type", "application/json")
+          .method("PATCH", HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(body), StandardCharsets.UTF_8))
+          .build();
+      var response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+      ensureSuccess(response, "set gallery post status");
+      return mapper.readValue(response.body(), BackendGalleryPostResponse.class);
+    } catch (Exception error) {
+      log.warn("Backend gallery post status update failed masterId={} postId={}", masterId, postId, error);
+      throw new IllegalStateException("Не удалось изменить статус публикации галереи. Попробуйте немного позже.");
+    }
+  }
+
+  public BackendStoredMediaResponse uploadGalleryMedia(byte[] bytes, String filename, String contentType, String namespace, String altText) {
+    try {
+      var boundary = "----taverna-" + UUID.randomUUID().toString().replace("-", "");
+      var payload = multipart(boundary, bytes, filename, contentType, namespace, altText);
+      var request = baseRequest("/api/internal/media/gallery")
+          .header("Content-Type", "multipart/form-data; boundary=" + boundary)
+          .POST(HttpRequest.BodyPublishers.ofByteArray(payload))
+          .build();
+      var response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+      ensureSuccess(response, "upload gallery media");
+      return mapper.readValue(response.body(), BackendStoredMediaResponse.class);
+    } catch (Exception error) {
+      log.warn("Backend gallery media upload failed", error);
+      throw new IllegalStateException("Не удалось сохранить изображение галереи. Попробуйте другое изображение или немного позже.");
+    }
+  }
+
   private HttpRequest.Builder baseRequest(String path) {
     return HttpRequest.newBuilder()
         .uri(URI.create(normalizeBaseUrl(properties.backendUrl()) + path))
@@ -183,5 +245,29 @@ public class BackendApiClient {
 
   private String encode(String value) {
     return java.net.URLEncoder.encode(value, StandardCharsets.UTF_8);
+  }
+
+  private byte[] multipart(String boundary, byte[] fileBytes, String filename, String contentType, String namespace, String altText) throws Exception {
+    var output = new ByteArrayOutputStream();
+    writePart(output, boundary, "namespace", namespace == null ? "gallery" : namespace);
+    if (altText != null && !altText.isBlank()) writePart(output, boundary, "altText", altText);
+    output.write(("--" + boundary + "\r\n").getBytes(StandardCharsets.UTF_8));
+    output.write(("Content-Disposition: form-data; name=\"file\"; filename=\"" + safeFilename(filename) + "\"\r\n").getBytes(StandardCharsets.UTF_8));
+    output.write(("Content-Type: " + (contentType == null || contentType.isBlank() ? "application/octet-stream" : contentType) + "\r\n\r\n").getBytes(StandardCharsets.UTF_8));
+    output.write(fileBytes);
+    output.write(("\r\n--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
+    return output.toByteArray();
+  }
+
+  private void writePart(ByteArrayOutputStream output, String boundary, String name, String value) throws Exception {
+    output.write(("--" + boundary + "\r\n").getBytes(StandardCharsets.UTF_8));
+    output.write(("Content-Disposition: form-data; name=\"" + name + "\"\r\n\r\n").getBytes(StandardCharsets.UTF_8));
+    output.write(value.getBytes(StandardCharsets.UTF_8));
+    output.write("\r\n".getBytes(StandardCharsets.UTF_8));
+  }
+
+  private String safeFilename(String value) {
+    var filename = value == null || value.isBlank() ? "telegram-image" : value;
+    return filename.replaceAll("[\\\\/\\r\\n\"]", "_");
   }
 }

@@ -69,6 +69,32 @@ public class TelegramApiClient {
     }
   }
 
+  public TelegramFile downloadFile(String fileId) {
+    try {
+      var fileInfoRequest = HttpRequest.newBuilder()
+          .uri(apiUri("getFile?file_id=" + encode(fileId)))
+          .timeout(Duration.ofSeconds(10))
+          .GET()
+          .build();
+      var fileInfoResponse = httpClient.send(fileInfoRequest, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+      if (fileInfoResponse.statusCode() >= 400) throw new IllegalStateException("Telegram getFile failed with status " + fileInfoResponse.statusCode());
+      var filePath = mapper.readTree(fileInfoResponse.body()).path("result").path("file_path").asText("");
+      if (filePath.isBlank()) throw new IllegalStateException("Telegram did not return file_path");
+
+      var downloadRequest = HttpRequest.newBuilder()
+          .uri(URI.create("https://api.telegram.org/file/bot" + properties.token() + "/" + filePath))
+          .timeout(Duration.ofSeconds(30))
+          .GET()
+          .build();
+      var downloadResponse = httpClient.send(downloadRequest, HttpResponse.BodyHandlers.ofByteArray());
+      if (downloadResponse.statusCode() >= 400) throw new IllegalStateException("Telegram file download failed with status " + downloadResponse.statusCode());
+      return new TelegramFile(downloadResponse.body(), filename(filePath), contentType(filePath));
+    } catch (Exception error) {
+      log.warn("Telegram file download failed fileId={}", fileId, error);
+      throw new IllegalStateException("Не удалось скачать файл из Telegram. Попробуйте отправить изображение ещё раз.");
+    }
+  }
+
   public void deleteWebhook() {
     try {
       var request = HttpRequest.newBuilder()
@@ -89,6 +115,22 @@ public class TelegramApiClient {
 
   private String encode(String value) {
     return URLEncoder.encode(value, StandardCharsets.UTF_8);
+  }
+
+  private String filename(String filePath) {
+    var index = filePath.lastIndexOf('/');
+    return index < 0 ? filePath : filePath.substring(index + 1);
+  }
+
+  private String contentType(String filePath) {
+    var lower = filePath.toLowerCase();
+    if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
+    if (lower.endsWith(".png")) return "image/png";
+    if (lower.endsWith(".webp")) return "image/webp";
+    return "application/octet-stream";
+  }
+
+  public record TelegramFile(byte[] bytes, String filename, String contentType) {
   }
 
 }
