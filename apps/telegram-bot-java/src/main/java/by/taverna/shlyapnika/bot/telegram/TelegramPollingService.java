@@ -13,6 +13,7 @@ import by.taverna.shlyapnika.bot.config.BotProperties;
 import by.taverna.shlyapnika.bot.health.BotStatus;
 import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.annotation.PreDestroy;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -227,7 +228,15 @@ public class TelegramPollingService {
       setGalleryPostStatus(chatId, userId, data);
       return;
     }
-    if (data.startsWith("rating_game:") || data.startsWith("rating_points:") || data.startsWith("rating_insp:") || data.startsWith("rating_vis:")) {
+    if (data.startsWith("rating_player:")
+        || data.startsWith("rating_pts:")
+        || data.startsWith("rating_ins:")
+        || data.startsWith("rating_points_manual:")
+        || data.startsWith("rating_insp_manual:")
+        || data.startsWith("rating_game:")
+        || data.startsWith("rating_points:")
+        || data.startsWith("rating_insp:")
+        || data.startsWith("rating_vis:")) {
       handleRatingPlayerCallback(chatId, userId, data);
       return;
     }
@@ -500,7 +509,7 @@ public class TelegramPollingService {
           if (requireRatingAdmin(chatId, userId) == null) return;
           draft.ratingDisplayName(BotTextParser.title(text));
           sessions.save(userId, "rating:create:nickname", draft);
-          telegram.sendMessage(chatId, "Укажите игровой псевдоним игрока или напишите «нет».", cancelKeyboard());
+          telegram.sendMessage(chatId, "Введите имя персонажа. Если персонажа пока нет, напишите «нет».", cancelKeyboard());
         }
         case "rating:create:nickname" -> {
           var master = requireRatingAdmin(chatId, userId);
@@ -514,7 +523,7 @@ public class TelegramPollingService {
               "rating:create:" + userId + ":" + draft.ratingDisplayName().toLowerCase()
           )).player();
           sessions.reset(userId);
-          telegram.sendMessage(chatId, "Игрок добавлен в рейтинг: " + player.displayName() + (player.nickname() == null ? "" : " (" + player.nickname() + ")."), ratingMenuKeyboard());
+          showRatingMenu(chatId, userId, "Игрок добавлен: " + player.displayName() + (player.nickname() == null ? "" : " — " + player.nickname()) + ".");
         }
         default -> telegram.sendMessage(chatId, "Я вас слышу. Используйте меню или команды /register, /create_game и /my_games.", mainMenu());
       }
@@ -746,27 +755,24 @@ public class TelegramPollingService {
   }
 
   private void showRatingMenu(long chatId, long userId) {
+    showRatingMenu(chatId, userId, null);
+  }
+
+  private void showRatingMenu(long chatId, long userId, String notice) {
     var master = requireRatingAdmin(chatId, userId);
     if (master == null) return;
     var players = backend.listRatingPlayers(master.id(), true).players();
-    telegram.sendMessage(chatId, "Рейтинг игроков\n\nИгроков в базе: " + (players == null ? 0 : players.size()) + "\nВсе изменения сохраняются в Java backend.", ratingMenuKeyboard());
+    telegram.sendMessage(chatId, ratingOverviewText(players, notice), ratingOverviewKeyboard(players));
   }
 
   private void beginRatingPlayer(long chatId, long userId) {
     if (requireRatingAdmin(chatId, userId) == null) return;
     sessions.save(userId, "rating:create:name", new GameDraft());
-    telegram.sendMessage(chatId, "Введите публичное имя игрока для рейтинга.", cancelKeyboard());
+    telegram.sendMessage(chatId, "Введите имя игрока.", cancelKeyboard());
   }
 
   private void showRatingPlayers(long chatId, long userId) {
-    var master = requireRatingAdmin(chatId, userId);
-    if (master == null) return;
-    var players = backend.listRatingPlayers(master.id(), true).players();
-    if (players == null || players.isEmpty()) {
-      telegram.sendMessage(chatId, "В рейтинге пока нет игроков.", ratingMenuKeyboard());
-      return;
-    }
-    telegram.sendMessage(chatId, String.join("\n", players.stream().map(this::ratingPlayerLine).toList()), ratingMenuKeyboard());
+    showRatingMenu(chatId, userId);
   }
 
   private void showRatingHistory(long chatId, long userId) {
@@ -774,7 +780,10 @@ public class TelegramPollingService {
     if (master == null) return;
     var events = backend.listRatingHistory(master.id(), 10).events();
     if (events == null || events.isEmpty()) {
-      telegram.sendMessage(chatId, "История рейтинга пока пустая.", ratingMenuKeyboard());
+      telegram.sendMessage(chatId, "История рейтинга пока пустая.", keyboard(List.of(
+          row(button("Назад к рейтингу", "rating_menu")),
+          row(button("Главное меню", "menu"))
+      )));
       return;
     }
     var lines = events.stream().map(event -> {
@@ -784,7 +793,10 @@ public class TelegramPollingService {
       if (event.inspirationDelta() != 0) deltas.add(signed(event.inspirationDelta()) + " вдохн.");
       return event.displayName() + " · " + (deltas.isEmpty() ? event.type() : String.join(", ", deltas)) + " · " + event.reason();
     }).toList();
-    telegram.sendMessage(chatId, "Последние операции рейтинга:\n\n" + String.join("\n", lines), ratingMenuKeyboard());
+    telegram.sendMessage(chatId, "Последние операции рейтинга:\n\n" + String.join("\n", lines), keyboard(List.of(
+        row(button("Назад к рейтингу", "rating_menu")),
+        row(button("Главное меню", "menu"))
+    )));
   }
 
   private void selectRatingPlayer(long chatId, long userId, String action) {
@@ -792,7 +804,7 @@ public class TelegramPollingService {
     if (master == null) return;
     var players = backend.listRatingPlayers(master.id(), "visibility".equals(action)).players();
     if (players == null || players.isEmpty()) {
-      telegram.sendMessage(chatId, "Сначала добавьте игрока в рейтинг.", ratingMenuKeyboard());
+      telegram.sendMessage(chatId, "Сначала добавьте игрока в рейтинг.", ratingOverviewKeyboard(players));
       return;
     }
     var prefix = switch (action) {
@@ -810,6 +822,30 @@ public class TelegramPollingService {
   }
 
   private void handleRatingPlayerCallback(long chatId, long userId, String data) {
+    if (data.startsWith("rating_player:")) {
+      showRatingPlayerActions(chatId, userId, data.substring("rating_player:".length()), null);
+      return;
+    }
+    if (data.startsWith("rating_pts:")) {
+      adjustRatingPointsQuick(chatId, userId, data);
+      return;
+    }
+    if (data.startsWith("rating_ins:")) {
+      adjustRatingInspirationQuick(chatId, userId, data);
+      return;
+    }
+    if (data.startsWith("rating_points_manual:")) {
+      if (requireRatingAdmin(chatId, userId) == null) return;
+      sessions.save(userId, "rating:points:" + data.substring("rating_points_manual:".length()), new GameDraft());
+      telegram.sendMessage(chatId, "Введите изменение очков: +5; причина или -5; причина.", cancelKeyboard());
+      return;
+    }
+    if (data.startsWith("rating_insp_manual:")) {
+      if (requireRatingAdmin(chatId, userId) == null) return;
+      sessions.save(userId, "rating:inspiration:" + data.substring("rating_insp_manual:".length()), new GameDraft());
+      telegram.sendMessage(chatId, "Введите изменение вдохновения: +1; причина или -1; причина.", cancelKeyboard());
+      return;
+    }
     if (data.startsWith("rating_vis:")) {
       toggleRatingVisibility(chatId, userId, data.substring("rating_vis:".length()));
       return;
@@ -845,7 +881,7 @@ public class TelegramPollingService {
         "rating:game:" + userId + ":" + playerId + ":" + parts[1].toLowerCase()
     ));
     sessions.reset(userId);
-    telegram.sendMessage(chatId, "Сыгранная игра добавлена. Рейтинг пересчитан.", ratingMenuKeyboard());
+    showRatingPlayerActions(chatId, userId, playerId, "Сыгранная игра добавлена. Рейтинг пересчитан.");
   }
 
   private void adjustRatingPoints(long chatId, long userId, String state, String text) {
@@ -857,7 +893,7 @@ public class TelegramPollingService {
     var playerId = state.split(":", 3)[2];
     backend.adjustRatingPoints(master.id(), new BackendRatingRequests.PointsAdjustment(playerId, delta, parts[1], userId, "rating:points:" + userId + ":" + playerId + ":" + delta + ":" + parts[1].toLowerCase()));
     sessions.reset(userId);
-    telegram.sendMessage(chatId, "Очки сохранены. Рейтинг пересчитан.", ratingMenuKeyboard());
+    showRatingPlayerActions(chatId, userId, playerId, "Очки сохранены. Рейтинг пересчитан.");
   }
 
   private void adjustRatingInspiration(long chatId, long userId, String state, String text) {
@@ -869,7 +905,7 @@ public class TelegramPollingService {
     var playerId = state.split(":", 3)[2];
     backend.adjustRatingInspiration(master.id(), new BackendRatingRequests.InspirationAdjustment(playerId, delta, parts[1], userId, "rating:inspiration:" + userId + ":" + playerId + ":" + delta + ":" + parts[1].toLowerCase()));
     sessions.reset(userId);
-    telegram.sendMessage(chatId, "Вдохновение сохранено. Рейтинг пересчитан.", ratingMenuKeyboard());
+    showRatingPlayerActions(chatId, userId, playerId, "Вдохновение сохранено. Рейтинг пересчитан.");
   }
 
   private void toggleRatingVisibility(long chatId, long userId, String playerId) {
@@ -878,13 +914,13 @@ public class TelegramPollingService {
     var players = backend.listRatingPlayers(master.id(), true).players();
     var player = players == null ? null : players.stream().filter(item -> item.id().equals(playerId)).findFirst().orElse(null);
     if (player == null) {
-      telegram.sendMessage(chatId, "Игрок не найден.", ratingMenuKeyboard());
+      telegram.sendMessage(chatId, "Игрок не найден.", ratingOverviewKeyboard(players));
       return;
     }
     var visible = !player.isVisible();
     var reason = visible ? "Игрок возвращён в публичный рейтинг через Telegram-бот." : "Игрок скрыт из публичного рейтинга через Telegram-бот.";
     backend.setRatingPlayerVisibility(master.id(), new BackendRatingRequests.Visibility(playerId, visible, reason, userId, "rating:visibility:" + userId + ":" + playerId + ":" + visible));
-    telegram.sendMessage(chatId, visible ? "Игрок снова отображается в публичном рейтинге." : "Игрок скрыт из публичного рейтинга.", ratingMenuKeyboard());
+    showRatingPlayerActions(chatId, userId, playerId, visible ? "Игрок снова отображается в публичном рейтинге." : "Игрок скрыт из публичного рейтинга.");
   }
 
   private String gamePreview(GameDraft draft, String profileContactUrl) {
@@ -987,6 +1023,133 @@ public class TelegramPollingService {
         + ", вдохн. " + player.inspirationCount() + hidden;
   }
 
+  private String ratingOverviewText(List<PlayerDto> players, String notice) {
+    var lines = new ArrayList<String>();
+    if (notice != null && !notice.isBlank()) {
+      lines.add(notice);
+      lines.add("");
+    }
+    lines.add("Рейтинг игроков");
+    lines.add("");
+    if (players == null || players.isEmpty()) {
+      lines.add("Пока пусто. Добавьте первого игрока.");
+      return String.join("\n", lines);
+    }
+    lines.add("Нажмите на имя, чтобы добавить или убрать баллы.");
+    lines.add("");
+    for (var player : players.stream().limit(12).toList()) {
+      lines.add(ratingPlayerLine(player));
+    }
+    if (players.size() > 12) {
+      lines.add("...");
+      lines.add("Показаны первые 12 игроков.");
+    }
+    return String.join("\n", lines);
+  }
+
+  private Object ratingOverviewKeyboard(List<PlayerDto> players) {
+    var rows = new ArrayList<List<Map<String, String>>>();
+    if (players != null && !players.isEmpty()) {
+      for (var player : players.stream().limit(12).toList()) {
+        rows.add(row(button(ratingPlayerButtonLabel(player), "rating_player:" + player.id())));
+      }
+    }
+    rows.add(row(button("Добавить игрока", "rating_create_player")));
+    rows.add(row(button("История", "rating_history"), button("Главное меню", "menu")));
+    return keyboard(rows);
+  }
+
+  private String ratingPlayerButtonLabel(PlayerDto player) {
+    var rank = player.rank() == 0 ? "-" : String.valueOf(player.rank());
+    var character = player.nickname() == null ? "" : " / " + player.nickname();
+    var hidden = player.isVisible() ? "" : " · скрыт";
+    var label = rank + ". " + player.displayName() + character + " · " + player.totalPoints() + " очк." + hidden;
+    return label.length() <= 60 ? label : label.substring(0, 57) + "...";
+  }
+
+  private void showRatingPlayerActions(long chatId, long userId, String playerId, String notice) {
+    var master = requireRatingAdmin(chatId, userId);
+    if (master == null) return;
+    var player = findRatingPlayer(master.id(), playerId);
+    if (player == null) {
+      telegram.sendMessage(chatId, "Игрок не найден.", ratingOverviewKeyboard(backend.listRatingPlayers(master.id(), true).players()));
+      return;
+    }
+    var lines = new ArrayList<String>();
+    if (notice != null && !notice.isBlank()) {
+      lines.add(notice);
+      lines.add("");
+    }
+    lines.add(player.displayName());
+    if (player.nickname() != null) {
+      lines.add("Персонаж: " + player.nickname());
+    }
+    lines.add("Очки: " + player.totalPoints() + " · Вдохновение: " + player.inspirationCount() + " · Игр: " + player.gamesPlayed());
+    if (!player.isVisible()) {
+      lines.add("Статус: скрыт из публичного рейтинга.");
+    }
+    lines.add("");
+    lines.add("Выберите действие.");
+    telegram.sendMessage(chatId, String.join("\n", lines), ratingPlayerActionsKeyboard(player));
+  }
+
+  private Object ratingPlayerActionsKeyboard(PlayerDto player) {
+    return keyboard(List.of(
+        row(button("+1 очко", "rating_pts:" + player.id() + ":+1"), button("+5 очков", "rating_pts:" + player.id() + ":+5")),
+        row(button("-1 очко", "rating_pts:" + player.id() + ":-1"), button("-5 очков", "rating_pts:" + player.id() + ":-5")),
+        row(button("+1 вдохн.", "rating_ins:" + player.id() + ":+1"), button("-1 вдохн.", "rating_ins:" + player.id() + ":-1")),
+        row(button("Очки вручную", "rating_points_manual:" + player.id()), button("Вдохн. вручную", "rating_insp_manual:" + player.id())),
+        row(button("Сыгранная игра", "rating_game:" + player.id()), button(player.isVisible() ? "Скрыть" : "Вернуть", "rating_vis:" + player.id())),
+        row(button("Назад к рейтингу", "rating_menu"))
+    ));
+  }
+
+  private PlayerDto findRatingPlayer(String masterId, String playerId) {
+    var players = backend.listRatingPlayers(masterId, true).players();
+    return players == null ? null : players.stream().filter(item -> item.id().equals(playerId)).findFirst().orElse(null);
+  }
+
+  private void adjustRatingPointsQuick(long chatId, long userId, String data) {
+    var master = requireRatingAdmin(chatId, userId);
+    if (master == null) return;
+    var parsed = parseRatingDelta(data, "rating_pts:");
+    if (parsed == null) return;
+    backend.adjustRatingPoints(master.id(), new BackendRatingRequests.PointsAdjustment(
+        parsed.playerId(),
+        parsed.delta(),
+        "Быстрое изменение через Telegram-бот.",
+        userId,
+        "rating:quick:points:" + userId + ":" + parsed.playerId() + ":" + parsed.delta() + ":" + Instant.now().toEpochMilli()
+    ));
+    showRatingPlayerActions(chatId, userId, parsed.playerId(), "Готово: " + signed(parsed.delta()) + " очк.");
+  }
+
+  private void adjustRatingInspirationQuick(long chatId, long userId, String data) {
+    var master = requireRatingAdmin(chatId, userId);
+    if (master == null) return;
+    var parsed = parseRatingDelta(data, "rating_ins:");
+    if (parsed == null) return;
+    backend.adjustRatingInspiration(master.id(), new BackendRatingRequests.InspirationAdjustment(
+        parsed.playerId(),
+        parsed.delta(),
+        "Быстрое изменение через Telegram-бот.",
+        userId,
+        "rating:quick:inspiration:" + userId + ":" + parsed.playerId() + ":" + parsed.delta() + ":" + Instant.now().toEpochMilli()
+    ));
+    showRatingPlayerActions(chatId, userId, parsed.playerId(), "Готово: " + signed(parsed.delta()) + " вдохн.");
+  }
+
+  private RatingDelta parseRatingDelta(String data, String prefix) {
+    var parts = data.substring(prefix.length()).split(":", 2);
+    if (parts.length != 2) return null;
+    var delta = parseSignedInteger(parts[1]);
+    if (delta == null || delta == 0) return null;
+    return new RatingDelta(parts[0], delta);
+  }
+
+  private record RatingDelta(String playerId, int delta) {
+  }
+
   private String[] splitSemicolon(String text) {
     var raw = text.split(";", -1);
     var result = new String[] {"", "", "", ""};
@@ -1069,8 +1232,6 @@ public class TelegramPollingService {
   private Object ratingMenuKeyboard() {
     return keyboard(List.of(
         row(button("Добавить игрока", "rating_create_player")),
-        row(button("Сыгранная игра", "rating_add_game"), button("Очки", "rating_adjust_points")),
-        row(button("Вдохновение", "rating_adjust_inspiration"), button("Скрыть/вернуть", "rating_visibility")),
         row(button("Список игроков", "rating_players"), button("История", "rating_history")),
         row(button("Главное меню", "menu"))
     ));
