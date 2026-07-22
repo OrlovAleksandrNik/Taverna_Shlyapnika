@@ -8,7 +8,7 @@ const normalizeUrl = (fallback: string) =>
     }
 
     const trimmed = value.trim();
-    if (!trimmed || trimmed.includes("${{") || trimmed === "https://") {
+    if (!trimmed || trimmed.includes("${{") || trimmed === "https://" || trimmed.startsWith("https:///") || trimmed.startsWith("http:///")) {
       return fallback;
     }
 
