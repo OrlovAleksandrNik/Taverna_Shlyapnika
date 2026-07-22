@@ -43,6 +43,8 @@ taverna:
   cors-allowed-origins: ${CORS_ALLOWED_ORIGINS:${SITE_ORIGINS:http://localhost:4177}}
   internal-api-token: ${BOT_BACKEND_SECRET:${INTERNAL_API_TOKEN:change-me-local-token}}
   auto-publish: ${AUTO_PUBLISH:true}
+  serve-frontend: ${SERVE_FRONTEND:false}
+  frontend-static-dir: ${FRONTEND_STATIC_DIR:static-site}
   telegram:
     bot-token: ${TELEGRAM_BOT_TOKEN:}
     admin-ids: ${ADMIN_TELEGRAM_IDS:}

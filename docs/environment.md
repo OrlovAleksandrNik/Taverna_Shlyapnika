@@ -28,6 +28,8 @@
 
 - `FILE_STORAGE_DIR` — локальный каталог загрузок.
 - `PUBLIC_UPLOADS_URL` — публичный URL для изображений.
+- `SERVE_FRONTEND` — если `true`, Java backend отдаёт статический сайт.
+- `FRONTEND_STATIC_DIR` — каталог HTML/CSS/JS для отдачи через Java backend.
 
 ## Юридические и контактные placeholders
 

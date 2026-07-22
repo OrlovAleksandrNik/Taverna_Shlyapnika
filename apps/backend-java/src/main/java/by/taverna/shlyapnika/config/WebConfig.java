@@ -29,5 +29,13 @@ public class WebConfig implements WebMvcConfigurer {
     registry.addResourceHandler("/uploads/**")
         .addResourceLocations(uploads.toUri().toString())
         .setCachePeriod(30 * 24 * 60 * 60);
+
+    if (properties.serveFrontend()) {
+      var frontend = Path.of(properties.frontendStaticDir()).toAbsolutePath().normalize();
+      // API routes are handled by controllers first; this handler is only the static site fallback.
+      registry.addResourceHandler("/**")
+          .addResourceLocations(frontend.toUri().toString())
+          .setCachePeriod(60);
+    }
   }
 }

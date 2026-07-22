@@ -94,6 +94,8 @@ PUBLIC_UPLOADS_URL=http://localhost:8080/uploads
 FILE_STORAGE_DIR=uploads
 TAVERN_TIMEZONE=Europe/Minsk
 AUTO_PUBLISH=true
+SERVE_FRONTEND=false
+FRONTEND_STATIC_DIR=static-site
 ```
 
 `DATABASE_URL` совместим с Railway/Postgres URL. Для явного JDBC URL можно использовать `DATABASE_JDBC_URL`.
@@ -107,6 +109,8 @@ AUTO_PUBLISH=true
 3. Использовать Dockerfile из этой папки.
 4. Подключить тот же PostgreSQL service, что использует текущий backend.
 5. Добавить переменные окружения без секретов в коде: `DATABASE_URL`, `BOT_BACKEND_SECRET`, `SITE_BASE_URL`, `CORS_ALLOWED_ORIGINS`, `PUBLIC_UPLOADS_URL`, `FILE_STORAGE_DIR`, `TAVERN_TIMEZONE`.
+
+Если Java backend должен отдавать не только API, но и сам сайт, включите `SERVE_FRONTEND=true` и укажите каталог статических файлов через `FRONTEND_STATIC_DIR`.
 
 Проверка после запуска:
 

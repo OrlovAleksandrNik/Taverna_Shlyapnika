@@ -17,6 +17,8 @@ public record TavernaProperties(
     String corsAllowedOrigins,
     @NotBlank String internalApiToken,
     boolean autoPublish,
+    boolean serveFrontend,
+    @NotBlank String frontendStaticDir,
     Telegram telegram
 ) {
   public List<String> allowedOrigins() {
