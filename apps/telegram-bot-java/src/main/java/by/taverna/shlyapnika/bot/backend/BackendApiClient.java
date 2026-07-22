@@ -216,6 +216,50 @@ public class BackendApiClient {
     }
   }
 
+  public BackendRatingResponses.PlayersResponse listRatingPlayers(String masterId, boolean includeHidden) {
+    try {
+      var request = baseRequest("/api/internal/masters/" + masterId + "/rating/players?includeHidden=" + includeHidden).GET().build();
+      var response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+      ensureSuccess(response, "list rating players");
+      return mapper.readValue(response.body(), BackendRatingResponses.PlayersResponse.class);
+    } catch (Exception error) {
+      log.warn("Backend rating players lookup failed masterId={}", masterId, error);
+      throw new IllegalStateException("Не удалось загрузить рейтинг. Попробуйте немного позже.");
+    }
+  }
+
+  public BackendRatingResponses.HistoryResponse listRatingHistory(String masterId, int limit) {
+    try {
+      var request = baseRequest("/api/internal/masters/" + masterId + "/rating/history?limit=" + limit).GET().build();
+      var response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+      ensureSuccess(response, "list rating history");
+      return mapper.readValue(response.body(), BackendRatingResponses.HistoryResponse.class);
+    } catch (Exception error) {
+      log.warn("Backend rating history lookup failed masterId={}", masterId, error);
+      throw new IllegalStateException("Не удалось загрузить историю рейтинга. Попробуйте немного позже.");
+    }
+  }
+
+  public BackendRatingResponses.PlayerResponse createRatingPlayer(String masterId, BackendRatingRequests.CreatePlayer body) {
+    return postRating(masterId, "/rating/players", body, BackendRatingResponses.PlayerResponse.class, "create rating player");
+  }
+
+  public BackendRatingResponses.MutationResponse addRatingGameResult(String masterId, BackendRatingRequests.GameResult body) {
+    return postRating(masterId, "/rating/game-results", body, BackendRatingResponses.MutationResponse.class, "add rating game result");
+  }
+
+  public BackendRatingResponses.MutationResponse adjustRatingPoints(String masterId, BackendRatingRequests.PointsAdjustment body) {
+    return postRating(masterId, "/rating/points", body, BackendRatingResponses.MutationResponse.class, "adjust rating points");
+  }
+
+  public BackendRatingResponses.MutationResponse adjustRatingInspiration(String masterId, BackendRatingRequests.InspirationAdjustment body) {
+    return postRating(masterId, "/rating/inspiration", body, BackendRatingResponses.MutationResponse.class, "adjust rating inspiration");
+  }
+
+  public BackendRatingResponses.MutationResponse setRatingPlayerVisibility(String masterId, BackendRatingRequests.Visibility body) {
+    return postRating(masterId, "/rating/visibility", body, BackendRatingResponses.MutationResponse.class, "set rating visibility");
+  }
+
   private HttpRequest.Builder baseRequest(String path) {
     return HttpRequest.newBuilder()
         .uri(URI.create(normalizeBaseUrl(properties.backendUrl()) + path))
@@ -245,6 +289,21 @@ public class BackendApiClient {
 
   private String encode(String value) {
     return java.net.URLEncoder.encode(value, StandardCharsets.UTF_8);
+  }
+
+  private <T> T postRating(String masterId, String path, Object body, Class<T> responseType, String action) {
+    try {
+      var request = baseRequest("/api/internal/masters/" + masterId + path)
+          .header("Content-Type", "application/json")
+          .POST(HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(body), StandardCharsets.UTF_8))
+          .build();
+      var response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+      ensureSuccess(response, action);
+      return mapper.readValue(response.body(), responseType);
+    } catch (Exception error) {
+      log.warn("Backend rating action failed action={} masterId={}", action, masterId, error);
+      throw new IllegalStateException("Не удалось сохранить изменение рейтинга. Проверьте данные или попробуйте позже.");
+    }
   }
 
   private byte[] multipart(String boundary, byte[] fileBytes, String filename, String contentType, String namespace, String altText) throws Exception {

@@ -27,6 +27,7 @@ public class GameDraft {
   private String galleryCategory;
   private String galleryEventDate;
   private List<GalleryMediaDraft> galleryMedia = new ArrayList<>();
+  private String ratingDisplayName;
 
   public String displayName() { return displayName; }
   public String getDisplayName() { return displayName; }
@@ -116,6 +117,10 @@ public class GameDraft {
   public List<GalleryMediaDraft> getGalleryMedia() { return galleryMedia; }
   public void galleryMedia(List<GalleryMediaDraft> value) { galleryMedia = value == null ? new ArrayList<>() : value; }
   public void setGalleryMedia(List<GalleryMediaDraft> value) { galleryMedia(value); }
+  public String ratingDisplayName() { return ratingDisplayName; }
+  public String getRatingDisplayName() { return ratingDisplayName; }
+  public void ratingDisplayName(String value) { ratingDisplayName = value; }
+  public void setRatingDisplayName(String value) { ratingDisplayName = value; }
 
   public record GalleryMediaDraft(
       String fileUrl,
