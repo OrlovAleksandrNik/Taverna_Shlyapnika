@@ -564,7 +564,7 @@ Railway запускает Node backend через `railway.json` и Dockerfile.
 | Telegram bot process | `src/bot/index.ts` | `apps/telegram-bot-java`, polling service | PARTIAL | `BotPropertiesTest` | Нет | Да | Java-процесс, health, polling, игры, галерея и рейтинг добавлены; Node-бот не отключать до staging-проверки и переноса оставшихся admin/profile сценариев. |
 | Bot sessions | `BotSession` через Prisma | Java internal API + `BotSessionStore` в Java-боте | MIGRATED | Проверено Java bot test | Нет | Да | Сессии сохраняются через backend API и не теряются при перезапуске Java-бота. |
 | Notifications | `notifyTelegram`, `notifyAdmins` | `TelegramNotificationService` | PARTIAL | Требуется mock HTTP test | Нет | Косвенно | Best-effort отправка без логирования токенов. |
-| Static frontend serving | Express static root | `SERVE_FRONTEND` + external static directory in Java backend | PARTIAL | Требуется smoke test на Railway | Да | Нет | Java backend умеет отдавать сайт из `FRONTEND_STATIC_DIR`; Docker/Railway упаковку нужно включить отдельно для выбранного способа деплоя. |
+| Static frontend serving | Express static root | `SERVE_FRONTEND` + external static directory in Java backend | MIGRATED | `StaticFrontendControllerTest`; требуется smoke test на Railway | Да | Нет | Java backend умеет отдавать сайт из `FRONTEND_STATIC_DIR`; корневой `Dockerfile` и `railway.json` упаковывают и запускают сайт вместе с Java API. |
 
 ## Решение по оставшимся Node-функциям
 
