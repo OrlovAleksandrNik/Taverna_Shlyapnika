@@ -1,0 +1,43 @@
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+.next/
+.nuxt/
+coverage/
+
+# Runtime data
+uploads/
+uploads/private/
+.downloads/
+.logs/
+logs/
+.postgres/
+.postgres-data/
+database-dumps/
+backups/
+backup-*/
+*.sqlite
+*.sqlite3
+
+# Cache and temporary files
+.cache/
+.tmp/
+tmp/
+temp/
+*.log
+
+# OS and editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.suo
+*.user

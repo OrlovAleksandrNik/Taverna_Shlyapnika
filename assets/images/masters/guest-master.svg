@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 900" role="img" aria-labelledby="title desc">
+  <title id="title">Гостевой мастер</title>
+  <desc id="desc">Пустое кресло мастера за игровым столом, книга, кубик и фонарь в тёмной таверне.</desc>
+  <defs>
+    <radialGradient id="lantern" cx="50%" cy="34%" r="54%">
+      <stop offset="0" stop-color="#f4d28a" stop-opacity=".9"/>
+      <stop offset=".42" stop-color="#b7653c" stop-opacity=".38"/>
+      <stop offset="1" stop-color="#120e10" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="room" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#5e172a"/>
+      <stop offset=".46" stop-color="#241a1c"/>
+      <stop offset="1" stop-color="#142d24"/>
+    </linearGradient>
+    <linearGradient id="brass" x1="0" x2="1">
+      <stop offset="0" stop-color="#d7a84f"/>
+      <stop offset="1" stop-color="#f2dfbc"/>
+    </linearGradient>
+  </defs>
+  <rect width="900" height="900" fill="#120e10"/>
+  <rect x="38" y="38" width="824" height="824" rx="42" fill="url(#room)" stroke="#d7a84f" stroke-opacity=".34" stroke-width="10"/>
+  <circle cx="450" cy="310" r="360" fill="url(#lantern)"/>
+  <path d="M190 660c56-72 152-110 260-110s204 38 260 110v76H190z" fill="#120e10" opacity=".55"/>
+  <path d="M304 300c18-74 78-122 146-122s128 48 146 122v260H304z" fill="#1c1517" stroke="#d7a84f" stroke-opacity=".4" stroke-width="8"/>
+  <path d="M340 322c11-52 55-86 110-86s99 34 110 86v210H340z" fill="#254a38" opacity=".74"/>
+  <path d="M292 560h316v116H292z" fill="#5e172a" stroke="#d7a84f" stroke-opacity=".35" stroke-width="8"/>
+  <path d="M246 684h408v52H246z" fill="#241a1c" stroke="#d7a84f" stroke-opacity=".28" stroke-width="8"/>
+  <path d="M266 742h368" stroke="#d7a84f" stroke-opacity=".45" stroke-width="10" stroke-linecap="round"/>
+  <path d="M378 612h144l28 64H350z" fill="#f2dfbc" opacity=".9"/>
+  <path d="M385 612c24 18 106 18 130 0" fill="none" stroke="#8f233d" stroke-width="8" stroke-linecap="round"/>
+  <path d="M594 492l58 34-58 34-58-34z" fill="#d7a84f" opacity=".9"/>
+  <path d="M594 492v68M536 526l58 34 58-34" fill="none" stroke="#120e10" stroke-opacity=".42" stroke-width="6"/>
+  <path d="M220 360h92v132h-92z" fill="#120e10" stroke="#d7a84f" stroke-opacity=".42" stroke-width="8"/>
+  <path d="M246 360v-34c0-24 40-24 40 0v34" fill="none" stroke="#d7a84f" stroke-opacity=".55" stroke-width="8"/>
+  <circle cx="266" cy="428" r="34" fill="#f4d28a" opacity=".72"/>
+  <path d="M656 340c62 28 94 80 94 154" fill="none" stroke="url(#brass)" stroke-width="14" stroke-linecap="round" opacity=".72"/>
+  <path d="M685 338l-30-40 50-4z" fill="#d7a84f" opacity=".8"/>
+  <text x="450" y="808" text-anchor="middle" fill="#f2dfbc" font-family="Georgia, 'Times New Roman', serif" font-size="54">?</text>
+</svg>

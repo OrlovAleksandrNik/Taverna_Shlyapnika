@@ -1,0 +1,263 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MasterRole {
+  master
+  admin
+}
+
+enum MasterStatus {
+  active
+  blocked
+}
+
+enum GameStatus {
+  draft
+  pending
+  published
+  completed
+  cancelled
+  archived
+}
+
+model Master {
+  id               String       @id @default(cuid())
+  telegramUserId   BigInt       @unique
+  telegramUsername String?
+  displayName      String
+  contactUrl       String
+  role             MasterRole   @default(master)
+  status           MasterStatus @default(active)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  games            Game[]
+  gameSignups      GameSignup[]
+
+  @@index([status])
+  @@index([role])
+}
+
+model Game {
+  id              String     @id @default(cuid())
+  masterId        String
+  master          Master     @relation(fields: [masterId], references: [id], onDelete: Restrict)
+  title           String
+  description     String
+  gameSystem      String
+  experienceLevel String
+  ageRating       String
+  dateTimeStart   DateTime
+  durationMinutes Int?
+  dateTimeEnd     DateTime?
+  minPlayers      Int
+  maxPlayers      Int
+  price           Decimal    @db.Decimal(10, 2)
+  currency        String     @default("BYN")
+  imageUrl        String?
+  contactUrl      String
+  status          GameStatus @default(draft)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  publishedAt     DateTime?
+  completedAt     DateTime?
+  cancelledAt     DateTime?
+  signups         GameSignup[]
+
+  @@index([status, dateTimeStart])
+  @@index([masterId, status])
+  @@index([dateTimeStart])
+}
+
+enum SignupStatus {
+  pending
+  confirmed
+  cancelled
+}
+
+model GameSignup {
+  id                   String       @id @default(cuid())
+  gameId               String
+  game                 Game         @relation(fields: [gameId], references: [id], onDelete: Restrict)
+  masterId             String
+  master               Master       @relation(fields: [masterId], references: [id], onDelete: Restrict)
+  playerName           String
+  contact              String
+  seats                Int          @default(1)
+  comment              String?
+  status               SignupStatus @default(confirmed)
+  consentGiven         Boolean      @default(false)
+  consentVersion       String       @default("legacy")
+  privacyPolicyVersion String       @default("legacy")
+  consentedAt          DateTime?
+  formType             String       @default("legacy")
+  consentWithdrawnAt   DateTime?
+  dataUseStoppedAt     DateTime?
+  anonymizedAt         DateTime?
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  @@unique([gameId, contact])
+  @@index([gameId, status])
+  @@index([masterId, status])
+  @@index([consentGiven])
+  @@index([createdAt])
+}
+
+enum ServiceRequestStatus {
+  new
+  contacted
+  closed
+}
+
+model ServiceRequest {
+  id                   String               @id @default(cuid())
+  name                 String
+  contact              String
+  service              String
+  desiredDate          String?
+  participants         Int?
+  city                 String?
+  comment              String?
+  status               ServiceRequestStatus @default(new)
+  consentGiven         Boolean              @default(false)
+  consentVersion       String               @default("legacy")
+  privacyPolicyVersion String               @default("legacy")
+  consentedAt          DateTime?
+  formType             String               @default("legacy")
+  consentWithdrawnAt   DateTime?
+  dataUseStoppedAt     DateTime?
+  anonymizedAt         DateTime?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  @@index([service, status])
+  @@index([consentGiven])
+  @@index([createdAt])
+}
+
+enum ContactRequestStatus {
+  new
+  contacted
+  closed
+  withdrawn
+}
+
+enum RatingEventType {
+  player_created
+  player_updated
+  player_hidden
+  player_shown
+  game_result
+  points_adjustment
+  inspiration_adjustment
+  correction
+}
+
+model ContactRequest {
+  id                   String               @id @default(cuid())
+  name                 String
+  contact              String
+  topic                String?
+  comment              String
+  status               ContactRequestStatus @default(new)
+  consentGiven         Boolean              @default(false)
+  consentVersion       String               @default("legacy")
+  privacyPolicyVersion String               @default("legacy")
+  consentedAt          DateTime?
+  formType             String               @default("legacy")
+  consentWithdrawnAt   DateTime?
+  dataUseStoppedAt     DateTime?
+  anonymizedAt         DateTime?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  @@index([status])
+  @@index([consentGiven])
+  @@index([createdAt])
+}
+
+model RatingPlayer {
+  id               String        @id @default(cuid())
+  displayName      String
+  nickname         String?
+  avatarUrl        String?
+  isVisible        Boolean       @default(true)
+  gamesPlayed      Int           @default(0)
+  totalPoints      Int           @default(0)
+  inspirationCount Int           @default(0)
+  lastGameAt       DateTime?
+  lastStatsAt      DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  events           RatingEvent[]
+
+  @@index([isVisible])
+  @@index([totalPoints, gamesPlayed])
+  @@index([displayName])
+}
+
+model RatingPlayedGame {
+  id                  String        @id @default(cuid())
+  title               String
+  gameDate            DateTime?
+  masterName          String?
+  notes               String?
+  createdByTelegramId BigInt?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  events              RatingEvent[]
+
+  @@index([gameDate])
+  @@index([createdAt])
+}
+
+model RatingEvent {
+  id                  String           @id @default(cuid())
+  playerId            String
+  player              RatingPlayer     @relation(fields: [playerId], references: [id], onDelete: Restrict)
+  playedGameId        String?
+  playedGame          RatingPlayedGame? @relation(fields: [playedGameId], references: [id], onDelete: SetNull)
+  type                RatingEventType
+  pointsDelta         Int              @default(0)
+  inspirationDelta    Int              @default(0)
+  gamesDelta          Int              @default(0)
+  reason              String
+  createdByTelegramId BigInt?
+  createdByMasterId   String?
+  reversalOfEventId   String?
+  idempotencyKey      String?
+  createdAt           DateTime         @default(now())
+
+  @@unique([idempotencyKey])
+  @@index([playerId, createdAt])
+  @@index([playedGameId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  action     String
+  entityType String
+  entityId   String?
+  details    Json?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
+
+model BotSession {
+  telegramUserId BigInt   @id
+  state          String
+  draft          Json?
+  updatedAt      DateTime @updatedAt
+  createdAt      DateTime @default(now())
+}

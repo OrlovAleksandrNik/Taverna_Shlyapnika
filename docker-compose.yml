@@ -1,0 +1,26 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: taverna_shlyapnika
+      POSTGRES_USER: taverna
+      POSTGRES_PASSWORD: taverna
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  app:
+    build: .
+    env_file:
+      - .env
+    ports:
+      - "4177:4177"
+    depends_on:
+      - postgres
+    volumes:
+      - uploads:/app/uploads
+
+volumes:
+  postgres_data:
+  uploads:

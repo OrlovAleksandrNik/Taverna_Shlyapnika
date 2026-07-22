@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Услуги Таверны Шляпника: мастер-классы, покраска миниатюр, заказные игры, праздники, корпоративы и выезд мастера.">
+  <title>Услуги Таверны Шляпника</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body data-page="services" data-root="">
+  <header class="site-header" data-header>
+    <a class="brand" href="index.html#top" aria-label="Таверна Шляпника">
+      <span class="brand-mark" aria-hidden="true">20</span>
+      <span>
+        <strong>Таверна Шляпника</strong>
+        <small>D&D Могилёв</small>
+      </span>
+    </a>
+    <button class="menu-button" type="button" aria-label="Открыть меню" aria-expanded="false" data-menu-button>
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+    <nav class="main-nav" data-nav aria-label="Основная навигация">
+      <a href="index.html#top">Главная</a>
+      <a href="about.html">О таверне</a>
+      <a href="index.html#games">Афиша</a>
+      <a href="services.html">Услуги</a>
+      <a href="index.html#masters">Мастера</a>
+      <a href="rating.html">Рейтинг</a>
+      <a href="gallery.html">Галерея</a>
+      <a href="dnd-simple.html">D&D простым языком</a>
+      <a href="index.html#contacts">Контакты</a>
+    </nav>
+  </header>
+  <div class="nav-backdrop" data-nav-backdrop></div>
+
+  <main>
+    <section class="article-hero services-hero">
+      <div class="article-hero-content reveal">
+        <p class="eyebrow">За стойкой принимают заказы</p>
+        <h1>Услуги Таверны Шляпника</h1>
+        <p>Историю можно не только услышать. Её можно заказать, создать и прожить вместе.</p>
+      </div>
+    </section>
+
+    <section class="section services-section" aria-labelledby="services-title">
+      <div class="section-copy section-copy-center reveal">
+        <p class="eyebrow">Направления</p>
+        <h2 id="services-title">Что можно заказать</h2>
+      </div>
+      <div class="services-grid">
+        <article class="service-card reveal">
+          <h3>Мастер-класс по покраске миниатюр</h3>
+          <p>Познакомьтесь с основами покраски игровых миниатюр и превратите обычную фигурку в полноценного героя.</p>
+          <p>На мастер-классе можно узнать, как подготовить миниатюру, выбрать цветовую схему, нанести базовые цвета, добавить свет и тень, выделить мелкие детали и оформить подставку.</p>
+          <p>Художественный опыт не обязателен.</p>
+          <a class="button primary" href="#service-request" data-service-choice="Мастер-класс по покраске миниатюр" data-service-type="miniature-workshop">Записаться на мастер-класс</a>
+        </article>
+
+        <article class="service-card reveal">
+          <h3>Покраска миниатюр на заказ</h3>
+          <p>Если у вас есть любимая миниатюра, армия или персонаж, но нет времени на покраску, можно заказать индивидуальное оформление.</p>
+          <p>Сложность, стиль, цветовая схема и уровень детализации обсуждаются отдельно.</p>
+          <a class="button primary" href="#service-request" data-service-choice="Покраска миниатюр на заказ" data-service-type="miniature-commission">Обсудить заказ</a>
+        </article>
+
+        <article class="service-card reveal">
+          <h3>Заказная игра</h3>
+          <p>Хотите сыграть в определённом мире, жанре или сюжете? Мастер подготовит отдельное приключение под вашу компанию.</p>
+          <p>Можно выбрать атмосферу, продолжительность, игровой мир, уровень сложности и основные пожелания к истории.</p>
+          <a class="button primary" href="#service-request" data-service-choice="Заказная игра" data-service-type="custom-game">Заказать игру</a>
+        </article>
+
+        <article class="service-card reveal" id="event-games">
+          <h3>День рождения или праздник</h3>
+          <p>Фэнтезийное приключение может стать главной частью дня рождения, дружеской встречи или тематического праздника.</p>
+          <p>Сценарий адаптируется под возраст, опыт участников, размер группы и выбранную атмосферу.</p>
+          <a class="button primary" href="#service-request" data-service-choice="День рождения или праздник" data-service-type="event-game">Обсудить мероприятие</a>
+        </article>
+
+        <article class="service-card reveal">
+          <h3>Корпоратив и тимбилдинг</h3>
+          <p>Совместная ролевая игра помогает участникам договариваться, распределять роли, принимать решения и решать необычные задачи.</p>
+          <p>Приключение можно подготовить под конкретную команду, продолжительность мероприятия и желаемые цели.</p>
+          <a class="button primary" href="#service-request" data-service-choice="Корпоратив и тимбилдинг" data-service-type="team-building">Заказать тимбилдинг</a>
+        </article>
+
+        <article class="service-card reveal">
+          <h3>Заказать мастера в другой город</h3>
+          <p>Мастер “Таверны Шляпника” может приехать в другой город и провести игру, тематическое событие, лекцию или мастер-класс.</p>
+          <p>Условия выезда, дорога, количество участников и формат обсуждаются индивидуально.</p>
+          <a class="button primary" href="#service-request" data-service-choice="Заказать мастера в другой город" data-service-type="travel-master-city">Пригласить мастера</a>
+        </article>
+
+        <article class="service-card reveal">
+          <h3>Заказать мастера в другую страну</h3>
+          <p>Для фестиваля, клуба, частного события или специального проекта можно обсудить выезд мастера за пределы страны.</p>
+          <p>Формат, сроки, язык проведения и организационные условия согласовываются заранее.</p>
+          <a class="button primary" href="#service-request" data-service-choice="Заказать мастера в другую страну" data-service-type="travel-master-country">Обсудить международный выезд</a>
+        </article>
+
+        <article class="service-card reveal">
+          <h3>Гостевой мастер</h3>
+          <p>Таверна может стать площадкой для приглашённых мастеров, авторов, художников и создателей игровых проектов.</p>
+          <p>Здесь можно провести специальную сессию, лекцию, встречу, семинар или мастер-класс.</p>
+          <a class="button primary" href="#service-request" data-service-choice="Гостевой мастер" data-service-type="guest-master">Предложить событие</a>
+        </article>
+      </div>
+    </section>
+
+    <section class="section booking" id="service-request" aria-labelledby="service-request-title">
+      <div class="request-shell reveal">
+        <div class="request-intro">
+          <p class="eyebrow">Заявка</p>
+          <h2 id="service-request-title">Расскажите, что хочется устроить</h2>
+          <p>Мы свяжемся с вами, уточним детали и поможем выбрать подходящий формат.</p>
+          <p class="selected-service-note" data-selected-service>Выберите услугу в карточках выше или укажите её в форме.</p>
+        </div>
+        <form class="request-form" data-service-request-form>
+          <input type="hidden" name="serviceType" value="">
+          <input type="hidden" name="service" value="">
+          <label>Имя<input name="name" required autocomplete="name"></label>
+          <label>Telegram или телефон<input name="contact" required autocomplete="tel"></label>
+          <div class="service-picker form-wide" role="listbox" aria-label="Выбор услуги" data-service-picker>
+            <p class="field-label">Выбранная услуга</p>
+            <div class="service-option-grid">
+              <button class="service-option" type="button" role="option" aria-selected="false" data-service-option data-service-type="miniature-workshop" data-service-title="Мастер-класс по покраске миниатюр">
+                <span class="service-option-mark" aria-hidden="true">I</span>
+                <span><strong>Мастер-класс</strong><small>Покраска миниатюр с мастером</small></span>
+              </button>
+              <button class="service-option" type="button" role="option" aria-selected="false" data-service-option data-service-type="miniature-commission" data-service-title="Покраска миниатюр на заказ">
+                <span class="service-option-mark" aria-hidden="true">II</span>
+                <span><strong>Покраска на заказ</strong><small>Индивидуальное оформление миниатюр</small></span>
+              </button>
+              <button class="service-option" type="button" role="option" aria-selected="false" data-service-option data-service-type="custom-game" data-service-title="Заказная игра">
+                <span class="service-option-mark" aria-hidden="true">III</span>
+                <span><strong>Заказная игра</strong><small>Приключение под вашу компанию</small></span>
+              </button>
+              <button class="service-option" type="button" role="option" aria-selected="false" data-service-option data-service-type="event-game" data-service-title="День рождения или праздник">
+                <span class="service-option-mark" aria-hidden="true">IV</span>
+                <span><strong>Праздник</strong><small>День рождения или тематическое событие</small></span>
+              </button>
+              <button class="service-option" type="button" role="option" aria-selected="false" data-service-option data-service-type="team-building" data-service-title="Корпоратив и тимбилдинг">
+                <span class="service-option-mark" aria-hidden="true">V</span>
+                <span><strong>Тимбилдинг</strong><small>Командная игра для рабочих встреч</small></span>
+              </button>
+              <button class="service-option" type="button" role="option" aria-selected="false" data-service-option data-service-type="travel-master-city" data-service-title="Заказать мастера в другой город">
+                <span class="service-option-mark" aria-hidden="true">VI</span>
+                <span><strong>Мастер в город</strong><small>Выездной формат внутри страны</small></span>
+              </button>
+              <button class="service-option" type="button" role="option" aria-selected="false" data-service-option data-service-type="travel-master-country" data-service-title="Заказать мастера в другую страну">
+                <span class="service-option-mark" aria-hidden="true">VII</span>
+                <span><strong>Мастер в страну</strong><small>Международный выезд по договорённости</small></span>
+              </button>
+              <button class="service-option" type="button" role="option" aria-selected="false" data-service-option data-service-type="guest-master" data-service-title="Гостевой мастер">
+                <span class="service-option-mark" aria-hidden="true">VIII</span>
+                <span><strong>Гостевой мастер</strong><small>Событие, лекция или специальная сессия</small></span>
+              </button>
+            </div>
+          </div>
+          <label>Предполагаемая дата<input name="desiredDate" autocomplete="off"></label>
+          <div class="participant-stepper" data-participant-stepper>
+            <span class="field-label" id="participants-label">Количество участников</span>
+            <div class="participant-control">
+              <button class="stepper-button" type="button" data-participant-step="-1" aria-label="Уменьшить количество участников">−</button>
+              <input name="participants" type="number" min="1" max="200" value="1" inputmode="numeric" aria-labelledby="participants-label">
+              <button class="stepper-button" type="button" data-participant-step="1" aria-label="Увеличить количество участников">+</button>
+            </div>
+          </div>
+          <label>Город<input name="city" autocomplete="address-level2"></label>
+          <label class="form-wide">Комментарий<textarea name="comment" rows="5"></textarea></label>
+          <div class="consent-field form-wide">
+            <label class="consent-label" for="service-consent">
+              <input id="service-consent" type="checkbox" name="consentGiven" value="true" required aria-describedby="service-consent-details">
+              <span>Я даю согласие на обработку моих персональных данных для рассмотрения заявки, связи со мной и организации выбранной игры, услуги или мероприятия. Я ознакомился(ась) с <a href="privacy-policy.html" target="_blank" rel="noreferrer">Политикой в отношении обработки персональных данных</a>.</span>
+            </label>
+            <p class="consent-details" id="service-consent-details">
+              <a href="privacy-policy.html" target="_blank" rel="noreferrer">Подробнее об обработке данных</a>: данные используются только для связи по выбранной услуге и организации заявки.
+            </p>
+            <input type="hidden" name="consentVersion" value="1.0">
+            <input type="hidden" name="privacyPolicyVersion" value="1.0">
+          </div>
+          <button class="button primary" type="submit">Отправить заявку</button>
+          <p class="form-status" data-form-status></p>
+        </form>
+      </div>
+    </section>
+
+    <section class="section contacts" id="contacts" aria-labelledby="contacts-title" data-contact-block></section>
+  </main>
+
+  <footer class="site-footer" data-site-footer></footer>
+  <div class="modal-backdrop" data-modal hidden></div>
+
+  <script src="data/site-settings.js"></script>
+  <script src="data/masters.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

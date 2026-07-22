@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Тайные записи Шляпника: страницы дневника, извлечённые из переданных CDR-материалов.">
+  <title>Тайный дневник | Таверна Шляпника</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body data-page="diary" data-root="">
+  <header class="site-header" data-header>
+    <a class="brand" href="index.html#top" aria-label="Таверна Шляпника">
+      <span class="brand-mark" aria-hidden="true">20</span>
+      <span>
+        <strong>Таверна Шляпника</strong>
+        <small>D&D Могилёв</small>
+      </span>
+    </a>
+    <button class="menu-button" type="button" aria-label="Открыть меню" aria-expanded="false" data-menu-button>
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+    <nav class="main-nav" data-nav aria-label="Основная навигация">
+      <a href="index.html#top">Главная</a>
+      <a href="about.html">О таверне</a>
+      <a href="index.html#games">Афиша</a>
+      <a href="services.html">Услуги</a>
+      <a href="index.html#masters">Мастера</a>
+      <a href="rating.html">Рейтинг</a>
+      <a href="gallery.html">Галерея</a>
+      <a href="dnd-simple.html">D&D простым языком</a>
+      <a href="index.html#contacts">Контакты</a>
+    </nav>
+  </header>
+  <div class="nav-backdrop" data-nav-backdrop></div>
+
+  <main id="top">
+    <section class="diary-page" data-diary-page>
+      <div class="diary-shell reveal">
+        <article class="diary-entry" data-diary-entry></article>
+        <nav class="diary-actions" aria-label="Навигация по записям">
+          <button class="diary-page-turn" type="button" data-diary-prev aria-label="Предыдущая запись">←</button>
+          <span class="diary-current" data-diary-current>Страница 1</span>
+          <button class="diary-page-turn" type="button" data-diary-next aria-label="Следующая запись">→</button>
+        </nav>
+        <aside class="diary-archive" aria-label="Закрытая полка" data-diary-archive></aside>
+        <div class="diary-return">
+          <a class="button ghost" href="about.html">Вернуться к истории таверны</a>
+          <a class="button ghost" href="index.html#top">На главную</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer" data-site-footer></footer>
+
+  <script src="data/site-settings.js"></script>
+  <script src="data/masters.js"></script>
+  <script src="data/hatter-diary.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
