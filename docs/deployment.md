@@ -33,6 +33,7 @@ docker compose up --build app
 ## Railway
 
 В репозитории есть `railway.json`, который заставляет Railway использовать `Dockerfile`.
+Также добавлен `nixpacks.toml` с тем же build/start-сценарием на случай, если сервис в Dashboard настроен на Railpack/Nixpacks.
 
 Перед запуском контейнер выполняет:
 
@@ -54,6 +55,8 @@ node dist/index.js
 Healthcheck Railway указывает на `/health`. Этот маршрут отвечает `200`, если HTTP-процесс жив, и отдельно показывает состояние базы. Если `DATABASE_URL` не задан, `/health` вернёт `database: "not_configured"`, а `/ready` вернёт `503`.
 
 Важно: без `DATABASE_URL` статический сайт поднимется, но афиша, заявки, рейтинг и Telegram-бот не смогут работать с реальными данными.
+
+Если в логах всё ещё видно `ZodError` по обязательному `DATABASE_URL`, Railway запустил старый deployment. Проверьте, что сервис деплоит ветку `main` и commit не ниже `2a8748d`, затем выполните Redeploy или Clear build cache and redeploy.
 
 ## HTTPS и Telegram
 
