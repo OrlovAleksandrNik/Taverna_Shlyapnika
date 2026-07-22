@@ -51,6 +51,11 @@ public class InternalController {
     return service.upsertMaster(request);
   }
 
+  @PostMapping("/api/internal/masters/by-telegram/{telegramUserId}/admin")
+  public InternalMasterResponse grantAdminByTelegram(@PathVariable Long telegramUserId, @RequestParam(required = false) String telegramUsername) {
+    return service.grantAdminByTelegram(telegramUserId, telegramUsername);
+  }
+
   @GetMapping("/api/internal/bot-sessions/{telegramUserId}")
   public InternalBotSessionResponse getBotSession(@PathVariable Long telegramUserId) {
     return service.getBotSession(telegramUserId);

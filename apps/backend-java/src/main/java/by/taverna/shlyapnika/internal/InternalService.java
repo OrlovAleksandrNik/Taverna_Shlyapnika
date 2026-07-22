@@ -115,6 +115,17 @@ public class InternalService {
     return toMasterResponse(master);
   }
 
+  @Transactional
+  public InternalMasterResponse grantAdminByTelegram(Long telegramUserId, String telegramUsername) {
+    var master = masters.findByTelegramUserId(telegramUserId)
+        .orElseThrow(() -> new NotFoundException("Мастер не найден."));
+    updateTelegramUsername(master, telegramUsername);
+    master.grantAdminRole();
+    master = masters.save(master);
+    auditService.write(String.valueOf(telegramUserId), "master.admin_granted", "Master", master.getId(), null);
+    return toMasterResponse(master);
+  }
+
   @Transactional(readOnly = true)
   public InternalBotSessionResponse getBotSession(Long telegramUserId) {
     var rows = jdbcTemplate.query(
