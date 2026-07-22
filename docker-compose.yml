@@ -21,6 +21,44 @@ services:
     volumes:
       - uploads:/app/uploads
 
+  backend-java:
+    profiles:
+      - java
+    build:
+      context: ./apps/backend-java
+    environment:
+      PORT: 4180
+      DATABASE_URL: postgresql://taverna:taverna@postgres:5432/taverna_shlyapnika
+      BOT_BACKEND_SECRET: ${BOT_BACKEND_SECRET:-change-me-local-token}
+      SITE_BASE_URL: http://localhost:4180
+      CORS_ALLOWED_ORIGINS: http://localhost:4177,http://localhost:4180
+      PUBLIC_UPLOADS_URL: http://localhost:4180/uploads
+      FILE_STORAGE_DIR: /app/uploads
+      TAVERN_TIMEZONE: Europe/Minsk
+      AUTO_PUBLISH: "true"
+    ports:
+      - "4180:4180"
+    depends_on:
+      - postgres
+    volumes:
+      - uploads:/app/uploads
+
+  telegram-bot-java:
+    profiles:
+      - java
+    build:
+      context: ./apps/telegram-bot-java
+    environment:
+      PORT: 4181
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      BOT_MODE: polling
+      JAVA_BACKEND_INTERNAL_URL: http://backend-java:4180
+      BOT_BACKEND_SECRET: ${BOT_BACKEND_SECRET:-change-me-local-token}
+    ports:
+      - "4181:4181"
+    depends_on:
+      - backend-java
+
 volumes:
   postgres_data:
   uploads:

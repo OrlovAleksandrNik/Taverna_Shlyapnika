@@ -1,0 +1,24 @@
+server:
+  port: ${PORT:8081}
+
+spring:
+  application:
+    name: taverna-shlyapnika-telegram-bot
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+taverna:
+  bot:
+    token: ${TELEGRAM_BOT_TOKEN:}
+    mode: ${BOT_MODE:polling}
+    backend-url: ${JAVA_BACKEND_INTERNAL_URL:http://localhost:8080}
+    internal-token: ${BOT_BACKEND_SECRET:${INTERNAL_API_TOKEN:change-me-local-token}}
+    polling-timeout-seconds: ${BOT_POLLING_TIMEOUT_SECONDS:25}

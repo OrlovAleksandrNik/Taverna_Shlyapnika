@@ -1,0 +1,50 @@
+server:
+  port: ${PORT:8080}
+
+spring:
+  application:
+    name: taverna-shlyapnika-backend
+  datasource:
+    hikari:
+      maximum-pool-size: 8
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    validate-on-migrate: true
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+        format_sql: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+springdoc:
+  swagger-ui:
+    enabled: ${SWAGGER_UI_ENABLED:false}
+
+taverna:
+  site-base-url: ${SITE_BASE_URL:http://localhost:8080}
+  public-uploads-url: ${PUBLIC_UPLOADS_URL:http://localhost:8080/uploads}
+  file-storage-dir: ${FILE_STORAGE_DIR:uploads}
+  timezone: ${TAVERN_TIMEZONE:Europe/Minsk}
+  cors-allowed-origins: ${CORS_ALLOWED_ORIGINS:${SITE_ORIGINS:http://localhost:4177}}
+  internal-api-token: ${BOT_BACKEND_SECRET:${INTERNAL_API_TOKEN:change-me-local-token}}
+  auto-publish: ${AUTO_PUBLISH:true}
+  telegram:
+    bot-token: ${TELEGRAM_BOT_TOKEN:}
+    admin-ids: ${ADMIN_TELEGRAM_IDS:}
+  media:
+    storage: ${MEDIA_STORAGE:local}

@@ -12,6 +12,12 @@ build/
 .next/
 .nuxt/
 coverage/
+apps/backend-java/.mvn/apache-maven-*/
+apps/backend-java/.mvn/apache-maven-*.zip
+apps/backend-java/target/
+apps/telegram-bot-java/target/
+apps/telegram-bot-java/.mvn/apache-maven-*/
+apps/telegram-bot-java/.mvn/apache-maven-*.zip
 
 # Runtime data
 uploads/

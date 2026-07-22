@@ -3,19 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Атмосфера и воспоминания Таверны Шляпника: фотографии игр, встреч, афиш и моментов за игровым столом.">
+  <meta name="description" content="Атмосфера и воспоминания Таверны Шляпника: фотографии игр, встреч и событий за игровым столом.">
   <title>Галерея | Таверна Шляпника</title>
   <link rel="canonical" href="https://tavernashlyapnika-production.up.railway.app/gallery.html">
   <meta name="robots" content="index, follow">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Таверна Шляпника">
   <meta property="og:title" content="Галерея | Таверна Шляпника">
-  <meta property="og:description" content="Атмосфера и воспоминания Таверны Шляпника: фотографии игр, встреч, афиш и моментов за игровым столом.">
+  <meta property="og:description" content="Атмосфера и воспоминания Таверны Шляпника: фотографии игр, встреч и событий за игровым столом.">
   <meta property="og:url" content="https://tavernashlyapnika-production.up.railway.app/gallery.html">
   <meta property="og:image" content="https://tavernashlyapnika-production.up.railway.app/assets/hero-tavern.png">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Галерея | Таверна Шляпника">
-  <meta name="twitter:description" content="Атмосфера и воспоминания Таверны Шляпника: фотографии игр, встреч, афиш и моментов за игровым столом.">
+  <meta name="twitter:description" content="Атмосфера и воспоминания Таверны Шляпника: фотографии игр, встреч и событий за игровым столом.">
   <meta name="twitter:image" content="https://tavernashlyapnika-production.up.railway.app/assets/hero-tavern.png">
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -53,25 +53,13 @@
         <a class="back-link" href="index.html#top">Вернуться на главную</a>
         <p class="eyebrow">Архив историй</p>
         <h1 id="gallery-title">Галерея Таверны</h1>
-        <p>Фотографии, хроники, герои и следы событий, которые мастера добавляют через Telegram-бота. На сайте галерея только показывает опубликованные материалы.</p>
+        <p>Снимки, заметки и воспоминания, которые мастера добавляют через Telegram-бота. Здесь сразу появляется только то, что уже опубликовано.</p>
       </div>
     </section>
 
-    <section class="section archive-section page-container" aria-label="Архив галереи" data-gallery-page>
-      <div class="section-copy section-copy-center reveal">
-        <p class="eyebrow">Выберите раздел</p>
-        <h2>Истории, которым нашлось место</h2>
-      </div>
-      <div class="archive-tabs reveal" role="tablist" aria-label="Разделы галереи">
-        <button type="button" role="tab" aria-selected="true" data-gallery-tab="all">Все</button>
-        <button type="button" role="tab" aria-selected="false" data-gallery-tab="games">Игры</button>
-        <button type="button" role="tab" aria-selected="false" data-gallery-tab="events">События</button>
-        <button type="button" role="tab" aria-selected="false" data-gallery-tab="heroes">Герои</button>
-        <button type="button" role="tab" aria-selected="false" data-gallery-tab="tavern">Таверна</button>
-        <button type="button" role="tab" aria-selected="false" data-gallery-tab="miniatures">Миниатюры</button>
-      </div>
+    <section class="section archive-section page-container" aria-label="Лента галереи" data-gallery-page>
       <div class="gallery-status" data-gallery-status></div>
-      <div class="archive-grid reveal" data-gallery-content></div>
+      <div class="gallery-masonry reveal" data-gallery-content></div>
     </section>
   </main>
 

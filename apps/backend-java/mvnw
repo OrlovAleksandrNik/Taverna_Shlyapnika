@@ -1,0 +1,34 @@
+#!/usr/bin/env sh
+set -eu
+
+BASE_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+MAVEN_VERSION="3.9.9"
+MAVEN_DIR="$BASE_DIR/.mvn/apache-maven-$MAVEN_VERSION"
+MAVEN_BIN="$MAVEN_DIR/bin/mvn"
+DIST_URL="https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/$MAVEN_VERSION/apache-maven-$MAVEN_VERSION-bin.zip"
+DIST_ZIP="$BASE_DIR/.mvn/apache-maven-$MAVEN_VERSION-bin.zip"
+
+if [ ! -x "$MAVEN_BIN" ]; then
+  mkdir -p "$BASE_DIR/.mvn"
+  if command -v mvn >/dev/null 2>&1; then
+    exec mvn "$@"
+  fi
+  if [ ! -f "$DIST_ZIP" ]; then
+    if command -v curl >/dev/null 2>&1; then
+      curl -fsSL "$DIST_URL" -o "$DIST_ZIP"
+    elif command -v wget >/dev/null 2>&1; then
+      wget -q "$DIST_URL" -O "$DIST_ZIP"
+    else
+      echo "Neither Maven, curl nor wget is available." >&2
+      exit 1
+    fi
+  fi
+  if command -v unzip >/dev/null 2>&1; then
+    unzip -q "$DIST_ZIP" -d "$BASE_DIR/.mvn"
+  else
+    echo "unzip is required to extract Maven distribution." >&2
+    exit 1
+  fi
+fi
+
+exec "$MAVEN_BIN" "$@"

@@ -1,0 +1,7 @@
+spring:
+  flyway:
+    clean-disabled: true
+
+logging:
+  level:
+    by.taverna.shlyapnika: DEBUG

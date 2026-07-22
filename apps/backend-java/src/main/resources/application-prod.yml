@@ -1,0 +1,12 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
+springdoc:
+  swagger-ui:
+    enabled: false
+
+logging:
+  level:
+    by.taverna.shlyapnika: INFO

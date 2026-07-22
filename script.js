@@ -22,19 +22,13 @@ let ratingPlayers = [];
 let ratingTopThree = [];
 let activeFilter = new URLSearchParams(window.location.search).get("filter") || "all";
 let activeRatingSort = "official";
-let activeGalleryTab = "all";
 let activeDiaryIndex = 0;
 let galleryPosts = [];
-
-const galleryCategoryLabels = {
-  all: "Все",
-  games: "Игры",
-  events: "События",
-  heroes: "Герои",
-  tavern: "Таверна",
-  miniatures: "Миниатюры",
-  other: "Другое"
-};
+let activeGalleryPostId = "";
+let activeGalleryMediaIndex = 0;
+let galleryModalTrigger = null;
+let galleryTouchStartX = 0;
+let galleryTouchStartY = 0;
 
 const menuButton = document.querySelector("[data-menu-button]");
 const nav = document.querySelector("[data-nav]");
@@ -374,12 +368,14 @@ document.querySelectorAll("[data-participant-stepper]").forEach((stepper) => {
   updateButtons();
 });
 
-function openModal(content) {
+function openModal(content, panelClass = "") {
   if (!modal) return;
-  modal.innerHTML = `<div class="modal-panel" role="dialog" aria-modal="true">${content}</div>`;
+  modal.innerHTML = `<div class="modal-panel ${escapeHtml(panelClass)}" role="dialog" aria-modal="true" tabindex="-1">${content}</div>`;
   modal.hidden = false;
   document.body.classList.add("modal-open");
   modal.querySelector("[data-modal-close]")?.addEventListener("click", closeModal);
+  const panel = modal.querySelector(".modal-panel");
+  if (panel instanceof HTMLElement) panel.focus({ preventScroll: true });
 }
 
 function closeModal() {
@@ -387,6 +383,12 @@ function closeModal() {
   modal.hidden = true;
   modal.innerHTML = "";
   document.body.classList.remove("modal-open");
+  activeGalleryPostId = "";
+  activeGalleryMediaIndex = 0;
+  if (galleryModalTrigger instanceof HTMLElement && document.contains(galleryModalTrigger)) {
+    galleryModalTrigger.focus({ preventScroll: true });
+  }
+  galleryModalTrigger = null;
 }
 
 modal?.addEventListener("click", (event) => {
@@ -410,7 +412,7 @@ document.addEventListener("click", (event) => {
   const galleryCard = target.closest("[data-gallery-post]");
   if (galleryCard instanceof HTMLElement && !target.closest("[data-full-image]")) {
     const post = galleryPosts.find((item) => item.publicId === galleryCard.dataset.galleryPost);
-    if (post) openModal(galleryPostModal(post));
+    if (post) openGalleryPost(post, 0, galleryCard);
     return;
   }
 
@@ -423,6 +425,33 @@ document.addEventListener("click", (event) => {
     return;
   }
 
+  if (target.closest("[data-gallery-photo-prev]")) {
+    shiftGalleryPhoto(-1);
+    return;
+  }
+
+  if (target.closest("[data-gallery-photo-next]")) {
+    shiftGalleryPhoto(1);
+    return;
+  }
+
+  const galleryThumb = target.closest("[data-gallery-thumb]");
+  if (galleryThumb instanceof HTMLElement) {
+    activeGalleryMediaIndex = Number(galleryThumb.dataset.galleryThumb || 0);
+    refreshGalleryModal();
+    return;
+  }
+
+  if (target.closest("[data-gallery-post-prev]")) {
+    shiftGalleryPost(-1);
+    return;
+  }
+
+  if (target.closest("[data-gallery-post-next]")) {
+    shiftGalleryPost(1);
+    return;
+  }
+
   const signupButton = target.closest("[data-open-signup]");
   if (signupButton instanceof HTMLButtonElement) {
     const game = games.find((item) => item.id === signupButton.dataset.openSignup);
@@ -430,13 +459,39 @@ document.addEventListener("click", (event) => {
   }
 });
 
+document.addEventListener("keydown", (event) => {
+  if (!activeGalleryPostId || modal?.hidden) return;
+  if (event.key === "ArrowLeft") {
+    event.preventDefault();
+    shiftGalleryPhoto(-1);
+  }
+  if (event.key === "ArrowRight") {
+    event.preventDefault();
+    shiftGalleryPhoto(1);
+  }
+});
+
+modal?.addEventListener("touchstart", (event) => {
+  if (!activeGalleryPostId || !event.changedTouches.length) return;
+  galleryTouchStartX = event.changedTouches[0].clientX;
+  galleryTouchStartY = event.changedTouches[0].clientY;
+}, { passive: true });
+
+modal?.addEventListener("touchend", (event) => {
+  if (!activeGalleryPostId || !event.changedTouches.length) return;
+  const dx = event.changedTouches[0].clientX - galleryTouchStartX;
+  const dy = event.changedTouches[0].clientY - galleryTouchStartY;
+  if (Math.abs(dx) < 52 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
+  shiftGalleryPhoto(dx > 0 ? -1 : 1);
+}, { passive: true });
+
 document.querySelector("[data-gallery-page]")?.addEventListener("keydown", (event) => {
   if (event.key !== "Enter" && event.key !== " ") return;
   const target = event.target instanceof HTMLElement ? event.target.closest("[data-gallery-post]") : null;
   if (!(target instanceof HTMLElement)) return;
   event.preventDefault();
   const post = galleryPosts.find((item) => item.publicId === target.dataset.galleryPost);
-  if (post) openModal(galleryPostModal(post));
+  if (post) openGalleryPost(post, 0, target);
 });
 
 function openSignupModal(game) {
@@ -624,23 +679,6 @@ function renderContactBlock() {
   `;
 }
 
-function archiveImageMarkup(item, extraClass = "") {
-  const src = item.thumbnailUrl || item.mediumUrl || item.fileUrl || "";
-  const fullSrc = item.mediumUrl || item.fileUrl || src;
-  if (!src) {
-    return `
-      <div class="archive-placeholder ${extraClass}" aria-hidden="true">
-        <span></span>
-      </div>
-    `;
-  }
-  return `
-    <button class="archive-image-button ${extraClass}" type="button" data-full-image="${escapeHtml(fullSrc)}" data-full-alt="${escapeHtml(item.alt || item.title || item.name || "Материал галереи")}">
-      <img src="${escapeHtml(src)}" alt="${escapeHtml(item.alt || item.title || item.name || "Материал галереи")}" loading="lazy">
-    </button>
-  `;
-}
-
 function formatGalleryDate(value) {
   if (!value) return "";
   const date = new Date(value);
@@ -662,56 +700,158 @@ function setGalleryStatus(text) {
   if (status) status.textContent = text || "";
 }
 
+function galleryPostIndex(publicId) {
+  return galleryPosts.findIndex((item) => item.publicId === publicId);
+}
+
+function galleryMedia(post) {
+  return Array.isArray(post?.media) ? post.media.filter((item) => item && (item.thumbnailUrl || item.mediumUrl || item.fileUrl)) : [];
+}
+
+function galleryImageUrl(item, preferred = "medium") {
+  if (!item) return "";
+  if (preferred === "thumb") return item.thumbnailUrl || item.mediumUrl || item.fileUrl || "";
+  if (preferred === "original") return item.fileUrl || item.mediumUrl || item.thumbnailUrl || "";
+  return item.mediumUrl || item.fileUrl || item.thumbnailUrl || "";
+}
+
+function galleryMetaRows(post) {
+  const rows = [];
+  const published = formatGalleryDate(post.publishedAt || post.createdAt);
+  const eventDate = formatGalleryDate(post.eventDate);
+  if (published) rows.push(`Добавлено ${published}`);
+  if (eventDate) rows.push(`Событие состоялось ${eventDate}`);
+  if (post.master?.name) rows.push(`Мастер: ${post.master.name}`);
+  return rows;
+}
+
 function renderGalleryCard(post) {
-  const cover = post.media?.[0] || {};
-  const date = formatGalleryDate(post.eventDate || post.publishedAt || post.createdAt);
-  const category = galleryCategoryLabels[post.category] || post.category || "";
-  const mediaCount = post.media?.length ? `${post.media.length} фото` : post.type === "story" ? "История" : "";
+  const media = galleryMedia(post);
+  const cover = media[0];
+  const src = galleryImageUrl(cover, "thumb");
+  const alt = cover?.altText || post.title || "Фотография из галереи Таверны";
+  const mediaCount = media.length > 1 ? `${media.length} фото` : "";
+  const width = cover?.width ? ` width="${escapeHtml(cover.width)}"` : "";
+  const height = cover?.height ? ` height="${escapeHtml(cover.height)}"` : "";
 
   return `
-    <article class="archive-card gallery-post-card" tabindex="0" role="button" data-gallery-post="${escapeHtml(post.publicId)}">
-      ${archiveImageMarkup({ ...cover, title: post.title, alt: cover.altText || post.title })}
-      <p class="archive-date">${escapeHtml([category, date].filter(Boolean).join(" · "))}</p>
-      <h3>${escapeHtml(post.title)}</h3>
-      ${post.master?.name ? `<p class="archive-meta">Мастер: ${escapeHtml(post.master.name)}</p>` : ""}
-      ${post.description ? `<p>${escapeHtml(post.description)}</p>` : ""}
-      ${mediaCount ? `<span class="archive-muted">${escapeHtml(mediaCount)}</span>` : ""}
+    <article class="gallery-post-card${src ? "" : " gallery-post-card-text"}" tabindex="0" role="button" data-gallery-post="${escapeHtml(post.publicId)}" aria-label="Открыть публикацию ${escapeHtml(post.title || "галереи")}">
+      ${src ? `
+        <img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" loading="lazy" decoding="async"${width}${height}>
+      ` : `
+        <div class="archive-placeholder" aria-hidden="true"><span></span></div>
+      `}
+      <div class="gallery-card-caption">
+        ${post.title ? `<h3>${escapeHtml(post.title)}</h3>` : ""}
+        ${post.description ? `<p>${escapeHtml(post.description)}</p>` : ""}
+        ${mediaCount ? `<span>${escapeHtml(mediaCount)}</span>` : ""}
+      </div>
     </article>
   `;
 }
 
-function galleryPostModal(post) {
-  const media = post.media?.length
-    ? `
-      <div class="gallery-modal-media">
-        ${post.media.map((item, index) => `
-          <button class="archive-image-button" type="button" data-full-image="${escapeHtml(item.mediumUrl || item.fileUrl)}" data-full-alt="${escapeHtml(item.altText || post.title)}">
-            <img src="${escapeHtml(item.mediumUrl || item.fileUrl)}" alt="${escapeHtml(item.altText || post.title)}" loading="${index > 0 ? "lazy" : "eager"}">
-          </button>
-        `).join("")}
-      </div>
-    `
-    : "";
-  const date = formatGalleryDate(post.eventDate || post.publishedAt || post.createdAt);
+function galleryPostModal(post, mediaIndex = 0) {
+  const media = galleryMedia(post);
+  const activeIndex = media.length ? Math.min(Math.max(mediaIndex, 0), media.length - 1) : 0;
+  const active = media[activeIndex];
+  const activeSrc = galleryImageUrl(active, "medium");
+  const activeAlt = active?.altText || post.title || "Фотография из галереи Таверны";
+  const postIndex = galleryPostIndex(post.publicId);
+  const prevPost = postIndex > 0 ? galleryPosts[postIndex - 1] : null;
+  const nextPost = postIndex >= 0 && postIndex < galleryPosts.length - 1 ? galleryPosts[postIndex + 1] : null;
+  const meta = galleryMetaRows(post);
+
   return `
-    <button class="modal-close" type="button" data-modal-close aria-label="Закрыть">×</button>
-    <p class="eyebrow">${escapeHtml(galleryCategoryLabels[post.category] || "Галерея")}</p>
-    <h2>${escapeHtml(post.title)}</h2>
-    <p class="modal-note">${escapeHtml([date, post.master?.name ? `Мастер: ${post.master.name}` : ""].filter(Boolean).join(" · "))}</p>
-    ${media}
-    ${post.description ? `<p>${escapeHtml(post.description)}</p>` : ""}
-    ${post.storyHtml ? `<div class="gallery-story">${post.storyHtml}</div>` : ""}
+    <button class="modal-close gallery-modal-close" type="button" data-modal-close aria-label="Закрыть публикацию">×</button>
+    <article class="gallery-modal-post" data-gallery-modal-post="${escapeHtml(post.publicId)}" data-gallery-media-index="${activeIndex}">
+      ${activeSrc ? `
+        <figure class="gallery-modal-figure">
+          <img src="${escapeHtml(activeSrc)}" alt="${escapeHtml(activeAlt)}" loading="eager" decoding="async">
+          ${media.length > 1 ? `
+            <button class="gallery-photo-nav gallery-photo-nav-prev" type="button" data-gallery-photo-prev aria-label="Предыдущее фото">‹</button>
+            <button class="gallery-photo-nav gallery-photo-nav-next" type="button" data-gallery-photo-next aria-label="Следующее фото">›</button>
+            <figcaption>${activeIndex + 1} / ${media.length}</figcaption>
+          ` : ""}
+        </figure>
+      ` : ""}
+
+      <div class="gallery-modal-body">
+        ${post.title ? `<h2>${escapeHtml(post.title)}</h2>` : ""}
+        ${meta.length ? `<div class="gallery-modal-meta">${meta.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}</div>` : ""}
+        ${post.description ? `<p class="gallery-modal-description">${escapeHtml(post.description)}</p>` : ""}
+        ${post.storyHtml ? `<div class="gallery-story">${post.storyHtml}</div>` : ""}
+        ${media.length > 1 ? `
+          <div class="gallery-thumbs" aria-label="Кадры публикации">
+            ${media.map((item, index) => `
+              <button class="gallery-thumb" type="button" data-gallery-thumb="${index}" aria-current="${index === activeIndex ? "true" : "false"}" aria-label="Показать фото ${index + 1}">
+                <img src="${escapeHtml(galleryImageUrl(item, "thumb"))}" alt="" loading="lazy" decoding="async">
+              </button>
+            `).join("")}
+          </div>
+        ` : ""}
+        <nav class="gallery-post-nav" aria-label="Навигация по публикациям">
+          ${prevPost ? `<button type="button" data-gallery-post-prev>← ${escapeHtml(prevPost.title || "Предыдущая публикация")}</button>` : `<span></span>`}
+          ${nextPost ? `<button type="button" data-gallery-post-next>${escapeHtml(nextPost.title || "Следующая публикация")} →</button>` : `<span></span>`}
+        </nav>
+      </div>
+    </article>
   `;
 }
 
+function refreshGalleryModal() {
+  if (!modal || !activeGalleryPostId) return;
+  const post = galleryPosts.find((item) => item.publicId === activeGalleryPostId);
+  const panel = modal.querySelector(".modal-panel");
+  if (!post || !(panel instanceof HTMLElement)) return;
+  panel.innerHTML = galleryPostModal(post, activeGalleryMediaIndex);
+  panel.querySelector("[data-modal-close]")?.addEventListener("click", closeModal);
+  panel.scrollTop = 0;
+}
+
+function openGalleryPost(post, mediaIndex = 0, trigger = null) {
+  activeGalleryPostId = post.publicId;
+  activeGalleryMediaIndex = mediaIndex;
+  galleryModalTrigger = trigger instanceof HTMLElement ? trigger : document.activeElement;
+  openModal(galleryPostModal(post, mediaIndex), "gallery-modal-panel");
+  preloadNextGalleryImage(post, mediaIndex);
+}
+
+function shiftGalleryPhoto(direction) {
+  const post = galleryPosts.find((item) => item.publicId === activeGalleryPostId);
+  const media = galleryMedia(post);
+  if (!post || media.length < 2) return;
+  activeGalleryMediaIndex = (activeGalleryMediaIndex + direction + media.length) % media.length;
+  refreshGalleryModal();
+  preloadNextGalleryImage(post, activeGalleryMediaIndex);
+}
+
+function shiftGalleryPost(direction) {
+  const index = galleryPostIndex(activeGalleryPostId);
+  const next = galleryPosts[index + direction];
+  if (!next) return;
+  activeGalleryPostId = next.publicId;
+  activeGalleryMediaIndex = 0;
+  refreshGalleryModal();
+  preloadNextGalleryImage(next, 0);
+}
+
+function preloadNextGalleryImage(post, mediaIndex) {
+  const media = galleryMedia(post);
+  if (media.length < 2) return;
+  const next = media[(mediaIndex + 1) % media.length];
+  const src = galleryImageUrl(next, "medium");
+  if (!src) return;
+  const image = new Image();
+  image.src = src;
+}
+
 async function loadGalleryPosts() {
-  const query = activeGalleryTab === "all" ? "" : `?category=${encodeURIComponent(activeGalleryTab)}`;
   setGalleryStatus("Загружаем галерею...");
-  const response = await fetch(`${apiRoot}api/gallery${query}`, { headers: { Accept: "application/json" } });
+  const response = await fetch(`${apiRoot}api/gallery`, { headers: { Accept: "application/json" } });
   if (!response.ok) throw new Error(`Gallery API unavailable: ${response.status}`);
   const payload = await response.json();
   galleryPosts = Array.isArray(payload.posts) ? payload.posts : [];
-  setGalleryStatus(galleryPosts.length ? "Галерея обновлена" : "");
+  setGalleryStatus("");
 }
 
 async function renderGalleryPage() {
@@ -725,8 +865,7 @@ async function renderGalleryPage() {
       ? galleryPosts.map(renderGalleryCard).join("")
       : `
         <article class="empty-state">
-          <h3>Галерея пока пустует.</h3>
-          <p>Когда мастер опубликует фотографии или историю через Telegram-бота, они появятся здесь.</p>
+          <p>Истории Таверны ещё ждут своих первых следов.</p>
         </article>
       `;
   } catch (error) {
@@ -741,18 +880,8 @@ async function renderGalleryPage() {
     `;
   }
 
-  page.querySelectorAll("[data-gallery-tab]").forEach((button) => {
-    button.setAttribute("aria-selected", String(button.dataset.galleryTab === activeGalleryTab));
-  });
   initReveal();
 }
-
-document.querySelector("[data-gallery-page]")?.addEventListener("click", (event) => {
-  const target = event.target instanceof HTMLElement ? event.target.closest("[data-gallery-tab]") : null;
-  if (!(target instanceof HTMLButtonElement)) return;
-  activeGalleryTab = target.dataset.galleryTab || "all";
-  renderGalleryPage();
-});
 
 function renderDiaryPage() {
   const entryNode = document.querySelector("[data-diary-entry]");
