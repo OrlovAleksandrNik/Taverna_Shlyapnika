@@ -8,6 +8,7 @@ import { config, databaseConfigured, siteOrigins } from "../config.js";
 import { prisma } from "../db.js";
 import { logger } from "../logger.js";
 import { ConsentRequiredError, CONSENT_REQUIRED_CODE } from "../services/consent.js";
+import { galleryCategories, getPublicGalleryPost, listPublicGalleryPosts } from "../services/gallery.js";
 import { archivePastGames, createGameSignup, getPublicGame, listPublicGames, setGameStatus } from "../services/games.js";
 import { withdrawConsent } from "../services/privacy.js";
 import { listPublicRating } from "../services/rating.js";
@@ -29,6 +30,12 @@ const publicQuerySchema = z.object({
 const publicRatingQuerySchema = z.object({
   search: z.string().trim().max(80).optional(),
   limit: z.coerce.number().int().positive().max(200).optional(),
+  offset: z.coerce.number().int().min(0).optional()
+});
+
+const publicGalleryQuerySchema = z.object({
+  category: z.string().trim().optional(),
+  limit: z.coerce.number().int().positive().max(100).optional(),
   offset: z.coerce.number().int().min(0).optional()
 });
 
@@ -177,6 +184,31 @@ export function createApp() {
     try {
       const query = publicRatingQuerySchema.parse(request.query);
       response.json(await listPublicRating(query));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get("/api/gallery/categories", (_request, response) => {
+    response.json({
+      categories: galleryCategories.map((value) => ({ value }))
+    });
+  });
+
+  app.get("/api/gallery", async (request, response, next) => {
+    try {
+      const query = publicGalleryQuerySchema.parse(request.query);
+      response.json({ posts: await listPublicGalleryPosts(query) });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get("/api/gallery/:publicId", async (request, response, next) => {
+    try {
+      const post = await getPublicGalleryPost(request.params.publicId);
+      if (!post) return response.status(404).json({ error: "Публикация не найдена." });
+      response.json({ post });
     } catch (error) {
       next(error);
     }

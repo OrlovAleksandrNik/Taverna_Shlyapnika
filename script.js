@@ -1,7 +1,6 @@
 const rootPath = document.body.dataset.root || "";
 const apiRoot = window.location.protocol === "file:" ? "http://localhost:4177/" : rootPath;
 const masters = window.TAVERNA_MASTERS || [];
-const galleryArchive = window.TAVERNA_GALLERY || {};
 const hatterDiaryEntries = window.TAVERNA_HATTER_DIARY || [];
 const siteSettings = {
   ADDRESS: "Могилёв, точный адрес будет добавлен позже",
@@ -23,8 +22,19 @@ let ratingPlayers = [];
 let ratingTopThree = [];
 let activeFilter = new URLSearchParams(window.location.search).get("filter") || "all";
 let activeRatingSort = "official";
-let activeGalleryTab = "photos";
+let activeGalleryTab = "all";
 let activeDiaryIndex = 0;
+let galleryPosts = [];
+
+const galleryCategoryLabels = {
+  all: "Все",
+  games: "Игры",
+  events: "События",
+  heroes: "Герои",
+  tavern: "Таверна",
+  miniatures: "Миниатюры",
+  other: "Другое"
+};
 
 const menuButton = document.querySelector("[data-menu-button]");
 const nav = document.querySelector("[data-nav]");
@@ -397,6 +407,13 @@ document.addEventListener("click", (event) => {
     return;
   }
 
+  const galleryCard = target.closest("[data-gallery-post]");
+  if (galleryCard instanceof HTMLElement && !target.closest("[data-full-image]")) {
+    const post = galleryPosts.find((item) => item.publicId === galleryCard.dataset.galleryPost);
+    if (post) openModal(galleryPostModal(post));
+    return;
+  }
+
   const imageButton = target.closest("[data-full-image]");
   if (imageButton instanceof HTMLElement) {
     openModal(`
@@ -411,6 +428,15 @@ document.addEventListener("click", (event) => {
     const game = games.find((item) => item.id === signupButton.dataset.openSignup);
     if (game) openSignupModal(game);
   }
+});
+
+document.querySelector("[data-gallery-page]")?.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  const target = event.target instanceof HTMLElement ? event.target.closest("[data-gallery-post]") : null;
+  if (!(target instanceof HTMLElement)) return;
+  event.preventDefault();
+  const post = galleryPosts.find((item) => item.publicId === target.dataset.galleryPost);
+  if (post) openModal(galleryPostModal(post));
 });
 
 function openSignupModal(game) {
@@ -599,7 +625,8 @@ function renderContactBlock() {
 }
 
 function archiveImageMarkup(item, extraClass = "") {
-  const src = item.image ? assetPath(item.image) : "";
+  const src = item.thumbnailUrl || item.mediumUrl || item.fileUrl || "";
+  const fullSrc = item.mediumUrl || item.fileUrl || src;
   if (!src) {
     return `
       <div class="archive-placeholder ${extraClass}" aria-hidden="true">
@@ -608,105 +635,122 @@ function archiveImageMarkup(item, extraClass = "") {
     `;
   }
   return `
-    <button class="archive-image-button ${extraClass}" type="button" data-full-image="${escapeHtml(src)}" data-full-alt="${escapeHtml(item.alt || item.title || item.name || "Материал галереи")}">
+    <button class="archive-image-button ${extraClass}" type="button" data-full-image="${escapeHtml(fullSrc)}" data-full-alt="${escapeHtml(item.alt || item.title || item.name || "Материал галереи")}">
       <img src="${escapeHtml(src)}" alt="${escapeHtml(item.alt || item.title || item.name || "Материал галереи")}" loading="lazy">
     </button>
   `;
 }
 
-function archiveMetaLine(label, value) {
-  return value ? `<span><strong>${escapeHtml(label)}</strong>${escapeHtml(value)}</span>` : "";
+function formatGalleryDate(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("ru-RU", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "Europe/Minsk"
+  }).format(date);
 }
 
-function renderGalleryCard(tab, item) {
-  if (tab === "chronicles") {
-    return `
-      <article class="archive-card archive-card-wide">
-        ${archiveImageMarkup(item)}
-        <div>
-          <p class="archive-date">${escapeHtml(item.date || "Дата будет добавлена")}</p>
-          <h3>${escapeHtml(item.title)}</h3>
-          ${item.master ? `<p class="archive-meta">Мастер: ${escapeHtml(item.master)}</p>` : ""}
-          <p>${escapeHtml(item.excerpt || "")}</p>
-          <details class="archive-details">
-            <summary>Развернуть хронику</summary>
-            <p>${escapeHtml(item.content || "Хроника ожидает текста.")}</p>
-          </details>
-        </div>
-      </article>
-    `;
-  }
+function galleryStatusNode() {
+  return document.querySelector("[data-gallery-status]");
+}
 
-  if (tab === "heroes") {
-    const meta = [
-      archiveMetaLine("Класс", item.className),
-      archiveMetaLine("Раса", item.race),
-      archiveMetaLine("Игрок", item.player),
-      archiveMetaLine("Мастер", item.master),
-      archiveMetaLine("Кампания", item.campaign),
-      archiveMetaLine("Начало", item.beginning),
-      archiveMetaLine("Финал", item.ending),
-      archiveMetaLine("Статус", item.status)
-    ].filter(Boolean).join("");
-    return `
-      <article class="archive-card">
-        ${archiveImageMarkup(item)}
-        <h3>${escapeHtml(item.name || item.title)}</h3>
-        <p>${escapeHtml(item.description || "")}</p>
-        ${meta ? `<div class="archive-character-meta">${meta}</div>` : ""}
-      </article>
-    `;
-  }
+function setGalleryStatus(text) {
+  const status = galleryStatusNode();
+  if (status) status.textContent = text || "";
+}
 
-  if (tab === "sheets") {
-    const hasUrl = Boolean(item.url);
-    return `
-      <article class="archive-card document-card">
-        <div class="document-mark" aria-hidden="true"></div>
-        <p class="archive-date">${escapeHtml(item.type || "Документ")}</p>
-        <h3>${escapeHtml(item.title)}</h3>
-        <p>${escapeHtml(item.description || "")}</p>
-        ${hasUrl
-          ? `<a class="button ghost" href="${escapeHtml(assetPath(item.url))}" target="_blank" rel="noreferrer">Открыть документ</a>`
-          : `<span class="archive-muted">Файл будет добавлен позже</span>`}
-      </article>
-    `;
-  }
+function renderGalleryCard(post) {
+  const cover = post.media?.[0] || {};
+  const date = formatGalleryDate(post.eventDate || post.publishedAt || post.createdAt);
+  const category = galleryCategoryLabels[post.category] || post.category || "";
+  const mediaCount = post.media?.length ? `${post.media.length} фото` : post.type === "story" ? "История" : "";
 
   return `
-    <article class="archive-card">
-      ${archiveImageMarkup(item)}
-      <p class="archive-date">${escapeHtml(item.date || "Дата будет добавлена")}</p>
-      <h3>${escapeHtml(item.title)}</h3>
-      <p>${escapeHtml(item.description || "")}</p>
+    <article class="archive-card gallery-post-card" tabindex="0" role="button" data-gallery-post="${escapeHtml(post.publicId)}">
+      ${archiveImageMarkup({ ...cover, title: post.title, alt: cover.altText || post.title })}
+      <p class="archive-date">${escapeHtml([category, date].filter(Boolean).join(" · "))}</p>
+      <h3>${escapeHtml(post.title)}</h3>
+      ${post.master?.name ? `<p class="archive-meta">Мастер: ${escapeHtml(post.master.name)}</p>` : ""}
+      ${post.description ? `<p>${escapeHtml(post.description)}</p>` : ""}
+      ${mediaCount ? `<span class="archive-muted">${escapeHtml(mediaCount)}</span>` : ""}
     </article>
   `;
 }
 
-function renderGalleryPage() {
+function galleryPostModal(post) {
+  const media = post.media?.length
+    ? `
+      <div class="gallery-modal-media">
+        ${post.media.map((item, index) => `
+          <button class="archive-image-button" type="button" data-full-image="${escapeHtml(item.mediumUrl || item.fileUrl)}" data-full-alt="${escapeHtml(item.altText || post.title)}">
+            <img src="${escapeHtml(item.mediumUrl || item.fileUrl)}" alt="${escapeHtml(item.altText || post.title)}" loading="${index > 0 ? "lazy" : "eager"}">
+          </button>
+        `).join("")}
+      </div>
+    `
+    : "";
+  const date = formatGalleryDate(post.eventDate || post.publishedAt || post.createdAt);
+  return `
+    <button class="modal-close" type="button" data-modal-close aria-label="Закрыть">×</button>
+    <p class="eyebrow">${escapeHtml(galleryCategoryLabels[post.category] || "Галерея")}</p>
+    <h2>${escapeHtml(post.title)}</h2>
+    <p class="modal-note">${escapeHtml([date, post.master?.name ? `Мастер: ${post.master.name}` : ""].filter(Boolean).join(" · "))}</p>
+    ${media}
+    ${post.description ? `<p>${escapeHtml(post.description)}</p>` : ""}
+    ${post.storyHtml ? `<div class="gallery-story">${post.storyHtml}</div>` : ""}
+  `;
+}
+
+async function loadGalleryPosts() {
+  const query = activeGalleryTab === "all" ? "" : `?category=${encodeURIComponent(activeGalleryTab)}`;
+  setGalleryStatus("Загружаем галерею...");
+  const response = await fetch(`${apiRoot}api/gallery${query}`, { headers: { Accept: "application/json" } });
+  if (!response.ok) throw new Error(`Gallery API unavailable: ${response.status}`);
+  const payload = await response.json();
+  galleryPosts = Array.isArray(payload.posts) ? payload.posts : [];
+  setGalleryStatus(galleryPosts.length ? "Галерея обновлена" : "");
+}
+
+async function renderGalleryPage() {
   const page = document.querySelector("[data-gallery-page]");
   const content = document.querySelector("[data-gallery-content]");
   if (!page || !content) return;
 
-  const items = Array.isArray(galleryArchive[activeGalleryTab]) ? galleryArchive[activeGalleryTab] : [];
-  content.innerHTML = items.length
-    ? items.map((item) => renderGalleryCard(activeGalleryTab, item)).join("")
-    : `
+  try {
+    await loadGalleryPosts();
+    content.innerHTML = galleryPosts.length
+      ? galleryPosts.map(renderGalleryCard).join("")
+      : `
+        <article class="empty-state">
+          <h3>Галерея пока пустует.</h3>
+          <p>Когда мастер опубликует фотографии или историю через Telegram-бота, они появятся здесь.</p>
+        </article>
+      `;
+  } catch (error) {
+    console.error("Gallery load failed", error);
+    galleryPosts = [];
+    setGalleryStatus("");
+    content.innerHTML = `
       <article class="empty-state">
-        <h3>Эта полка пока пустует.</h3>
-        <p>Когда появятся настоящие материалы, они будут добавлены в отдельный файл данных галереи.</p>
+        <h3>Не удалось загрузить галерею.</h3>
+        <p>Попробуйте обновить страницу немного позже.</p>
       </article>
     `;
+  }
 
   page.querySelectorAll("[data-gallery-tab]").forEach((button) => {
     button.setAttribute("aria-selected", String(button.dataset.galleryTab === activeGalleryTab));
   });
+  initReveal();
 }
 
 document.querySelector("[data-gallery-page]")?.addEventListener("click", (event) => {
   const target = event.target instanceof HTMLElement ? event.target.closest("[data-gallery-tab]") : null;
   if (!(target instanceof HTMLButtonElement)) return;
-  activeGalleryTab = target.dataset.galleryTab || "photos";
+  activeGalleryTab = target.dataset.galleryTab || "all";
   renderGalleryPage();
 });
 
@@ -964,7 +1008,6 @@ async function renderRatingPage() {
 function renderFooter() {
   const footer = document.querySelector("[data-site-footer]");
   if (!footer) return;
-  const phone = sanitizePhone(siteSettings.PHONE_NUMBER);
   const unp = siteSettings.UNP ? `УНП: ${escapeHtml(siteSettings.UNP)}` : "УНП: будет добавлен после оформления документов";
 
   footer.innerHTML = `
@@ -984,12 +1027,7 @@ function renderFooter() {
         <a href="${assetPath("dnd-simple.html")}">D&D простым языком</a>
       </nav>
       <div>
-        <a href="https://www.instagram.com/taverna_shlyapnika/" target="_blank" rel="noreferrer">Instagram</a>
-        <a href="https://t.me/MisterHatter" target="_blank" rel="noreferrer">Telegram</a>
-        ${siteSettings.TELEGRAM_COMMUNITY_URL
-          ? `<a href="${escapeHtml(siteSettings.TELEGRAM_COMMUNITY_URL)}" target="_blank" rel="noreferrer">${escapeHtml(siteSettings.TELEGRAM_COMMUNITY_LABEL)}</a>`
-          : `<span>${escapeHtml(siteSettings.TELEGRAM_COMMUNITY_LABEL)}: ссылка будет добавлена позже</span>`}
-        ${phone ? `<a href="tel:${escapeHtml(phone)}">${escapeHtml(siteSettings.PHONE_NUMBER)}</a>` : `<span>Телефон: номер появится позже</span>`}
+        <a href="${assetPath("index.html#contacts")}">Контакты</a>
         <a href="${privacyPolicyUrl()}">Политика обработки персональных данных</a>
       </div>
     </div>
@@ -1083,4 +1121,8 @@ if (document.querySelector("[data-schedule]")) {
 
 if (document.querySelector("[data-rating-page]")) {
   window.setInterval(() => renderRatingPage(), 60_000);
+}
+
+if (document.querySelector("[data-gallery-page]")) {
+  window.setInterval(() => renderGalleryPage(), 60_000);
 }

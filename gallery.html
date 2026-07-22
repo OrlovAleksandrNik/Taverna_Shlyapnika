@@ -22,7 +22,6 @@
 <body data-page="gallery" data-root="">
   <header class="site-header" data-header>
     <a class="brand" href="index.html#top" aria-label="Таверна Шляпника">
-      <span class="brand-mark" aria-hidden="true">20</span>
       <span>
         <strong>Таверна Шляпника</strong>
         <small>D&D Могилёв</small>
@@ -48,32 +47,32 @@
   <div class="nav-backdrop" data-nav-backdrop></div>
 
   <main id="top">
-    <section class="archive-hero reveal" aria-labelledby="gallery-title">
+    <section class="archive-hero gallery-hero reveal" aria-labelledby="gallery-title">
       <div class="archive-hero-bg" aria-hidden="true"></div>
-      <div class="archive-hero-content">
+      <div class="archive-hero-content page-container">
         <a class="back-link" href="index.html#top">Вернуться на главную</a>
         <p class="eyebrow">Архив историй</p>
         <h1 id="gallery-title">Галерея Таверны</h1>
-        <p>Фотографии, хроники, герои, листы персонажей и следы кампаний. Пока здесь подготовлены полки для будущих настоящих материалов.</p>
+        <p>Фотографии, хроники, герои и следы событий, которые мастера добавляют через Telegram-бота. На сайте галерея только показывает опубликованные материалы.</p>
       </div>
     </section>
 
-    <section class="section archive-section" aria-label="Архив галереи" data-gallery-page>
+    <section class="section archive-section page-container" aria-label="Архив галереи" data-gallery-page>
       <div class="section-copy section-copy-center reveal">
-        <p class="eyebrow">Выберите полку</p>
+        <p class="eyebrow">Выберите раздел</p>
         <h2>Истории, которым нашлось место</h2>
       </div>
       <div class="archive-tabs reveal" role="tablist" aria-label="Разделы галереи">
-        <button type="button" role="tab" aria-selected="true" data-gallery-tab="photos">Фотографии</button>
-        <button type="button" role="tab" aria-selected="false" data-gallery-tab="chronicles">Хроники</button>
+        <button type="button" role="tab" aria-selected="true" data-gallery-tab="all">Все</button>
+        <button type="button" role="tab" aria-selected="false" data-gallery-tab="games">Игры</button>
+        <button type="button" role="tab" aria-selected="false" data-gallery-tab="events">События</button>
         <button type="button" role="tab" aria-selected="false" data-gallery-tab="heroes">Герои</button>
-        <button type="button" role="tab" aria-selected="false" data-gallery-tab="sheets">Листы персонажей</button>
-        <button type="button" role="tab" aria-selected="false" data-gallery-tab="campaigns">Кампании</button>
+        <button type="button" role="tab" aria-selected="false" data-gallery-tab="tavern">Таверна</button>
+        <button type="button" role="tab" aria-selected="false" data-gallery-tab="miniatures">Миниатюры</button>
       </div>
+      <div class="gallery-status" data-gallery-status></div>
       <div class="archive-grid reveal" data-gallery-content></div>
     </section>
-
-    <section class="section contacts" id="contacts" aria-labelledby="contacts-title" data-contact-block></section>
   </main>
 
   <footer class="site-footer" data-site-footer></footer>
@@ -81,7 +80,6 @@
 
   <script src="data/site-settings.js"></script>
   <script src="data/masters.js"></script>
-  <script src="data/gallery.js"></script>
   <script src="script.js"></script>
 </body>
 </html>

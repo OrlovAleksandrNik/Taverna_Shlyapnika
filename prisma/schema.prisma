@@ -17,6 +17,27 @@ enum MasterStatus {
   blocked
 }
 
+enum GalleryPostType {
+  photo
+  story
+  character_sheet
+}
+
+enum GalleryCategory {
+  games
+  events
+  heroes
+  tavern
+  miniatures
+  other
+}
+
+enum GalleryPostStatus {
+  draft
+  published
+  hidden
+}
+
 enum GameStatus {
   draft
   pending
@@ -38,9 +59,52 @@ model Master {
   updatedAt        DateTime     @updatedAt
   games            Game[]
   gameSignups      GameSignup[]
+  galleryPosts     GalleryPost[]
 
   @@index([status])
   @@index([role])
+}
+
+model GalleryPost {
+  id             String            @id @default(cuid())
+  publicId       String            @unique
+  type           GalleryPostType   @default(photo)
+  title          String
+  description    String?
+  storyContent   String?
+  storyHtml      String?
+  category       GalleryCategory   @default(games)
+  eventDate      DateTime?
+  authorMasterId String?
+  authorMaster   Master?           @relation(fields: [authorMasterId], references: [id], onDelete: SetNull)
+  status         GalleryPostStatus @default(draft)
+  isVisible      Boolean           @default(true)
+  sortOrder      Int               @default(0)
+  publishedAt    DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  media          GalleryMedia[]
+
+  @@index([status, isVisible, sortOrder, createdAt])
+  @@index([category, status])
+  @@index([authorMasterId])
+}
+
+model GalleryMedia {
+  id            String      @id @default(cuid())
+  galleryPostId String
+  galleryPost   GalleryPost @relation(fields: [galleryPostId], references: [id], onDelete: Cascade)
+  fileUrl       String
+  thumbnailUrl  String
+  mediumUrl     String
+  width         Int?
+  height        Int?
+  mimeType      String
+  altText       String?
+  sortOrder     Int         @default(0)
+  createdAt     DateTime    @default(now())
+
+  @@index([galleryPostId, sortOrder])
 }
 
 model Game {

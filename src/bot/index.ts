@@ -6,6 +6,13 @@ import { prisma } from "../db.js";
 import { logger } from "../logger.js";
 import { audit } from "../services/audit.js";
 import {
+  createGalleryPost,
+  createGalleryPublicId,
+  listGalleryPostsForBot,
+  setGalleryPostStatus,
+  storeTelegramGalleryImage
+} from "../services/gallery.js";
+import {
   addRatingGameResult,
   adjustRatingInspiration,
   adjustRatingPoints,
@@ -35,6 +42,13 @@ type Draft = {
   ageRating?: string;
   contactOverride?: string;
   ratingDisplayName?: string;
+  galleryType?: "photo" | "story";
+  galleryTitle?: string;
+  galleryDescription?: string;
+  galleryStoryContent?: string;
+  galleryCategory?: "games" | "events" | "heroes" | "tavern" | "miniatures" | "other";
+  galleryEventDate?: string;
+  galleryMedia?: Array<{ fileId: string; source: "photo" | "document" }>;
 };
 
 type Session = {
@@ -82,13 +96,21 @@ function botErrorDetails(error: unknown) {
 
 function mainMenu(isAdmin = false) {
   const keyboard = new InlineKeyboard()
-    .text("Создать заявку на игру", "create_game").row()
-    .text("Мои игры", "my_games").text("Предстоящие игры", "upcoming_games").row()
-    .text("Прошедшие игры", "past_games").text("Мой профиль", "profile").row()
-    .text("Помощь", "help");
+    .text("🎲 Афиша и игры", "games_menu")
+    .text("🖼 Галерея", "gallery_menu").row();
 
-  if (isAdmin) keyboard.row().text("Рейтинг", "rating_menu").text("Администрирование", "admin");
-  return keyboard;
+  if (isAdmin) keyboard.text("🏆 Рейтинг", "rating_menu").text("⚙️ Администрирование", "admin").row();
+  return keyboard.text("👤 Мой профиль", "profile").text("Помощь", "help");
+}
+
+function gamesMenuKeyboard() {
+  return new InlineKeyboard()
+    .text("Создать заявку на игру", "create_game").row()
+    .text("Мои игры", "my_games")
+    .text("Предстоящие игры", "upcoming_games").row()
+    .text("Прошедшие игры", "past_games").row()
+    .text("⬅️ Назад", "menu")
+    .text("❌ Отмена", "cancel");
 }
 
 function startMenu() {
@@ -385,6 +407,10 @@ function isRatingAdmin(ctx: Context, master: { role: string } | null | undefined
   return Boolean(master && (master.role === "admin" || adminTelegramIds.has(String(ctx.from?.id))));
 }
 
+function isContentAdmin(ctx: Context, master: { role: string } | null | undefined) {
+  return Boolean(master && (master.role === "admin" || adminTelegramIds.has(String(ctx.from?.id))));
+}
+
 async function requireRatingAdmin(ctx: Context) {
   const id = userId(ctx);
   if (!id) return null;
@@ -396,6 +422,182 @@ async function requireRatingAdmin(ctx: Context) {
   }
 
   return master;
+}
+
+function galleryMenuKeyboard() {
+  return new InlineKeyboard()
+    .text("➕ Добавить фотографию", "gallery_add_photo").row()
+    .text("📚 Добавить историю", "gallery_add_story").row()
+    .text("📋 Список публикаций", "gallery_posts").row()
+    .text("⬅️ Назад", "menu")
+    .text("❌ Отмена", "cancel");
+}
+
+function galleryMediaKeyboard() {
+  return new InlineKeyboard()
+    .text("Далее", "gallery_media_done").row()
+    .text("❌ Отмена", "cancel");
+}
+
+function galleryCategoryKeyboard() {
+  return new InlineKeyboard()
+    .text("Игры", "gallery_category:games")
+    .text("События", "gallery_category:events").row()
+    .text("Герои", "gallery_category:heroes")
+    .text("Таверна", "gallery_category:tavern").row()
+    .text("Миниатюры", "gallery_category:miniatures")
+    .text("Другое", "gallery_category:other").row()
+    .text("❌ Отмена", "cancel");
+}
+
+function galleryPublishKeyboard() {
+  return new InlineKeyboard()
+    .text("Опубликовать", "gallery_publish")
+    .text("Сохранить черновик", "gallery_draft").row()
+    .text("❌ Отмена", "cancel");
+}
+
+function galleryStoryMediaChoiceKeyboard() {
+  return new InlineKeyboard()
+    .text("Добавить фото", "gallery_story_add_media")
+    .text("Без фото", "gallery_story_skip_media").row()
+    .text("❌ Отмена", "cancel");
+}
+
+function galleryConfirmKeyboard() {
+  return new InlineKeyboard()
+    .text("Подтвердить", "gallery_confirm").row()
+    .text("❌ Отмена", "cancel");
+}
+
+async function showGalleryMenu(ctx: Context) {
+  const master = await requireActiveMaster(ctx);
+  if (!master) return;
+  const isAdmin = isContentAdmin(ctx, master);
+  const count = await prisma.galleryPost.count({ where: isAdmin ? {} : { authorMasterId: master.id } });
+  await ctx.reply(
+    [
+      "Галерея",
+      "",
+      `Публикаций в управлении: ${count}`,
+      "Здесь можно добавить фотографии и истории. На сайте отображаются только опубликованные записи."
+    ].join("\n"),
+    { reply_markup: galleryMenuKeyboard() }
+  );
+}
+
+async function startGalleryPhoto(ctx: Context) {
+  const id = userId(ctx);
+  const master = await requireActiveMaster(ctx);
+  if (!id || !master) return;
+  await saveSession(id, "gallery:photo:media", { galleryType: "photo", galleryMedia: [] });
+  await ctx.reply("Отправьте одну или несколько фотографий JPEG, PNG или WEBP. После загрузки нажмите «Далее».", {
+    reply_markup: galleryMediaKeyboard()
+  });
+}
+
+async function startGalleryStory(ctx: Context) {
+  const id = userId(ctx);
+  const master = await requireActiveMaster(ctx);
+  if (!id || !master) return;
+  await saveSession(id, "gallery:story:title", { galleryType: "story", galleryMedia: [] });
+  await ctx.reply("Введите заголовок истории для галереи.", { reply_markup: navKeyboard() });
+}
+
+function parseOptionalGalleryDate(value?: string) {
+  const text = (value || "").trim();
+  if (!text || /^нет$/i.test(text) || /^пропустить$/i.test(text)) return undefined;
+  const parsed = DateTime.fromISO(text, { zone: config.TAVERN_TIMEZONE });
+  if (!parsed.isValid) throw new Error("Введите дату события в формате YYYY-MM-DD или напишите «нет».");
+  return text;
+}
+
+function galleryDraftPreview(draft: Draft, status: "published" | "draft") {
+  return [
+    status === "published" ? "Публикация будет видна на сайте:" : "Публикация будет сохранена как черновик:",
+    "",
+    `Тип: ${draft.galleryType === "story" ? "история" : "фотографии"}`,
+    `Название: ${draft.galleryTitle}`,
+    `Категория: ${draft.galleryCategory}`,
+    draft.galleryDescription ? `Описание: ${draft.galleryDescription}` : "",
+    draft.galleryStoryContent ? `История: ${draft.galleryStoryContent.slice(0, 700)}${draft.galleryStoryContent.length > 700 ? "..." : ""}` : "",
+    draft.galleryEventDate ? `Дата события: ${draft.galleryEventDate}` : "",
+    `Фотографий: ${draft.galleryMedia?.length || 0}`
+  ].filter(Boolean).join("\n");
+}
+
+async function createGalleryFromDraft(ctx: Context, draft: Draft, status: "published" | "draft") {
+  const id = userId(ctx);
+  const master = await requireActiveMaster(ctx);
+  if (!id || !master || !draft.galleryTitle || !draft.galleryCategory || !draft.galleryType) return;
+
+  if (draft.galleryType === "photo" && !draft.galleryMedia?.length) {
+    await ctx.reply("Для фотопубликации нужна хотя бы одна фотография.");
+    return;
+  }
+
+  const publicId = createGalleryPublicId();
+  const media = [];
+  for (const [index, item] of (draft.galleryMedia || []).entries()) {
+    media.push(await storeTelegramGalleryImage({
+      api: ctx.api,
+      fileId: item.fileId,
+      postPublicId: publicId,
+      altText: draft.galleryTitle,
+      sortOrder: index
+    }));
+  }
+
+  const post = await createGalleryPost({
+    publicId,
+    type: draft.galleryType,
+    title: draft.galleryTitle,
+    description: draft.galleryDescription,
+    storyContent: draft.galleryStoryContent,
+    category: draft.galleryCategory,
+    eventDate: draft.galleryEventDate ? toUtcDate(DateTime.fromISO(draft.galleryEventDate, { zone: config.TAVERN_TIMEZONE }).startOf("day")) : undefined,
+    authorMasterId: master.id,
+    status,
+    media,
+    createdByTelegramId: id
+  });
+
+  await resetSession(id);
+  await ctx.reply(
+    status === "published"
+      ? `Публикация добавлена в галерею: ${post.title}`
+      : `Черновик сохранён: ${post.title}`,
+    { reply_markup: galleryMenuKeyboard() }
+  );
+}
+
+async function listGalleryPosts(ctx: Context) {
+  const id = userId(ctx);
+  const master = await requireActiveMaster(ctx);
+  if (!id || !master) return;
+  const isAdmin = isContentAdmin(ctx, master);
+  const posts = await listGalleryPostsForBot(master.id, isAdmin);
+  if (!posts.length) {
+    await ctx.reply("Публикаций пока нет.", { reply_markup: galleryMenuKeyboard() });
+    return;
+  }
+
+  for (const post of posts) {
+    const keyboard = new InlineKeyboard();
+    if (post.status !== "published") keyboard.text("Опубликовать", `gallery_set_published:${post.id}`).row();
+    if (post.status !== "hidden") keyboard.text("Скрыть", `gallery_set_hidden:${post.id}`).row();
+    if (post.status === "hidden") keyboard.text("Вернуть", `gallery_set_published:${post.id}`).row();
+    keyboard.text("Назад", "gallery_menu");
+    await ctx.reply(
+      [
+        post.title,
+        `Статус: ${post.status}`,
+        `Категория: ${post.category}`,
+        `Фотографий: ${post.media.length}`
+      ].join("\n"),
+      { reply_markup: keyboard }
+    );
+  }
 }
 
 function ratingMenuKeyboard() {
@@ -670,6 +872,56 @@ async function handleText(ctx: Context) {
       return;
     }
 
+    if (session.state === "gallery:photo:title") {
+      await saveSession(id, "gallery:photo:description", { ...draft, galleryTitle: gameText.title.parse(text) });
+      await ctx.reply("Добавьте краткое описание публикации или напишите «нет».", { reply_markup: navKeyboard() });
+      return;
+    }
+
+    if (session.state === "gallery:photo:description") {
+      await saveSession(id, "gallery:category", {
+        ...draft,
+        galleryDescription: /^нет$/i.test(text) ? undefined : text.slice(0, 700)
+      });
+      await ctx.reply("Выберите категорию публикации.", { reply_markup: galleryCategoryKeyboard() });
+      return;
+    }
+
+    if (session.state === "gallery:story:title") {
+      await saveSession(id, "gallery:story:content", { ...draft, galleryTitle: gameText.title.parse(text) });
+      await ctx.reply("Введите текст истории. Можно использовать абзацы, списки, цитаты, **жирный** и *курсив*.", { reply_markup: navKeyboard() });
+      return;
+    }
+
+    if (session.state === "gallery:story:content") {
+      if (text.length < 20) return void (await ctx.reply("История слишком короткая. Добавьте хотя бы пару предложений."));
+      await saveSession(id, "gallery:story:description", { ...draft, galleryStoryContent: text.slice(0, 8000) });
+      await ctx.reply("Добавьте краткое вступление для карточки или напишите «нет».", { reply_markup: navKeyboard() });
+      return;
+    }
+
+    if (session.state === "gallery:story:description") {
+      await saveSession(id, "gallery:category", {
+        ...draft,
+        galleryDescription: /^нет$/i.test(text) ? undefined : text.slice(0, 700)
+      });
+      await ctx.reply("Выберите категорию истории.", { reply_markup: galleryCategoryKeyboard() });
+      return;
+    }
+
+    if (session.state === "gallery:date") {
+      const galleryEventDate = parseOptionalGalleryDate(text);
+      const nextDraft = { ...draft, galleryEventDate };
+      if (draft.galleryType === "story") {
+        await saveSession(id, "gallery:story:media-choice", nextDraft);
+        await ctx.reply("Хотите добавить фотографии к истории?", { reply_markup: galleryStoryMediaChoiceKeyboard() });
+        return;
+      }
+      await saveSession(id, "gallery:publish", nextDraft);
+      await ctx.reply("Опубликовать сразу или сохранить как черновик?", { reply_markup: galleryPublishKeyboard() });
+      return;
+    }
+
     if (session.state.startsWith("profile:")) {
       const master = await requireActiveMaster(ctx);
       if (!master) return;
@@ -814,6 +1066,37 @@ async function handleText(ctx: Context) {
   }
 }
 
+async function handleGalleryMedia(ctx: Context) {
+  const id = userId(ctx);
+  if (!id || !ctx.message) return;
+  const session = await getSession(id);
+  if (session.state !== "gallery:photo:media" && session.state !== "gallery:story:media") return;
+
+  const master = await requireActiveMaster(ctx);
+  if (!master) return;
+
+  let fileId = "";
+  let source: "photo" | "document" = "photo";
+  if ("photo" in ctx.message && ctx.message.photo?.length) {
+    fileId = ctx.message.photo[ctx.message.photo.length - 1].file_id;
+  } else if ("document" in ctx.message && ctx.message.document) {
+    const mime = ctx.message.document.mime_type || "";
+    if (!["image/jpeg", "image/png", "image/webp"].includes(mime)) {
+      await ctx.reply("Документ должен быть изображением JPEG, PNG или WEBP.");
+      return;
+    }
+    fileId = ctx.message.document.file_id;
+    source = "document";
+  }
+
+  if (!fileId) return;
+  const media = [...(session.draft.galleryMedia || []), { fileId, source }].slice(0, 20);
+  await saveSession(id, session.state, { ...session.draft, galleryMedia: media });
+  await ctx.reply(`Фото добавлено: ${media.length}. Можно отправить ещё или нажать «Далее».`, {
+    reply_markup: galleryMediaKeyboard()
+  });
+}
+
 async function handleCallback(ctx: Context) {
   const id = userId(ctx);
   const data = ctx.callbackQuery?.data;
@@ -853,11 +1136,79 @@ async function handleCallback(ctx: Context) {
   if (data === "register_edit_contact") return askContact(ctx, draft);
   if (data === "confirm_registration") return createMaster(ctx, draft);
 
+  if (data === "games_menu") {
+    const master = await requireActiveMaster(ctx);
+    if (!master) return;
+    await ctx.reply("Афиша и игры", { reply_markup: gamesMenuKeyboard() });
+    return;
+  }
   if (data === "create_game") return beginGameDraft(ctx);
   if (data === "my_games") return listGames(ctx, "all");
   if (data === "upcoming_games") return listGames(ctx, "upcoming");
   if (data === "past_games") return listGames(ctx, "past");
   if (data === "profile") return showProfile(ctx);
+
+  if (data === "gallery_menu") return showGalleryMenu(ctx);
+  if (data === "gallery_add_photo") return startGalleryPhoto(ctx);
+  if (data === "gallery_add_story") return startGalleryStory(ctx);
+  if (data === "gallery_posts") return listGalleryPosts(ctx);
+  if (data === "gallery_media_done") {
+    if (!draft.galleryMedia?.length && draft.galleryType === "photo") {
+      await ctx.reply("Сначала отправьте хотя бы одну фотографию.");
+      return;
+    }
+    await saveSession(id, draft.galleryType === "story" ? "gallery:publish" : "gallery:photo:title", draft);
+    await ctx.reply(
+      draft.galleryType === "story"
+        ? "Опубликовать сразу или сохранить как черновик?"
+        : "Введите название публикации.",
+      { reply_markup: draft.galleryType === "story" ? galleryPublishKeyboard() : navKeyboard() }
+    );
+    return;
+  }
+  if (data === "gallery_story_add_media") {
+    await saveSession(id, "gallery:story:media", draft);
+    await ctx.reply("Отправьте фотографии для истории. Когда закончите, нажмите «Далее».", { reply_markup: galleryMediaKeyboard() });
+    return;
+  }
+  if (data === "gallery_story_skip_media") {
+    await saveSession(id, "gallery:publish", draft);
+    await ctx.reply("Опубликовать сразу или сохранить как черновик?", { reply_markup: galleryPublishKeyboard() });
+    return;
+  }
+  if (data.startsWith("gallery_category:")) {
+    const category = data.slice(17) as Draft["galleryCategory"];
+    await saveSession(id, "gallery:date", { ...draft, galleryCategory: category });
+    await ctx.reply("Укажите дату события в формате YYYY-MM-DD или напишите «нет».", { reply_markup: navKeyboard() });
+    return;
+  }
+  if (data === "gallery_publish" || data === "gallery_draft") {
+    const status = data === "gallery_publish" ? "published" : "draft";
+    await saveSession(id, `gallery:confirm:${status}`, draft);
+    await ctx.reply(galleryDraftPreview(draft, status), { reply_markup: galleryConfirmKeyboard() });
+    return;
+  }
+  if (data === "gallery_confirm") {
+    const status = session.state.endsWith(":draft") ? "draft" : "published";
+    return createGalleryFromDraft(ctx, draft, status);
+  }
+  if (data.startsWith("gallery_set_")) {
+    const master = await requireActiveMaster(ctx);
+    if (!master) return;
+    const [statusPart, postId] = data.replace("gallery_set_", "").split(":");
+    const status = statusPart === "hidden" ? "hidden" : "published";
+    await setGalleryPostStatus({
+      postId,
+      masterId: master.id,
+      isAdmin: isContentAdmin(ctx, master),
+      status,
+      createdByTelegramId: id
+    });
+    await ctx.reply(status === "hidden" ? "Публикация скрыта и не отображается на сайте." : "Публикация опубликована и отображается на сайте.", {
+      reply_markup: galleryMenuKeyboard()
+    });
+    return;
+  }
 
   if (data === "rating_menu") return showRatingMenu(ctx);
   if (data === "rating_players") return showRatingPlayers(ctx);
@@ -1085,6 +1436,8 @@ export async function startBot() {
     await ctx.reply(`Администрирование\n\nМастеров: ${masters}\nИгр: ${games}\nОжидают модерации: ${pending}`);
   });
   bot.on("callback_query:data", handleCallback);
+  bot.on("message:photo", handleGalleryMedia);
+  bot.on("message:document", handleGalleryMedia);
   bot.on("message:text", handleText);
   bot.catch((error) => {
     markBotError(error);
