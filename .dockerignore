@@ -15,6 +15,8 @@ logs
 .postgres
 .postgres-data
 uploads
+assets/source
+.railway
 backup-*
 database-dumps
 *.log

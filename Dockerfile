@@ -14,7 +14,9 @@ ENV FRONTEND_STATIC_DIR=/app/static-site
 ENV FILE_STORAGE_DIR=/app/uploads
 ENV PUBLIC_UPLOADS_URL=/uploads
 COPY --from=backend-build /workspace/apps/backend-java/target/shlyapnika-backend-*.jar /app/app.jar
-COPY assets /app/static-site/assets
+COPY assets/hero-tavern.png /app/static-site/assets/hero-tavern.png
+COPY assets/fonts /app/static-site/assets/fonts
+COPY assets/images /app/static-site/assets/images
 COPY data /app/static-site/data
 COPY masters /app/static-site/masters
 COPY *.html /app/static-site/

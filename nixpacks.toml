@@ -5,7 +5,10 @@ nixPkgs = ["jdk21", "maven"]
 cmds = [
   "cd apps/backend-java && mvn -B -DskipTests package",
   "mkdir -p .railway/static-site",
-  "cp -R assets data masters .railway/static-site/",
+  "mkdir -p .railway/static-site/assets",
+  "cp assets/hero-tavern.png .railway/static-site/assets/",
+  "cp -R assets/fonts assets/images .railway/static-site/assets/",
+  "cp -R data masters .railway/static-site/",
   "cp *.html robots.txt sitemap.xml styles.css script.js .railway/static-site/"
 ]
 

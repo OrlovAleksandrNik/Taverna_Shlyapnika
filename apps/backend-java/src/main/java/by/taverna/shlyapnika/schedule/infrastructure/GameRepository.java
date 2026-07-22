@@ -4,13 +4,11 @@ import by.taverna.shlyapnika.schedule.domain.GameEntity;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
-import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface GameRepository extends JpaRepository<GameEntity, String> {
-  @EntityGraph(attributePaths = "master")
   @Query(value = """
       select * from "Game"
       where "status" = cast(:status as "GameStatus")
@@ -20,7 +18,6 @@ public interface GameRepository extends JpaRepository<GameEntity, String> {
       """, nativeQuery = true)
   List<GameEntity> findPublicGames(@Param("status") String status, @Param("from") Instant from);
 
-  @EntityGraph(attributePaths = "master")
   @Query(value = """
       select * from "Game"
       where "id" = :id
@@ -30,7 +27,6 @@ public interface GameRepository extends JpaRepository<GameEntity, String> {
       """, nativeQuery = true)
   Optional<GameEntity> findPublicGame(@Param("id") String id, @Param("status") String status, @Param("from") Instant from);
 
-  @EntityGraph(attributePaths = "master")
   @Query(value = """
       select * from "Game"
       where "masterId" = :masterId
@@ -39,7 +35,6 @@ public interface GameRepository extends JpaRepository<GameEntity, String> {
       """, nativeQuery = true)
   List<GameEntity> findByMasterIdForBot(@Param("masterId") String masterId);
 
-  @EntityGraph(attributePaths = "master")
   @Query(value = """
       select * from "Game"
       where "id" = :id

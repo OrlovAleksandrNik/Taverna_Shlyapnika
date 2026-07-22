@@ -20,6 +20,7 @@ apps/telegram-bot-java/.mvn/apache-maven-*/
 apps/telegram-bot-java/.mvn/apache-maven-*.zip
 
 # Runtime data
+assets/source/
 uploads/
 uploads/private/
 .downloads/
@@ -38,6 +39,7 @@ backup-*/
 # Cache and temporary files
 .cache/
 .tmp/
+.railway/
 tmp/
 temp/
 *.log

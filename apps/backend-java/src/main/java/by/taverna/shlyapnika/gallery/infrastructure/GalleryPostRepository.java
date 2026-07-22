@@ -9,7 +9,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface GalleryPostRepository extends JpaRepository<GalleryPostEntity, String> {
-  @EntityGraph(attributePaths = {"authorMaster", "media"})
   @Query(value = """
       select * from "GalleryPost"
       where "status" = cast('published' as "GalleryPostStatus")
@@ -19,7 +18,6 @@ public interface GalleryPostRepository extends JpaRepository<GalleryPostEntity, 
       """, nativeQuery = true)
   List<GalleryPostEntity> findPublicPosts(@Param("limit") int limit, @Param("offset") int offset);
 
-  @EntityGraph(attributePaths = {"authorMaster", "media"})
   @Query(value = """
       select * from "GalleryPost"
       where "publicId" = :publicId

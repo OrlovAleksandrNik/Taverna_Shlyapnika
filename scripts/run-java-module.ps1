@@ -16,6 +16,8 @@ if ($MavenArgs.Count -gt 0 -and ($MavenArgs[0] -eq "--" -or $MavenArgs[0] -eq "-
   $MavenArgs = if ($MavenArgs.Count -gt 1) { $MavenArgs[1..($MavenArgs.Count - 1)] } else { @() }
 }
 
+$MavenArgs = @($MavenArgs | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+
 if ($MavenArgs.Count -eq 0) {
   $MavenArgs = @("test")
 }
@@ -68,6 +70,7 @@ $modulePath = switch ($Module) {
 Push-Location $modulePath
 $exitCode = 0
 try {
+  Write-Host "Running Java $Module module with Maven arguments: $($MavenArgs -join ' ')"
   & ".\mvnw.cmd" @MavenArgs
   $exitCode = $LASTEXITCODE
 } finally {
