@@ -1,5 +1,6 @@
 FROM node:22-alpine AS deps
 WORKDIR /app
+RUN apk add --no-cache openssl
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN corepack enable && pnpm install --frozen-lockfile
 
@@ -12,7 +13,7 @@ RUN pnpm run build
 FROM node:22-alpine
 WORKDIR /app
 ENV NODE_ENV=production
-RUN corepack enable
+RUN apk add --no-cache openssl && corepack enable
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
