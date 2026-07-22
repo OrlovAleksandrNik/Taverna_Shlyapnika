@@ -803,8 +803,10 @@ h3 {
 .contact-link {
   min-height: 86px;
   display: grid;
-  align-content: center;
-  gap: 4px;
+  grid-template-columns: 42px minmax(0, 1fr);
+  align-content: stretch;
+  align-items: center;
+  gap: 12px;
   border: 1px solid rgba(215, 168, 79, 0.18);
   border-radius: var(--radius);
   padding: 14px;
@@ -818,7 +820,28 @@ h3 {
   background: rgba(255, 255, 255, 0.065);
 }
 
-.contact-link span {
+.contact-icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(215, 168, 79, 0.28);
+  border-radius: 50%;
+  color: var(--brass);
+  background: rgba(18, 14, 16, 0.42);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 12px;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.contact-link-body {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.contact-link-body > span {
   color: var(--paper-dim);
   font-size: 13px;
   text-transform: uppercase;
@@ -841,10 +864,6 @@ h3 {
 
 .contact-link-muted {
   color: var(--muted);
-}
-
-.legal-card {
-  grid-column: 1 / -1;
 }
 
 .contacts-intro {
@@ -1062,6 +1081,11 @@ h3 {
   gap: 18px;
 }
 
+.detail-grid-single {
+  grid-template-columns: minmax(0, 920px);
+  justify-content: center;
+}
+
 .detail-card,
 .empty-state {
   border: 1px solid rgba(215, 168, 79, 0.16);
@@ -1069,6 +1093,23 @@ h3 {
   padding: clamp(22px, 3vw, 32px);
   background: rgba(255, 255, 255, 0.045);
   box-shadow: 0 18px 50px var(--shadow);
+}
+
+.master-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 24px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.master-facts li {
+  border: 1px solid rgba(215, 168, 79, 0.16);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  color: var(--paper);
+  background: rgba(18, 14, 16, 0.28);
 }
 
 .facts-list {
@@ -1440,8 +1481,9 @@ h3 {
   width: min(var(--content), 100%);
   margin: 0 auto 24px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(220px, 0.7fr);
-  gap: 26px;
+  grid-template-columns: minmax(220px, 1.1fr) minmax(160px, 0.7fr) minmax(220px, 0.9fr) minmax(220px, 0.9fr);
+  gap: clamp(18px, 3vw, 34px);
+  align-items: start;
 }
 
 .footer-brand {
@@ -1453,9 +1495,17 @@ h3 {
 }
 
 .footer-grid nav,
-.footer-grid > div:last-child {
+.footer-contacts,
+.footer-legal {
   display: grid;
   gap: 8px;
+}
+
+.footer-grid strong {
+  color: var(--paper);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .copyright {
@@ -1600,6 +1650,10 @@ h3 {
   }
 
   .contact-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .master-facts {
     grid-template-columns: 1fr;
   }
 

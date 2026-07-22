@@ -4,9 +4,12 @@ const masters = window.TAVERNA_MASTERS || [];
 const hatterDiaryEntries = window.TAVERNA_HATTER_DIARY || [];
 const siteSettings = {
   ADDRESS: "Могилёв, точный адрес будет добавлен позже",
+  ADDRESS_MAP_URL: "",
   PHONE_NUMBER: "",
   TELEGRAM_COMMUNITY_URL: "",
   TELEGRAM_COMMUNITY_LABEL: "Таинный Шляпника",
+  WORKING_HOURS_WEEKDAYS: "Понедельник-пятница: 17:00-22:00",
+  WORKING_HOURS_WEEKEND: "Суббота-воскресенье: 10:00-00:00",
   UNP: "",
   OPERATOR_NAME: "[ПОЛНОЕ НАИМЕНОВАНИЕ ОПЕРАТОРА]",
   OPERATOR_ADDRESS: "[ЮРИДИЧЕСКИЙ ИЛИ ПОЧТОВЫЙ АДРЕС]",
@@ -572,6 +575,21 @@ function masterPhoto(master) {
   return `<span class="question-photo" aria-hidden="true">?</span>`;
 }
 
+function renderMasterBio(master) {
+  const source = master.bio || master.fullDescription || master.description || master.shortDescription || "";
+  const paragraphs = Array.isArray(source) ? source : String(source).split(/\n{2,}/).filter(Boolean);
+  return paragraphs.map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join("");
+}
+
+function renderMasterFacts(master) {
+  if (!Array.isArray(master.facts) || master.facts.length === 0) return "";
+  return `
+    <ul class="master-facts" aria-label="Особенности мастера ${escapeHtml(master.name)}">
+      ${master.facts.map((fact) => `<li>${escapeHtml(fact)}</li>`).join("")}
+    </ul>
+  `;
+}
+
 function renderMastersList() {
   const list = document.querySelector("[data-masters-list]");
   if (!list) return;
@@ -611,15 +629,11 @@ function renderMasterPage() {
       </div>
     </section>
     <section class="section master-details">
-      <div class="detail-grid">
+      <div class="detail-grid detail-grid-single">
         <article class="detail-card reveal">
           <h2>О мастере</h2>
-          <p>${escapeHtml(master.fullDescription || master.description || master.shortDescription || "")}</p>
-        </article>
-        <article class="detail-card reveal">
-          <h2>Формат</h2>
-          <p>${escapeHtml(Array.isArray(master.systems) ? master.systems.join(", ") : master.systems || "Настольно-ролевые игры")}</p>
-          <p>${escapeHtml(Array.isArray(master.genres) ? master.genres.join(", ") : master.genres || "")}</p>
+          ${renderMasterBio(master)}
+          ${renderMasterFacts(master)}
         </article>
       </div>
     </section>
@@ -632,48 +646,48 @@ function renderContactBlock() {
 
   const phone = sanitizePhone(siteSettings.PHONE_NUMBER);
   const phoneCard = phone
-    ? `<a class="contact-link" href="tel:${escapeHtml(phone)}"><span>Телефон</span><strong>${escapeHtml(siteSettings.PHONE_NUMBER)}</strong></a>`
-    : `<div class="contact-link contact-link-muted" role="note"><span>Телефон</span><strong>Шляпник пока изучает устройство под названием “мобильный телефон”. Номер появится здесь, как только он разберётся, с какой стороны его держать.</strong></div>`;
+    ? `<a class="contact-link" href="tel:${escapeHtml(phone)}"><span class="contact-icon" aria-hidden="true">ТЛ</span><span class="contact-link-body"><span>Телефон</span><strong>${escapeHtml(siteSettings.PHONE_NUMBER)}</strong></span></a>`
+    : `<div class="contact-link contact-link-muted" role="note"><span class="contact-icon" aria-hidden="true">ТЛ</span><span class="contact-link-body"><span>Телефон</span><strong>Шляпник пока изучает устройство под названием “мобильный телефон”. Номер появится здесь, как только он разберётся, с какой стороны его держать.</strong></span></div>`;
 
   const communityCard = siteSettings.TELEGRAM_COMMUNITY_URL
-    ? `<a class="contact-link" href="${escapeHtml(siteSettings.TELEGRAM_COMMUNITY_URL)}" target="_blank" rel="noreferrer"><span>Telegram-группа</span><strong>${escapeHtml(siteSettings.TELEGRAM_COMMUNITY_LABEL)}</strong><small>Анонсы игр, специальные события, новости таверны и истории, которые уже ищут своих героев.</small></a>`
-    : `<div class="contact-link contact-link-muted" role="note"><span>Telegram-группа</span><strong>${escapeHtml(siteSettings.TELEGRAM_COMMUNITY_LABEL)}</strong><small>Анонсы игр, специальные события, новости таверны и истории, которые уже ищут своих героев.</small><em>[ССЫЛКА НА TELEGRAM-ГРУППУ]</em></div>`;
+    ? `<a class="contact-link" href="${escapeHtml(siteSettings.TELEGRAM_COMMUNITY_URL)}" target="_blank" rel="noreferrer"><span class="contact-icon" aria-hidden="true">TG</span><span class="contact-link-body"><span>Telegram-группа</span><strong>${escapeHtml(siteSettings.TELEGRAM_COMMUNITY_LABEL)}</strong><small>Анонсы игр, специальные события, новости таверны и истории, которые уже ищут своих героев.</small></span></a>`
+    : `<div class="contact-link contact-link-muted" role="note"><span class="contact-icon" aria-hidden="true">TG</span><span class="contact-link-body"><span>Telegram-группа</span><strong>${escapeHtml(siteSettings.TELEGRAM_COMMUNITY_LABEL)}</strong><small>Анонсы игр, специальные события, новости таверны и истории, которые уже ищут своих героев.</small><em>[ССЫЛКА НА TELEGRAM-ГРУППУ]</em></span></div>`;
+
+  const addressCard = siteSettings.ADDRESS_MAP_URL
+    ? `<a class="contact-link" href="${escapeHtml(siteSettings.ADDRESS_MAP_URL)}" target="_blank" rel="noreferrer"><span class="contact-icon" aria-hidden="true">АД</span><span class="contact-link-body"><span>Адрес</span><strong>${escapeHtml(siteSettings.ADDRESS)}</strong><small>Открыть геолокацию на карте</small></span></a>`
+    : `<div class="contact-link" role="note"><span class="contact-icon" aria-hidden="true">АД</span><span class="contact-link-body"><span>Адрес</span><strong>${escapeHtml(siteSettings.ADDRESS)}</strong></span></div>`;
 
   contact.innerHTML = `
     <div class="contacts-panel reveal">
       <div class="contacts-intro">
         <p class="eyebrow">Контакты</p>
         <h2 id="contacts-title">Контакты</h2>
-        <p>Дверь Таверны открывается по расписанию историй. Здесь собраны официальные каналы связи, новости и юридическая информация.</p>
+        <p>Дверь Таверны открывается по расписанию историй. Здесь собраны официальные каналы связи, карта и новости.</p>
       </div>
       <div class="contact-grid">
-        <div class="contact-link" role="note">
-          <span>Адрес</span>
-          <strong>${escapeHtml(siteSettings.ADDRESS)}</strong>
-        </div>
+        ${addressCard}
         <a class="contact-link" href="https://www.instagram.com/taverna_shlyapnika/" target="_blank" rel="noreferrer">
-          <span>Instagram</span>
-          <strong>@taverna_shlyapnika</strong>
+          <span class="contact-icon" aria-hidden="true">IG</span>
+          <span class="contact-link-body"><span>Instagram</span><strong>@taverna_shlyapnika</strong></span>
         </a>
         <a class="contact-link" href="https://t.me/MisterHatter" target="_blank" rel="noreferrer">
-          <span>Telegram</span>
-          <strong>@MisterHatter</strong>
+          <span class="contact-icon" aria-hidden="true">TG</span>
+          <span class="contact-link-body"><span>Telegram</span><strong>@MisterHatter</strong></span>
         </a>
         ${communityCard}
         ${phoneCard}
         <div class="contact-link" role="note">
-          <span>Режим работы</span>
-          <strong>По расписанию игр и мероприятий</strong>
+          <span class="contact-icon" aria-hidden="true">ВР</span>
+          <span class="contact-link-body">
+            <span>Режим работы</span>
+            <strong>${escapeHtml(siteSettings.WORKING_HOURS_WEEKDAYS)}</strong>
+            <small>${escapeHtml(siteSettings.WORKING_HOURS_WEEKEND)}</small>
+          </span>
         </div>
         <a class="contact-link" href="${privacyPolicyUrl()}">
-          <span>Персональные данные</span>
-          <strong>Политика обработки</strong>
+          <span class="contact-icon" aria-hidden="true">PD</span>
+          <span class="contact-link-body"><span>Персональные данные</span><strong>Политика обработки</strong></span>
         </a>
-        <div class="contact-link contact-link-muted legal-card" role="note">
-          <span>Реквизиты</span>
-          <strong>${siteSettings.UNP ? `УНП: ${escapeHtml(siteSettings.UNP)}` : "УНП: будет добавлен после оформления документов"}</strong>
-          <small>Оператор: ${escapeHtml(siteSettings.OPERATOR_NAME)}</small>
-        </div>
       </div>
     </div>
   `;
@@ -1141,7 +1155,7 @@ function renderFooter() {
 
   footer.innerHTML = `
     <div class="footer-grid">
-      <div>
+      <div class="footer-about">
         <a class="footer-brand" href="${assetPath("index.html")}">Таверна Шляпника</a>
         <p>D&D и настольно-ролевые игры в Могилёве.</p>
       </div>
@@ -1155,8 +1169,16 @@ function renderFooter() {
         <a href="${assetPath("gallery.html")}">Галерея</a>
         <a href="${assetPath("dnd-simple.html")}">D&D простым языком</a>
       </nav>
-      <div>
-        <a href="${assetPath("index.html#contacts")}">Контакты</a>
+      <div class="footer-contacts">
+        <strong>Контакты</strong>
+        <a href="${assetPath("index.html#contacts")}">Раздел контактов</a>
+        ${siteSettings.ADDRESS_MAP_URL ? `<a href="${escapeHtml(siteSettings.ADDRESS_MAP_URL)}" target="_blank" rel="noreferrer">Геолокация</a>` : ""}
+        ${siteSettings.TELEGRAM_COMMUNITY_URL ? `<a href="${escapeHtml(siteSettings.TELEGRAM_COMMUNITY_URL)}" target="_blank" rel="noreferrer">${escapeHtml(siteSettings.TELEGRAM_COMMUNITY_LABEL)}</a>` : ""}
+        <span>${escapeHtml(siteSettings.WORKING_HOURS_WEEKDAYS)}</span>
+        <span>${escapeHtml(siteSettings.WORKING_HOURS_WEEKEND)}</span>
+      </div>
+      <div class="footer-legal">
+        <strong>Документы</strong>
         <a href="${privacyPolicyUrl()}">Политика обработки персональных данных</a>
       </div>
     </div>
