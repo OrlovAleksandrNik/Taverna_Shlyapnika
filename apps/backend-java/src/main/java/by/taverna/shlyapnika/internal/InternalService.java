@@ -12,12 +12,15 @@ import by.taverna.shlyapnika.internal.api.InternalBotSessionRequest;
 import by.taverna.shlyapnika.internal.api.InternalBotSessionResponse;
 import by.taverna.shlyapnika.internal.api.InternalGalleryPostRequest;
 import by.taverna.shlyapnika.internal.api.InternalGalleryResponses.InternalGalleryPostDto;
+import by.taverna.shlyapnika.internal.api.InternalMediaResponses.StoredMediaDto;
 import by.taverna.shlyapnika.internal.api.InternalGameRequest;
 import by.taverna.shlyapnika.internal.api.InternalGameUpdateRequest;
 import by.taverna.shlyapnika.internal.api.InternalMasterRequest;
 import by.taverna.shlyapnika.internal.api.InternalMasterResponse;
 import by.taverna.shlyapnika.master.domain.MasterEntity;
 import by.taverna.shlyapnika.master.infrastructure.MasterRepository;
+import by.taverna.shlyapnika.media.MediaStorage;
+import by.taverna.shlyapnika.media.MediaUpload;
 import by.taverna.shlyapnika.schedule.ScheduleService;
 import by.taverna.shlyapnika.schedule.api.GameResponses.PublicGameDto;
 import by.taverna.shlyapnika.schedule.domain.GameEntity;
@@ -43,6 +46,7 @@ public class InternalService {
   private final MasterRepository masters;
   private final GameRepository games;
   private final GalleryPostRepository galleryPosts;
+  private final MediaStorage mediaStorage;
   private final ScheduleService schedule;
   private final TavernaProperties properties;
   private final JdbcTemplate jdbcTemplate;
@@ -53,6 +57,7 @@ public class InternalService {
       MasterRepository masters,
       GameRepository games,
       GalleryPostRepository galleryPosts,
+      MediaStorage mediaStorage,
       ScheduleService schedule,
       TavernaProperties properties,
       JdbcTemplate jdbcTemplate,
@@ -62,6 +67,7 @@ public class InternalService {
     this.masters = masters;
     this.games = games;
     this.galleryPosts = galleryPosts;
+    this.mediaStorage = mediaStorage;
     this.schedule = schedule;
     this.properties = properties;
     this.jdbcTemplate = jdbcTemplate;
@@ -287,6 +293,23 @@ public class InternalService {
     galleryPosts.save(entity);
     auditService.write(String.valueOf(master.getTelegramUserId()), "gallery.post_" + nextStatus, "GalleryPost", postId, null);
     return toInternalGalleryPost(entity);
+  }
+
+  public StoredMediaDto storeGalleryMedia(String namespace, String altText, String originalFilename, String contentType, byte[] bytes) {
+    var safeNamespace = namespace == null || namespace.isBlank() ? "gallery" : namespace.trim();
+    if (!safeNamespace.startsWith("gallery")) safeNamespace = "gallery/" + safeNamespace;
+    var stored = mediaStorage.store(new MediaUpload(bytes, originalFilename, contentType, safeNamespace, trimToNull(altText)));
+    return new StoredMediaDto(
+        stored.storageKey(),
+        stored.originalUrl(),
+        stored.mediumUrl(),
+        stored.thumbnailUrl(),
+        stored.mimeType(),
+        stored.width(),
+        stored.height(),
+        stored.sizeBytes(),
+        stored.altText()
+    );
   }
 
   public int archivePastGames() {
