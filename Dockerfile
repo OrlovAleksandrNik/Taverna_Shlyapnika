@@ -19,6 +19,7 @@ COPY assets/fonts /app/static-site/assets/fonts
 COPY assets/images /app/static-site/assets/images
 COPY data /app/static-site/data
 COPY masters /app/static-site/masters
+COPY favicon.ico /app/static-site/favicon.ico
 COPY *.html /app/static-site/
 COPY robots.txt sitemap.xml /app/static-site/
 COPY styles.css script.js /app/static-site/
