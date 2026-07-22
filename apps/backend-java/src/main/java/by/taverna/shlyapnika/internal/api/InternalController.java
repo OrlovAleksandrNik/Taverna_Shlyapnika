@@ -4,6 +4,15 @@ import by.taverna.shlyapnika.internal.InternalService;
 import by.taverna.shlyapnika.internal.api.InternalGalleryResponses.InternalGalleryListResponse;
 import by.taverna.shlyapnika.internal.api.InternalGalleryResponses.InternalGalleryPostResponse;
 import by.taverna.shlyapnika.internal.api.InternalMediaResponses.StoredMediaResponse;
+import by.taverna.shlyapnika.internal.api.InternalRatingRequests.CreatePlayerRequest;
+import by.taverna.shlyapnika.internal.api.InternalRatingRequests.GameResultRequest;
+import by.taverna.shlyapnika.internal.api.InternalRatingRequests.InspirationAdjustmentRequest;
+import by.taverna.shlyapnika.internal.api.InternalRatingRequests.PointsAdjustmentRequest;
+import by.taverna.shlyapnika.internal.api.InternalRatingRequests.VisibilityRequest;
+import by.taverna.shlyapnika.internal.api.InternalRatingResponses.InternalRatingHistoryResponse;
+import by.taverna.shlyapnika.internal.api.InternalRatingResponses.InternalRatingMutationResponse;
+import by.taverna.shlyapnika.internal.api.InternalRatingResponses.InternalRatingPlayerResponse;
+import by.taverna.shlyapnika.internal.api.InternalRatingResponses.InternalRatingPlayersResponse;
 import by.taverna.shlyapnika.schedule.api.GameResponses.GameResponse;
 import by.taverna.shlyapnika.schedule.api.GameResponses.GamesListResponse;
 import jakarta.validation.Valid;
@@ -97,6 +106,50 @@ public class InternalController {
       @RequestParam(required = false) String altText
   ) throws IOException {
     return new StoredMediaResponse(service.storeGalleryMedia(namespace, altText, file.getOriginalFilename(), file.getContentType(), file.getBytes()));
+  }
+
+  @GetMapping("/api/internal/masters/{masterId}/rating/players")
+  public InternalRatingPlayersResponse listRatingPlayers(@PathVariable String masterId, @RequestParam(defaultValue = "true") boolean includeHidden) {
+    return new InternalRatingPlayersResponse(service.listRatingPlayers(masterId, includeHidden));
+  }
+
+  @GetMapping("/api/internal/masters/{masterId}/rating/history")
+  public InternalRatingHistoryResponse listRatingHistory(@PathVariable String masterId, @RequestParam(defaultValue = "10") Integer limit) {
+    return new InternalRatingHistoryResponse(service.listRatingHistory(masterId, limit));
+  }
+
+  @PostMapping("/api/internal/masters/{masterId}/rating/players")
+  @ResponseStatus(HttpStatus.CREATED)
+  public InternalRatingPlayerResponse createRatingPlayer(@PathVariable String masterId, @Valid @RequestBody CreatePlayerRequest request) {
+    return new InternalRatingPlayerResponse(service.createRatingPlayer(masterId, request.displayName(), request.nickname(), request.avatarUrl(), request.createdByTelegramId(), request.idempotencyKey()));
+  }
+
+  @PostMapping("/api/internal/masters/{masterId}/rating/game-results")
+  @ResponseStatus(HttpStatus.CREATED)
+  public InternalRatingMutationResponse addRatingGameResult(@PathVariable String masterId, @Valid @RequestBody GameResultRequest request) {
+    var result = service.addRatingGameResult(masterId, request.playerId(), request.points(), request.gameTitle(), request.gameDate(), request.masterName(), request.reason(), request.createdByTelegramId(), request.idempotencyKey());
+    return new InternalRatingMutationResponse(result.eventId(), result.playedGameId());
+  }
+
+  @PostMapping("/api/internal/masters/{masterId}/rating/points")
+  @ResponseStatus(HttpStatus.CREATED)
+  public InternalRatingMutationResponse adjustRatingPoints(@PathVariable String masterId, @Valid @RequestBody PointsAdjustmentRequest request) {
+    var result = service.adjustRatingPoints(masterId, request.playerId(), request.pointsDelta(), request.reason(), request.createdByTelegramId(), request.idempotencyKey());
+    return new InternalRatingMutationResponse(result.eventId(), result.playedGameId());
+  }
+
+  @PostMapping("/api/internal/masters/{masterId}/rating/inspiration")
+  @ResponseStatus(HttpStatus.CREATED)
+  public InternalRatingMutationResponse adjustRatingInspiration(@PathVariable String masterId, @Valid @RequestBody InspirationAdjustmentRequest request) {
+    var result = service.adjustRatingInspiration(masterId, request.playerId(), request.inspirationDelta(), request.reason(), request.createdByTelegramId(), request.idempotencyKey());
+    return new InternalRatingMutationResponse(result.eventId(), result.playedGameId());
+  }
+
+  @PostMapping("/api/internal/masters/{masterId}/rating/visibility")
+  @ResponseStatus(HttpStatus.CREATED)
+  public InternalRatingMutationResponse setRatingPlayerVisibility(@PathVariable String masterId, @Valid @RequestBody VisibilityRequest request) {
+    var result = service.setRatingPlayerVisibility(masterId, request.playerId(), request.isVisible(), request.reason(), request.createdByTelegramId(), request.idempotencyKey());
+    return new InternalRatingMutationResponse(result.eventId(), result.playedGameId());
   }
 
   @PostMapping("/api/internal/games")

@@ -21,6 +21,9 @@ import by.taverna.shlyapnika.master.domain.MasterEntity;
 import by.taverna.shlyapnika.master.infrastructure.MasterRepository;
 import by.taverna.shlyapnika.media.MediaStorage;
 import by.taverna.shlyapnika.media.MediaUpload;
+import by.taverna.shlyapnika.rating.RatingService;
+import by.taverna.shlyapnika.rating.api.RatingResponses.InternalRatingEventDto;
+import by.taverna.shlyapnika.rating.api.RatingResponses.InternalRatingPlayerDto;
 import by.taverna.shlyapnika.schedule.ScheduleService;
 import by.taverna.shlyapnika.schedule.api.GameResponses.PublicGameDto;
 import by.taverna.shlyapnika.schedule.domain.GameEntity;
@@ -47,6 +50,7 @@ public class InternalService {
   private final GameRepository games;
   private final GalleryPostRepository galleryPosts;
   private final MediaStorage mediaStorage;
+  private final RatingService ratingService;
   private final ScheduleService schedule;
   private final TavernaProperties properties;
   private final JdbcTemplate jdbcTemplate;
@@ -58,6 +62,7 @@ public class InternalService {
       GameRepository games,
       GalleryPostRepository galleryPosts,
       MediaStorage mediaStorage,
+      RatingService ratingService,
       ScheduleService schedule,
       TavernaProperties properties,
       JdbcTemplate jdbcTemplate,
@@ -68,6 +73,7 @@ public class InternalService {
     this.games = games;
     this.galleryPosts = galleryPosts;
     this.mediaStorage = mediaStorage;
+    this.ratingService = ratingService;
     this.schedule = schedule;
     this.properties = properties;
     this.jdbcTemplate = jdbcTemplate;
@@ -312,6 +318,46 @@ public class InternalService {
     );
   }
 
+  @Transactional(readOnly = true)
+  public java.util.List<InternalRatingPlayerDto> listRatingPlayers(String masterId, boolean includeHidden) {
+    requireAdminMaster(masterId);
+    return ratingService.listPlayersForBot(includeHidden);
+  }
+
+  @Transactional(readOnly = true)
+  public java.util.List<InternalRatingEventDto> listRatingHistory(String masterId, Integer limit) {
+    requireAdminMaster(masterId);
+    return ratingService.listHistoryForBot(limit == null ? 10 : limit);
+  }
+
+  public InternalRatingPlayerDto createRatingPlayer(String masterId, String displayName, String nickname, String avatarUrl, Long telegramUserId, String idempotencyKey) {
+    requireAdminMaster(masterId);
+    return ratingService.createPlayer(displayName, nickname, avatarUrl, telegramUserId, masterId, idempotencyKey);
+  }
+
+  public RatingService.MutationResult addRatingGameResult(String masterId, String playerId, Integer points, String gameTitle, String gameDate, String masterName, String reason, Long telegramUserId, String idempotencyKey) {
+    requireAdminMaster(masterId);
+    var parsedDate = gameDate == null || gameDate.isBlank()
+        ? null
+        : LocalDate.parse(gameDate).atStartOfDay(ZoneId.of(properties.timezone())).toInstant();
+    return ratingService.addGameResult(playerId, points, gameTitle, parsedDate, masterName, reason, telegramUserId, masterId, idempotencyKey);
+  }
+
+  public RatingService.MutationResult adjustRatingPoints(String masterId, String playerId, Integer pointsDelta, String reason, Long telegramUserId, String idempotencyKey) {
+    requireAdminMaster(masterId);
+    return ratingService.adjustPoints(playerId, pointsDelta, reason, telegramUserId, masterId, idempotencyKey);
+  }
+
+  public RatingService.MutationResult adjustRatingInspiration(String masterId, String playerId, Integer inspirationDelta, String reason, Long telegramUserId, String idempotencyKey) {
+    requireAdminMaster(masterId);
+    return ratingService.adjustInspiration(playerId, inspirationDelta, reason, telegramUserId, masterId, idempotencyKey);
+  }
+
+  public RatingService.MutationResult setRatingPlayerVisibility(String masterId, String playerId, boolean isVisible, String reason, Long telegramUserId, String idempotencyKey) {
+    requireAdminMaster(masterId);
+    return ratingService.setPlayerVisibility(playerId, isVisible, reason, telegramUserId, masterId, idempotencyKey);
+  }
+
   public int archivePastGames() {
     return schedule.archivePastGames();
   }
@@ -373,6 +419,12 @@ public class InternalService {
 
   private boolean isAdmin(MasterEntity master) {
     return "admin".equals(master.getRole());
+  }
+
+  private MasterEntity requireAdminMaster(String masterId) {
+    var master = requireMaster(masterId);
+    if (!"active".equals(master.getStatus()) || !isAdmin(master)) throw new IllegalArgumentException("Управление рейтингом доступно только администраторам Таверны.");
+    return master;
   }
 
   private String allowed(String value, Set<String> allowed, String message) {
