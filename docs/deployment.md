@@ -30,6 +30,29 @@ docker compose up --build app
 
 В production вынесите PostgreSQL и uploads в постоянные volumes или управляемые сервисы.
 
+## Railway
+
+В репозитории есть `railway.json`, который заставляет Railway использовать `Dockerfile`.
+
+Перед запуском контейнер выполняет:
+
+```bash
+pnpm prisma:deploy
+node dist/index.js
+```
+
+Обязательные переменные Railway:
+
+- `DATABASE_URL` - строка подключения PostgreSQL.
+- `INTERNAL_API_TOKEN` - длинная случайная строка для внутренних маршрутов.
+- `TELEGRAM_BOT_TOKEN` - нужен только если бот должен работать на Railway.
+- `BOT_MODE=polling` - для простого запуска одной реплики.
+- `SITE_BASE_URL` - публичный Railway URL.
+- `SITE_ORIGINS` - публичный Railway URL без завершающего слеша.
+- `PUBLIC_UPLOADS_URL` - `https://<ваш-домен>/uploads`.
+
+Healthcheck Railway указывает на `/health`. Этот маршрут отвечает `200`, если HTTP-процесс жив, и отдельно показывает состояние базы. Для строгой проверки базы используйте `/ready`.
+
 ## HTTPS и Telegram
 
 Для polling нужен только исходящий доступ к Telegram API.
@@ -74,3 +97,9 @@ GET /health
 ```
 
 Ответ показывает состояние backend, базы, режима бота и время последнего Telegram update без вывода секретов.
+
+```http
+GET /ready
+```
+
+Возвращает `503`, если база недоступна. Этот endpoint лучше использовать для внутренней диагностики, а не как Railway liveness healthcheck.

@@ -93,6 +93,23 @@ function publicErrorMessage(error: unknown) {
   return "Сервер временно недоступен. Попробуйте позже.";
 }
 
+async function getDatabaseHealth() {
+  const started = Date.now();
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    return {
+      database: "ok" as const,
+      latencyMs: Date.now() - started
+    };
+  } catch (error) {
+    logger.error({ error: errorDetails(error) }, "database health check failed");
+    return {
+      database: "error" as const,
+      latencyMs: Date.now() - started
+    };
+  }
+}
+
 export function createApp() {
   const app = express();
 
@@ -108,27 +125,27 @@ export function createApp() {
   );
 
   app.get("/health", async (_request, response) => {
-    const started = Date.now();
-    try {
-      await prisma.$queryRaw`SELECT 1`;
-      response.json({
-        ok: true,
-        backend: "ok",
-        database: "ok",
-        bot: getBotHealth(),
-        checkedAt: new Date().toISOString(),
-        latencyMs: Date.now() - started
-      });
-    } catch (error) {
-      logger.error({ error: errorDetails(error) }, "health check failed");
-      response.status(503).json({
-        ok: false,
-        backend: "ok",
-        database: "error",
-        bot: getBotHealth(),
-        checkedAt: new Date().toISOString()
-      });
-    }
+    const database = await getDatabaseHealth();
+    response.json({
+      ok: true,
+      backend: "ok",
+      database: database.database,
+      bot: getBotHealth(),
+      checkedAt: new Date().toISOString(),
+      latencyMs: database.latencyMs
+    });
+  });
+
+  app.get("/ready", async (_request, response) => {
+    const database = await getDatabaseHealth();
+    response.status(database.database === "ok" ? 200 : 503).json({
+      ok: database.database === "ok",
+      backend: "ok",
+      database: database.database,
+      bot: getBotHealth(),
+      checkedAt: new Date().toISOString(),
+      latencyMs: database.latencyMs
+    });
   });
 
   app.get("/api/games", async (request, response, next) => {

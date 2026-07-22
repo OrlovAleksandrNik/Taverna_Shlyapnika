@@ -7,6 +7,8 @@
 - `DATABASE_URL` — PostgreSQL connection string.
 - `INTERNAL_API_TOKEN` — секрет для `/api/internal/*`, минимум 12 символов.
 
+На Railway `DATABASE_URL` должен быть добавлен из PostgreSQL-сервиса в Variables веб-сервиса. Если переменная отсутствует, приложение не сможет применить миграции и старт контейнера завершится ошибкой.
+
 ## Telegram
 
 - `TELEGRAM_BOT_TOKEN` — токен от BotFather. Если пустой, сайт и API работают без бота.
