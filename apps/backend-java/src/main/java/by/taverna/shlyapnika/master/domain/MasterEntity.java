@@ -43,6 +43,23 @@ public class MasterEntity {
   @Column(name = "\"updatedAt\"", nullable = false)
   private Instant updatedAt;
 
+  public static MasterEntity create(Long telegramUserId, String telegramUsername, String displayName, String contactUrl) {
+    var master = new MasterEntity();
+    master.telegramUserId = telegramUserId;
+    master.telegramUsername = telegramUsername;
+    master.displayName = displayName;
+    master.contactUrl = contactUrl;
+    master.role = "master";
+    master.status = "active";
+    return master;
+  }
+
+  public void updateProfile(String telegramUsername, String displayName, String contactUrl) {
+    this.telegramUsername = telegramUsername;
+    this.displayName = displayName;
+    this.contactUrl = contactUrl;
+  }
+
   @PrePersist
   void onCreate() {
     if (id == null) id = Ids.newId("mst");

@@ -28,6 +28,7 @@ logs/
 .postgres/
 .postgres-data/
 .tools/
+.tmp/m2/
 database-dumps/
 backups/
 backup-*/

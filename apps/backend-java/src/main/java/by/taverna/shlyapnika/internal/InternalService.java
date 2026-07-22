@@ -4,9 +4,12 @@ import by.taverna.shlyapnika.audit.AuditService;
 import by.taverna.shlyapnika.common.NotFoundException;
 import by.taverna.shlyapnika.config.TavernaProperties;
 import by.taverna.shlyapnika.internal.api.InternalGameRequest;
+import by.taverna.shlyapnika.internal.api.InternalMasterRequest;
+import by.taverna.shlyapnika.internal.api.InternalMasterResponse;
+import by.taverna.shlyapnika.master.domain.MasterEntity;
 import by.taverna.shlyapnika.master.infrastructure.MasterRepository;
-import by.taverna.shlyapnika.schedule.api.GameResponses.PublicGameDto;
 import by.taverna.shlyapnika.schedule.ScheduleService;
+import by.taverna.shlyapnika.schedule.api.GameResponses.PublicGameDto;
 import by.taverna.shlyapnika.schedule.domain.GameEntity;
 import by.taverna.shlyapnika.schedule.infrastructure.GameRepository;
 import java.time.LocalDate;
@@ -44,6 +47,29 @@ public class InternalService {
     this.auditService = auditService;
   }
 
+  @Transactional(readOnly = true)
+  public InternalMasterResponse getMasterByTelegram(Long telegramUserId) {
+    return masters.findByTelegramUserId(telegramUserId)
+        .map(this::toMasterResponse)
+        .orElseThrow(() -> new NotFoundException("Мастер не найден."));
+  }
+
+  @Transactional
+  public InternalMasterResponse upsertMaster(InternalMasterRequest request) {
+    var telegramUsername = trimToNull(request.telegramUsername());
+    var displayName = request.displayName().trim();
+    var contactUrl = request.contactUrl().trim();
+    var master = masters.findByTelegramUserId(request.telegramUserId())
+        .map(existing -> {
+          existing.updateProfile(telegramUsername, displayName, contactUrl);
+          return existing;
+        })
+        .orElseGet(() -> MasterEntity.create(request.telegramUserId(), telegramUsername, displayName, contactUrl));
+    master = masters.save(master);
+    auditService.write(String.valueOf(request.telegramUserId()), "master.upserted", "Master", master.getId(), null);
+    return toMasterResponse(master);
+  }
+
   @Transactional
   public PublicGameDto createGame(InternalGameRequest request) {
     if (request.minPlayers() > request.maxPlayers()) {
@@ -68,7 +94,7 @@ public class InternalService {
         request.contactUrl().trim(),
         properties.autoPublish()
     ));
-    auditService.write(null, "game.created", "Game", game.getId(), "{\"status\":\"" + game.getStatus() + "\"}");
+    auditService.write(String.valueOf(master.getTelegramUserId()), "game.created", "Game", game.getId(), "{\"status\":\"" + game.getStatus() + "\"}");
     return schedule.toDto(game);
   }
 
@@ -106,5 +132,21 @@ public class InternalService {
     }
     auditService.write(null, "privacy.withdraw_consent", entityType, requestId, "{\"anonymize\":" + anonymize + "}");
     return updated;
+  }
+
+  private InternalMasterResponse toMasterResponse(MasterEntity master) {
+    return new InternalMasterResponse(
+        master.getId(),
+        master.getTelegramUserId(),
+        master.getTelegramUsername(),
+        master.getDisplayName(),
+        master.getContactUrl(),
+        master.getRole(),
+        master.getStatus()
+    );
+  }
+
+  private String trimToNull(String value) {
+    return value == null || value.isBlank() ? null : value.trim();
   }
 }

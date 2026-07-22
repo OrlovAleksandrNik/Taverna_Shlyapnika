@@ -5,6 +5,7 @@ import by.taverna.shlyapnika.schedule.api.GameResponses.GameResponse;
 import jakarta.validation.Valid;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -18,6 +19,17 @@ public class InternalController {
 
   public InternalController(InternalService service) {
     this.service = service;
+  }
+
+  @GetMapping("/api/internal/masters/by-telegram/{telegramUserId}")
+  public InternalMasterResponse getMasterByTelegram(@PathVariable Long telegramUserId) {
+    return service.getMasterByTelegram(telegramUserId);
+  }
+
+  @PostMapping("/api/internal/masters")
+  @ResponseStatus(HttpStatus.CREATED)
+  public InternalMasterResponse upsertMaster(@Valid @RequestBody InternalMasterRequest request) {
+    return service.upsertMaster(request);
   }
 
   @PostMapping("/api/internal/games")

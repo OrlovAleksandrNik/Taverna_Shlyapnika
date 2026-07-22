@@ -3,6 +3,7 @@ package by.taverna.shlyapnika.bot.telegram;
 import by.taverna.shlyapnika.bot.config.BotProperties;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.Map;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
@@ -36,13 +37,19 @@ public class TelegramApiClient {
   }
 
   public void sendMessage(long chatId, String text) {
+    sendMessage(chatId, text, null);
+  }
+
+  public void sendMessage(long chatId, String text, Object replyMarkup) {
     try {
-      var payload = "{\"chat_id\":" + chatId + ",\"text\":\"" + escapeJson(text) + "\"}";
+      var payload = replyMarkup == null
+          ? Map.of("chat_id", chatId, "text", text)
+          : Map.of("chat_id", chatId, "text", text, "reply_markup", replyMarkup);
       var request = HttpRequest.newBuilder()
           .uri(apiUri("sendMessage"))
           .timeout(Duration.ofSeconds(10))
           .header("Content-Type", "application/json")
-          .POST(HttpRequest.BodyPublishers.ofString(payload, StandardCharsets.UTF_8))
+          .POST(HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(payload), StandardCharsets.UTF_8))
           .build();
       var response = httpClient.send(request, HttpResponse.BodyHandlers.discarding());
       if (response.statusCode() >= 400) log.warn("Telegram sendMessage failed chatId={} status={}", chatId, response.statusCode());
@@ -84,11 +91,4 @@ public class TelegramApiClient {
     return URLEncoder.encode(value, StandardCharsets.UTF_8);
   }
 
-  private String escapeJson(String value) {
-    return value
-        .replace("\\", "\\\\")
-        .replace("\"", "\\\"")
-        .replace("\r", "")
-        .replace("\n", "\\n");
-  }
 }
