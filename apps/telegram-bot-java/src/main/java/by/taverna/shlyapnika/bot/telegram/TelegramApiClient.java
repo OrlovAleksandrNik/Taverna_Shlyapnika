@@ -12,6 +12,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -141,6 +142,39 @@ public class TelegramApiClient {
       if (response.statusCode() >= 400) log.warn("Telegram setMyName failed status={}", response.statusCode());
     } catch (Exception error) {
       log.warn("Telegram setMyName failed", error);
+    }
+  }
+
+  public void setMyCommands(List<Map<String, String>> commands) {
+    if (commands == null || commands.isEmpty()) return;
+    try {
+      var payload = Map.of("commands", commands, "language_code", "ru");
+      var request = HttpRequest.newBuilder()
+          .uri(apiUri("setMyCommands"))
+          .timeout(Duration.ofSeconds(10))
+          .header("Content-Type", "application/json")
+          .POST(HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(payload), StandardCharsets.UTF_8))
+          .build();
+      var response = httpClient.send(request, HttpResponse.BodyHandlers.discarding());
+      if (response.statusCode() >= 400) log.warn("Telegram setMyCommands failed status={}", response.statusCode());
+    } catch (Exception error) {
+      log.warn("Telegram setMyCommands failed", error);
+    }
+  }
+
+  public void setCommandsMenuButton() {
+    try {
+      var payload = Map.of("menu_button", Map.of("type", "commands"));
+      var request = HttpRequest.newBuilder()
+          .uri(apiUri("setChatMenuButton"))
+          .timeout(Duration.ofSeconds(10))
+          .header("Content-Type", "application/json")
+          .POST(HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(payload), StandardCharsets.UTF_8))
+          .build();
+      var response = httpClient.send(request, HttpResponse.BodyHandlers.discarding());
+      if (response.statusCode() >= 400) log.warn("Telegram setChatMenuButton failed status={}", response.statusCode());
+    } catch (Exception error) {
+      log.warn("Telegram setChatMenuButton failed", error);
     }
   }
 

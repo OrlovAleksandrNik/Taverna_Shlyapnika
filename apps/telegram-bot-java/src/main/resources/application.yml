@@ -22,6 +22,6 @@ taverna:
     backend-url: ${JAVA_BACKEND_INTERNAL_URL:http://localhost:8080}
     internal-token: ${BOT_BACKEND_SECRET:${INTERNAL_API_TOKEN:change-me-local-token}}
     polling-timeout-seconds: ${BOT_POLLING_TIMEOUT_SECONDS:25}
-    display-name: ${BOT_DISPLAY_NAME:Писарь таверны}
+    display-name: ${BOT_DISPLAY_NAME:Писарь Таверны}
     cache-chat-id: ${BOT_CACHE_CHAT_ID:}
     cleanup-delay-seconds: ${BOT_CLEANUP_DELAY_SECONDS:86400}

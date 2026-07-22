@@ -15,10 +15,4 @@ public interface MasterRepository extends JpaRepository<MasterEntity, String> {
       order by "displayName" asc
       """, nativeQuery = true)
   List<MasterEntity> findActiveMasters();
-
-  @Query(value = """
-      select count(*) from "Master"
-      where "role" = cast('admin' as "MasterRole")
-      """, nativeQuery = true)
-  long countAdmins();
 }

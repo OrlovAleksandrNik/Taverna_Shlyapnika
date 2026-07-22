@@ -58,7 +58,7 @@ TELEGRAM_BOT_TOKEN=токен_от_BotFather
 DATABASE_URL=postgresql://taverna:taverna@localhost:5432/taverna_shlyapnika?schema=public
 INTERNAL_API_TOKEN=длинная_случайная_строка
 ADMIN_TELEGRAM_IDS=123456789,987654321
-BOT_DISPLAY_NAME=Писарь таверны
+BOT_DISPLAY_NAME=Писарь Таверны
 BOT_CACHE_CHAT_ID=
 BOT_CLEANUP_DELAY_SECONDS=86400
 AUTO_PUBLISH=true

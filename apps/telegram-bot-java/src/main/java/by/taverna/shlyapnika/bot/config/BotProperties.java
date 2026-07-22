@@ -20,4 +20,8 @@ public record BotProperties(
   public boolean polling() {
     return mode == null || mode.isBlank() || "polling".equalsIgnoreCase(mode);
   }
+
+  public String safeDisplayName() {
+    return displayName == null || displayName.isBlank() ? "Писарь Таверны" : displayName.trim();
+  }
 }

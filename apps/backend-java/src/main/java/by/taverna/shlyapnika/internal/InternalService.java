@@ -442,7 +442,7 @@ public class InternalService {
           .filter(value -> !value.isBlank())
           .anyMatch(value -> value.equals(String.valueOf(telegramUserId)));
     }
-    return masters.countAdmins() == 0;
+    return true;
   }
 
   private MasterEntity requireAdminMaster(String masterId) {

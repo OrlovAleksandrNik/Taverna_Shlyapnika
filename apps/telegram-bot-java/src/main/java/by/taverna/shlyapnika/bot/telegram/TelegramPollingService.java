@@ -64,7 +64,9 @@ public class TelegramPollingService {
       return;
     }
     if (!running.compareAndSet(false, true)) return;
-    telegram.setMyName(properties.displayName());
+    telegram.setMyName(properties.safeDisplayName());
+    telegram.setMyCommands(botCommands());
+    telegram.setCommandsMenuButton();
     telegram.deleteWebhook();
     status.markRunning(true);
     executor.submit(this::pollLoop);
@@ -145,7 +147,7 @@ public class TelegramPollingService {
       }
       case "/start", "Главное меню", "Меню" -> sendStart(chatId, userId, username(from));
       case "/register", "Зарегистрироваться как мастер" -> beginRegistration(chatId, userId);
-      case "/create_game", "Создать игру" -> beginGameDraft(chatId, userId);
+      case "/create_game", "Создать игру", "Создать" -> beginGameDraft(chatId, userId);
       case "/my_games", "Мои игры" -> showMasterGames(chatId, userId);
       case "/gallery", "Галерея" -> showGalleryMenu(chatId, userId);
       case "/rating", "Рейтинг" -> showRatingMenu(chatId, userId);
@@ -1012,7 +1014,7 @@ public class TelegramPollingService {
 
   private Object mainMenu() {
     return replyKeyboard(List.of(
-        replyRow("Создать игру", "Мои игры"),
+        replyRow("Создать", "Мои игры"),
         replyRow("Галерея", "Рейтинг"),
         replyRow("Отмена")
     ));
@@ -1160,6 +1162,17 @@ public class TelegramPollingService {
 
   private Map<String, Object> keyboard(List<List<Map<String, String>>> rows) {
     return Map.of("inline_keyboard", rows);
+  }
+
+  private List<Map<String, String>> botCommands() {
+    return List.of(
+        Map.of("command", "start", "description", "Открыть меню"),
+        Map.of("command", "create_game", "description", "Создать игру"),
+        Map.of("command", "my_games", "description", "Мои игры"),
+        Map.of("command", "gallery", "description", "Галерея"),
+        Map.of("command", "rating", "description", "Рейтинг"),
+        Map.of("command", "cancel", "description", "Отмена")
+    );
   }
 
   private Map<String, Object> replyKeyboard(List<List<String>> rows) {
