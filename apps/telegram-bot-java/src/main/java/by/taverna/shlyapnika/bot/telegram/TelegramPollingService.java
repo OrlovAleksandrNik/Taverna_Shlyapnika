@@ -146,7 +146,8 @@ public class TelegramPollingService {
       handleGalleryMediaMessage(chatId, userId, message);
       return;
     }
-    var text = BotTextParser.clean(message.path("text").asText(""));
+    var rawText = message.path("text").asText("");
+    var text = BotTextParser.clean(rawText);
     if (text.isBlank()) return;
 
     switch (text) {
@@ -164,7 +165,7 @@ public class TelegramPollingService {
       case "/my_games", "Мои", "Мои игры" -> showMasterGames(chatId, userId);
       case "/gallery", "Галерея" -> showGalleryMenu(chatId, userId);
       case "/rating", "Рейтинг" -> showRatingMenu(chatId, userId);
-      default -> handleStatefulText(chatId, userId, telegramUsername, text);
+      default -> handleStatefulText(chatId, userId, telegramUsername, text, rawText, message.path("entities"));
     }
   }
 
@@ -404,7 +405,7 @@ public class TelegramPollingService {
     return master;
   }
 
-  private void handleStatefulText(long chatId, long userId, String telegramUsername, String text) {
+  private void handleStatefulText(long chatId, long userId, String telegramUsername, String text, String rawText, JsonNode entities) {
     var session = sessions.get(userId);
     var draft = session.draft();
     try {
@@ -516,7 +517,8 @@ public class TelegramPollingService {
           telegram.sendMessage(chatId, "Напишите историю публикации. Можно использовать абзацы, цитаты и списки.", cancelKeyboard());
         }
         case "gallery:story:content" -> {
-          draft.galleryStoryContent(BotTextParser.shortText(text, "История", 20, 8000));
+          draft.galleryStoryContent(BotTextParser.story(rawText, "История", 20, 8000));
+          draft.galleryStoryHtml(TelegramStoryHtmlFormatter.format(rawText, entities));
           sessions.save(userId, "gallery:story:description", draft);
           telegram.sendMessage(chatId, "Добавьте короткое описание. Если описание не нужно, напишите «нет».", cancelKeyboard());
         }
@@ -812,6 +814,7 @@ public class TelegramPollingService {
         draft.galleryTitle(),
         draft.galleryDescription(),
         draft.galleryStoryContent(),
+        draft.galleryStoryHtml(),
         draft.galleryCategory(),
         draft.galleryEventDate(),
         status,

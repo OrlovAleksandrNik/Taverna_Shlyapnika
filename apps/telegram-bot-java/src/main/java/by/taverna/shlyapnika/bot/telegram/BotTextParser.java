@@ -36,6 +36,12 @@ public final class BotTextParser {
     return text;
   }
 
+  public static String story(String value, String label, int min, int max) {
+    var text = value == null ? "" : value.replace("\r\n", "\n").replace('\r', '\n').trim();
+    if (text.length() < min || text.length() > max) throw new IllegalArgumentException(label + " должен быть от " + min + " до " + max + " символов.");
+    return text;
+  }
+
   public static String contact(String value) {
     var text = clean(value);
     if (!CONTACT.matcher(text).matches()) throw new IllegalArgumentException("Укажите контакт в формате @username или https://t.me/username.");

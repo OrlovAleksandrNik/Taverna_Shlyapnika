@@ -2738,8 +2738,13 @@ h3 {
 .gallery-story blockquote {
   margin: 1.2em 0;
   border-left: 3px solid rgba(215, 168, 79, 0.48);
-  padding-left: 16px;
+  border-radius: 0 8px 8px 0;
+  padding: 12px 16px;
   color: var(--paper-dim);
+  background:
+    linear-gradient(90deg, rgba(215, 168, 79, 0.12), transparent),
+    rgba(255, 255, 255, 0.035);
+  font-style: italic;
 }
 
 .gallery-story ul {
@@ -2747,6 +2752,82 @@ h3 {
   gap: 6px;
   margin: 0 0 1em;
   padding-left: 22px;
+}
+
+.gallery-story ol {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 1em;
+  padding-left: 24px;
+}
+
+.gallery-story strong {
+  color: var(--paper);
+  font-weight: 800;
+}
+
+.gallery-story em {
+  color: var(--paper-dim);
+}
+
+.gallery-story a {
+  color: var(--brass);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+}
+
+.gallery-story del {
+  color: rgba(216, 199, 170, 0.76);
+}
+
+.gallery-story code,
+.gallery-story pre {
+  border: 1px solid rgba(215, 168, 79, 0.2);
+  border-radius: 6px;
+  color: #f7e5c1;
+  background: rgba(8, 7, 8, 0.46);
+  font-family: "Courier New", Consolas, monospace;
+}
+
+.gallery-story code {
+  padding: 2px 6px;
+  font-size: 0.92em;
+}
+
+.gallery-story pre {
+  margin: 1.2em 0;
+  padding: 14px 16px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+}
+
+.gallery-story pre code {
+  border: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.gallery-story .tg-underline {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+}
+
+.gallery-story .tg-spoiler {
+  border-radius: 4px;
+  padding: 0 4px;
+  color: transparent;
+  background: linear-gradient(135deg, rgba(215, 168, 79, 0.42), rgba(37, 74, 56, 0.44));
+  text-shadow: 0 0 9px rgba(242, 223, 188, 0.8);
+  transition: color 160ms ease, background 160ms ease, text-shadow 160ms ease;
+}
+
+.gallery-story .tg-spoiler:hover,
+.gallery-story .tg-spoiler:focus-within {
+  color: var(--paper);
+  background: rgba(215, 168, 79, 0.12);
+  text-shadow: none;
 }
 
 .gallery-thumbs {

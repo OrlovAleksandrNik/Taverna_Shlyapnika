@@ -24,6 +24,7 @@ public class GameDraft {
   private String galleryTitle;
   private String galleryDescription;
   private String galleryStoryContent;
+  private String galleryStoryHtml;
   private String galleryCategory;
   private String galleryEventDate;
   private List<GalleryMediaDraft> galleryMedia = new ArrayList<>();
@@ -105,6 +106,10 @@ public class GameDraft {
   public String getGalleryStoryContent() { return galleryStoryContent; }
   public void galleryStoryContent(String value) { galleryStoryContent = value; }
   public void setGalleryStoryContent(String value) { galleryStoryContent = value; }
+  public String galleryStoryHtml() { return galleryStoryHtml; }
+  public String getGalleryStoryHtml() { return galleryStoryHtml; }
+  public void galleryStoryHtml(String value) { galleryStoryHtml = value; }
+  public void setGalleryStoryHtml(String value) { galleryStoryHtml = value; }
   public String galleryCategory() { return galleryCategory; }
   public String getGalleryCategory() { return galleryCategory; }
   public void galleryCategory(String value) { galleryCategory = value; }

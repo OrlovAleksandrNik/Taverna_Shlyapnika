@@ -10,6 +10,7 @@ public record InternalGalleryPostRequest(
     @NotBlank @Size(min = 3, max = 120) String title,
     @Size(max = 700) String description,
     @Size(max = 8000) String storyContent,
+    @Size(max = 20000) String storyHtml,
     @NotBlank String category,
     String eventDate,
     @NotBlank String status,

@@ -7,6 +7,7 @@ public record BackendGalleryPostRequest(
     String title,
     String description,
     String storyContent,
+    String storyHtml,
     String category,
     String eventDate,
     String status,

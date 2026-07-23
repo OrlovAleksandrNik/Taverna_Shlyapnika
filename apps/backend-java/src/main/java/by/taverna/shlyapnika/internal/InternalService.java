@@ -292,13 +292,14 @@ public class InternalService {
         ? null
         : LocalDate.parse(request.eventDate()).atStartOfDay(ZoneId.of(properties.timezone())).toInstant();
     var storyContent = trimToNull(request.storyContent());
+    var storyHtml = GalleryTextFormatter.sanitizeStoryHtml(request.storyHtml());
     var post = GalleryPostEntity.create(
         Ids.newId("gal"),
         type,
         request.title().trim(),
         trimToNull(request.description()),
         storyContent,
-        GalleryTextFormatter.formatStory(storyContent),
+        storyHtml == null ? GalleryTextFormatter.formatStory(storyContent) : storyHtml,
         category,
         eventDate,
         master,
