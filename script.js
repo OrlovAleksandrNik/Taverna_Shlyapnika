@@ -23,7 +23,6 @@ const PRIVACY_POLICY_VERSION = "1.0";
 const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 let games = [];
 let ratingPlayers = [];
-let ratingTopThree = [];
 let activeFilter = new URLSearchParams(window.location.search).get("filter") || "all";
 let activeRatingSort = "official";
 let activeDiaryIndex = 0;
@@ -779,11 +778,9 @@ function galleryPostModal(post, mediaIndex = 0) {
       ${activeSrc ? `
         <figure class="gallery-modal-figure">
           <img src="${escapeHtml(activeSrc)}" alt="${escapeHtml(activeAlt)}" loading="eager" decoding="async">
-          ${media.length > 1 ? `
-            <button class="gallery-photo-nav gallery-photo-nav-prev" type="button" data-gallery-photo-prev aria-label="Предыдущее фото">‹</button>
-            <button class="gallery-photo-nav gallery-photo-nav-next" type="button" data-gallery-photo-next aria-label="Следующее фото">›</button>
-            <figcaption>${activeIndex + 1} / ${media.length}</figcaption>
-          ` : ""}
+          ${media.length > 1 || prevPost ? `<button class="gallery-photo-nav gallery-photo-nav-prev" type="button" data-gallery-photo-prev aria-label="Предыдущее фото">‹</button>` : ""}
+          ${media.length > 1 || nextPost ? `<button class="gallery-photo-nav gallery-photo-nav-next" type="button" data-gallery-photo-next aria-label="Следующее фото">›</button>` : ""}
+          ${media.length > 1 ? `<figcaption>${activeIndex + 1} / ${media.length}</figcaption>` : ""}
         </figure>
       ` : ""}
 
@@ -831,7 +828,11 @@ function openGalleryPost(post, mediaIndex = 0, trigger = null) {
 function shiftGalleryPhoto(direction) {
   const post = galleryPosts.find((item) => item.publicId === activeGalleryPostId);
   const media = galleryMedia(post);
-  if (!post || media.length < 2) return;
+  if (!post) return;
+  if (media.length < 2) {
+    shiftGalleryPost(direction);
+    return;
+  }
   activeGalleryMediaIndex = (activeGalleryMediaIndex + direction + media.length) % media.length;
   refreshGalleryModal();
   preloadNextGalleryImage(post, activeGalleryMediaIndex);
@@ -1034,13 +1035,11 @@ async function loadRatingFromApi() {
     if (!response.ok) throw new Error(`Rating API unavailable: ${response.status}`);
     const payload = await response.json();
     ratingPlayers = Array.isArray(payload.players) ? payload.players : [];
-    ratingTopThree = Array.isArray(payload.topThree) ? payload.topThree : ratingPlayers.slice(0, 3);
     setRatingStatus(`Рейтинг обновлён автоматически. Игроков: ${Number(payload.total || ratingPlayers.length)}.`);
     return true;
   } catch (error) {
     console.error("Rating load failed", error);
     ratingPlayers = [];
-    ratingTopThree = [];
     setRatingStatus("Не удалось загрузить рейтинг. Попробуйте обновить страницу немного позже.", "Повторить");
     return false;
   }
@@ -1065,38 +1064,31 @@ function filteredRatingPlayers() {
   return filtered.sort(sorters[activeRatingSort] || sorters.official);
 }
 
-function leaderCard(player) {
-  const placeClass = player.rank === 1 ? "gold" : player.rank === 2 ? "silver" : "bronze";
-  return `
-    <article class="rating-leader-card ${placeClass} reveal">
-      <div class="rating-medal">#${escapeHtml(player.rank)}</div>
-      <div class="rating-leader-avatar">${ratingAvatar(player, true)}</div>
-      <div>
-        <h3>${escapeHtml(player.displayName)}</h3>
-        ${player.nickname ? `<p>${escapeHtml(player.nickname)}</p>` : ""}
-      </div>
-      <dl>
-        <div><dt>Очки</dt><dd>${escapeHtml(player.totalPoints)}</dd></div>
-        <div><dt>Игры</dt><dd>${escapeHtml(player.gamesPlayed)}</dd></div>
-        <div><dt>Среднее</dt><dd>${ratingAverage(player.averagePointsPerGame)}</dd></div>
-        <div><dt>Вдохновения</dt><dd>${escapeHtml(player.inspirationCount)}</dd></div>
-      </dl>
-    </article>
-  `;
-}
-
 function ratingRow(player) {
   return `
     <article class="rating-row reveal">
       <div class="rating-rank">#${escapeHtml(player.rank)}</div>
       <div class="rating-avatar">${ratingAvatar(player)}</div>
       <div class="rating-player-name">${ratingPlayerName(player)}</div>
-      <div><span>Игры</span><strong>${escapeHtml(player.gamesPlayed)}</strong></div>
-      <div><span>Очки</span><strong>${escapeHtml(player.totalPoints)}</strong></div>
-      <div><span>Вдохновения</span><strong>${escapeHtml(player.inspirationCount)}</strong></div>
-      <div><span>Среднее</span><strong>${ratingAverage(player.averagePointsPerGame)}</strong></div>
-      <div><span>Последняя игра</span><strong>${escapeHtml(ratingDate(player.lastGameAt || player.lastStatsAt))}</strong></div>
+      <div class="rating-stat" data-label="Игры"><strong>${escapeHtml(player.gamesPlayed)}</strong></div>
+      <div class="rating-stat" data-label="Очки"><strong>${escapeHtml(player.totalPoints)}</strong></div>
+      <div class="rating-stat" data-label="Вдохновение"><strong>${escapeHtml(player.inspirationCount)}</strong></div>
+      <div class="rating-stat" data-label="Среднее"><strong>${ratingAverage(player.averagePointsPerGame)}</strong></div>
     </article>
+  `;
+}
+
+function ratingListHeader() {
+  return `
+    <div class="rating-row rating-row-head" aria-hidden="true">
+      <div></div>
+      <div></div>
+      <div>Игрок</div>
+      <div>Игры</div>
+      <div>Очки</div>
+      <div>Вдохновение</div>
+      <div>Среднее</div>
+    </div>
   `;
 }
 
@@ -1105,12 +1097,10 @@ async function renderRatingPage() {
   if (!page) return;
 
   const loaded = await loadRatingFromApi();
-  const leaders = page.querySelector("[data-rating-leaders]");
   const list = page.querySelector("[data-rating-list]");
-  if (!leaders || !list) return;
+  if (!list) return;
 
   if (!loaded) {
-    leaders.innerHTML = "";
     list.innerHTML = `
       <article class="empty-state reveal">
         <h3>Не удалось загрузить рейтинг.</h3>
@@ -1122,7 +1112,6 @@ async function renderRatingPage() {
   }
 
   if (!ratingPlayers.length) {
-    leaders.innerHTML = "";
     list.innerHTML = `
       <article class="empty-state reveal">
         <h3>Первые имена ещё не появились в летописи.</h3>
@@ -1133,10 +1122,9 @@ async function renderRatingPage() {
     return;
   }
 
-  leaders.innerHTML = ratingTopThree.map(leaderCard).join("");
   const players = filteredRatingPlayers();
   list.innerHTML = players.length
-    ? players.map(ratingRow).join("")
+    ? ratingListHeader() + players.map(ratingRow).join("")
     : `
       <article class="empty-state reveal">
         <h3>По этому запросу никого не нашлось.</h3>
@@ -1199,7 +1187,7 @@ document.querySelector("[data-rating-search]")?.addEventListener("input", () => 
   if (!list) return;
   const players = filteredRatingPlayers();
   list.innerHTML = players.length
-    ? players.map(ratingRow).join("")
+    ? ratingListHeader() + players.map(ratingRow).join("")
     : `
       <article class="empty-state reveal">
         <h3>По этому запросу никого не нашлось.</h3>
@@ -1214,7 +1202,15 @@ document.querySelector("[data-rating-sort]")?.addEventListener("change", (event)
   activeRatingSort = event.target.value;
   const list = document.querySelector("[data-rating-list]");
   if (!list) return;
-  list.innerHTML = filteredRatingPlayers().map(ratingRow).join("");
+  const players = filteredRatingPlayers();
+  list.innerHTML = players.length
+    ? ratingListHeader() + players.map(ratingRow).join("")
+    : `
+      <article class="empty-state reveal">
+        <h3>По этому запросу никого не нашлось.</h3>
+        <p>Попробуйте изменить имя, персонажа или мастера.</p>
+      </article>
+    `;
   initReveal();
 });
 
