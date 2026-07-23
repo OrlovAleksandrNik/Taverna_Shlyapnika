@@ -11,6 +11,7 @@ import by.taverna.shlyapnika.gallery.infrastructure.GalleryPostRepository;
 import by.taverna.shlyapnika.internal.api.InternalBotSessionRequest;
 import by.taverna.shlyapnika.internal.api.InternalBotSessionResponse;
 import by.taverna.shlyapnika.internal.api.InternalGalleryPostRequest;
+import by.taverna.shlyapnika.internal.api.InternalGalleryResponses.InternalGalleryMediaDto;
 import by.taverna.shlyapnika.internal.api.InternalGalleryResponses.InternalGalleryPostDto;
 import by.taverna.shlyapnika.internal.api.InternalMediaResponses.StoredMediaDto;
 import by.taverna.shlyapnika.internal.api.InternalGameRequest;
@@ -323,6 +324,30 @@ public class InternalService {
     return toInternalGalleryPost(entity);
   }
 
+  @Transactional
+  public void deleteMasterGalleryPost(String masterId, String postId) {
+    var master = requireMaster(masterId);
+    var post = isAdmin(master)
+        ? galleryPosts.findById(postId)
+        : galleryPosts.findByIdAndAuthorMaster_Id(postId, masterId);
+    var entity = post.orElseThrow(() -> new NotFoundException("Публикация не найдена или принадлежит другому мастеру."));
+    galleryPosts.delete(entity);
+    auditService.write(String.valueOf(master.getTelegramUserId()), "gallery.post_deleted", "GalleryPost", postId, null);
+  }
+
+  @Transactional
+  public InternalGalleryPostDto deleteMasterGalleryMedia(String masterId, String postId, String mediaId) {
+    var master = requireMaster(masterId);
+    var post = isAdmin(master)
+        ? galleryPosts.findById(postId)
+        : galleryPosts.findByIdAndAuthorMaster_Id(postId, masterId);
+    var entity = post.orElseThrow(() -> new NotFoundException("Публикация не найдена или принадлежит другому мастеру."));
+    if (!entity.removeMedia(mediaId)) throw new NotFoundException("Фотография не найдена в этой публикации.");
+    entity = galleryPosts.save(entity);
+    auditService.write(String.valueOf(master.getTelegramUserId()), "gallery.media_deleted", "GalleryMedia", mediaId, "{\"postId\":\"" + postId + "\"}");
+    return toInternalGalleryPost(entity);
+  }
+
   public StoredMediaDto storeGalleryMedia(String namespace, String altText, String originalFilename, String contentType, byte[] bytes) {
     var safeNamespace = namespace == null || namespace.isBlank() ? "gallery" : namespace.trim();
     if (!safeNamespace.startsWith("gallery")) safeNamespace = "gallery/" + safeNamespace;
@@ -429,6 +454,15 @@ public class InternalService {
         post.getEventDate(),
         post.getStatus(),
         post.getMedia().size(),
+        post.getMedia().stream()
+            .map((media) -> new InternalGalleryMediaDto(
+                media.getId(),
+                media.getFileUrl(),
+                media.getThumbnailUrl(),
+                media.getMediumUrl(),
+                media.getAltText()
+            ))
+            .toList(),
         post.getCreatedAt(),
         post.getPublishedAt()
     );

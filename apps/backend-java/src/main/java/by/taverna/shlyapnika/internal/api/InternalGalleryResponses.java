@@ -17,8 +17,18 @@ public final class InternalGalleryResponses {
       Instant eventDate,
       String status,
       int mediaCount,
+      List<InternalGalleryMediaDto> media,
       Instant createdAt,
       Instant publishedAt
+  ) {
+  }
+
+  public record InternalGalleryMediaDto(
+      String id,
+      String fileUrl,
+      String thumbnailUrl,
+      String mediumUrl,
+      String altText
   ) {
   }
 

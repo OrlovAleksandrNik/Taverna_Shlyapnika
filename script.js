@@ -27,6 +27,7 @@ let activeFilter = new URLSearchParams(window.location.search).get("filter") || 
 let activeRatingSort = "official";
 let activeDiaryIndex = 0;
 let galleryPosts = [];
+let activeGalleryMode = "photos";
 let activeGalleryPostId = "";
 let activeGalleryMediaIndex = 0;
 let galleryModalTrigger = null;
@@ -412,6 +413,13 @@ document.addEventListener("click", (event) => {
     return;
   }
 
+  const galleryMode = target.closest("[data-gallery-mode]");
+  if (galleryMode instanceof HTMLButtonElement) {
+    activeGalleryMode = galleryMode.dataset.galleryMode === "stories" ? "stories" : "photos";
+    renderGalleryPage();
+    return;
+  }
+
   const galleryCard = target.closest("[data-gallery-post]");
   if (galleryCard instanceof HTMLElement && !target.closest("[data-full-image]")) {
     const post = galleryPosts.find((item) => item.publicId === galleryCard.dataset.galleryPost);
@@ -716,7 +724,23 @@ function setGalleryStatus(text) {
 }
 
 function galleryPostIndex(publicId) {
-  return galleryPosts.findIndex((item) => item.publicId === publicId);
+  return galleryVisiblePosts().findIndex((item) => item.publicId === publicId);
+}
+
+function isGalleryStory(post) {
+  return post?.type === "story";
+}
+
+function galleryVisiblePosts() {
+  return galleryPosts.filter((post) => activeGalleryMode === "stories" ? isGalleryStory(post) : !isGalleryStory(post));
+}
+
+function updateGalleryModeTabs() {
+  document.querySelectorAll("[data-gallery-mode]").forEach((tab) => {
+    const isActive = tab.getAttribute("data-gallery-mode") === activeGalleryMode;
+    tab.classList.toggle("is-active", isActive);
+    tab.setAttribute("aria-selected", isActive ? "true" : "false");
+  });
 }
 
 function galleryMedia(post) {
@@ -747,9 +771,10 @@ function renderGalleryCard(post) {
   const alt = cover?.altText || post.title || "Фотография из галереи Таверны";
   const width = cover?.width ? ` width="${escapeHtml(cover.width)}"` : "";
   const height = cover?.height ? ` height="${escapeHtml(cover.height)}"` : "";
+  const storyClass = isGalleryStory(post) ? " gallery-post-card-story" : "";
 
   return `
-    <article class="gallery-post-card${src ? "" : " gallery-post-card-text"}" tabindex="0" role="button" data-gallery-post="${escapeHtml(post.publicId)}" aria-label="Открыть публикацию ${escapeHtml(post.title || "галереи")}">
+    <article class="gallery-post-card${storyClass}${src ? "" : " gallery-post-card-text"}" tabindex="0" role="button" data-gallery-post="${escapeHtml(post.publicId)}" aria-label="Открыть публикацию ${escapeHtml(post.title || "галереи")}">
       ${src ? `
         <img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" loading="lazy" decoding="async"${width}${height}>
       ` : `
@@ -765,16 +790,19 @@ function galleryPostModal(post, mediaIndex = 0) {
   const active = media[activeIndex];
   const activeSrc = galleryImageUrl(active, "medium");
   const activeAlt = active?.altText || post.title || "Фотография из галереи Таверны";
+  const isStory = isGalleryStory(post);
+  const storyBg = isStory ? (activeSrc || galleryImageUrl(media[0], "medium")) : "";
+  const visiblePosts = galleryVisiblePosts();
   const postIndex = galleryPostIndex(post.publicId);
-  const prevPost = postIndex > 0 ? galleryPosts[postIndex - 1] : null;
-  const nextPost = postIndex >= 0 && postIndex < galleryPosts.length - 1 ? galleryPosts[postIndex + 1] : null;
+  const prevPost = postIndex > 0 ? visiblePosts[postIndex - 1] : null;
+  const nextPost = postIndex >= 0 && postIndex < visiblePosts.length - 1 ? visiblePosts[postIndex + 1] : null;
   const canGoPrevPhoto = media.length > 1 || Boolean(prevPost);
   const canGoNextPhoto = media.length > 1 || Boolean(nextPost);
   const meta = galleryMetaRows(post);
 
   return `
     <button class="modal-close gallery-modal-close" type="button" data-modal-close aria-label="Закрыть публикацию">×</button>
-    <article class="gallery-modal-post" data-gallery-modal-post="${escapeHtml(post.publicId)}" data-gallery-media-index="${activeIndex}">
+    <article class="gallery-modal-post${isStory ? " gallery-modal-post-story" : ""}" data-gallery-modal-post="${escapeHtml(post.publicId)}" data-gallery-media-index="${activeIndex}"${storyBg ? ` style="--gallery-story-bg: url('${escapeHtml(storyBg)}')"` : ""}>
       ${activeSrc ? `
         <figure class="gallery-modal-figure">
           <img src="${escapeHtml(activeSrc)}" alt="${escapeHtml(activeAlt)}" loading="eager" decoding="async">
@@ -840,7 +868,7 @@ function shiftGalleryPhoto(direction) {
 
 function shiftGalleryPost(direction) {
   const index = galleryPostIndex(activeGalleryPostId);
-  const next = galleryPosts[index + direction];
+  const next = galleryVisiblePosts()[index + direction];
   if (!next) return;
   activeGalleryPostId = next.publicId;
   activeGalleryMediaIndex = 0;
@@ -874,11 +902,16 @@ async function renderGalleryPage() {
 
   try {
     await loadGalleryPosts();
-    content.innerHTML = galleryPosts.length
-      ? galleryPosts.map(renderGalleryCard).join("")
+    updateGalleryModeTabs();
+    const visiblePosts = galleryVisiblePosts();
+    const emptyText = activeGalleryMode === "stories"
+      ? "Истории Таверны ещё ждут своих первых чернил."
+      : "Истории Таверны ещё ждут своих первых следов.";
+    content.innerHTML = visiblePosts.length
+      ? visiblePosts.map(renderGalleryCard).join("")
       : `
         <article class="empty-state">
-          <p>Истории Таверны ещё ждут своих первых следов.</p>
+          <p>${emptyText}</p>
         </article>
       `;
   } catch (error) {

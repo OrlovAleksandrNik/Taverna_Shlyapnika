@@ -125,6 +125,10 @@ public class GalleryPostEntity {
     media.add(item);
   }
 
+  public boolean removeMedia(String mediaId) {
+    return media.removeIf((item) -> item.getId().equals(mediaId));
+  }
+
   public void setStatus(String status) {
     this.status = status;
     this.isVisible = !"hidden".equals(status);

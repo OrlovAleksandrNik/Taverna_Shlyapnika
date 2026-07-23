@@ -208,6 +208,31 @@ public class BackendApiClient {
     }
   }
 
+  public void deleteGalleryPost(String masterId, String postId) {
+    try {
+      var request = baseRequest("/api/internal/masters/" + masterId + "/gallery-posts/" + postId).DELETE().build();
+      var response = httpClient.send(request, HttpResponse.BodyHandlers.discarding());
+      if (response.statusCode() >= 400 && response.statusCode() != 404) {
+        throw new IllegalStateException("Backend delete gallery post failed with status " + response.statusCode());
+      }
+    } catch (Exception error) {
+      log.warn("Backend gallery post delete failed masterId={} postId={}", masterId, postId, error);
+      throw new IllegalStateException("Не удалось удалить публикацию галереи. Попробуйте немного позже.");
+    }
+  }
+
+  public BackendGalleryPostResponse deleteGalleryMedia(String masterId, String postId, String mediaId) {
+    try {
+      var request = baseRequest("/api/internal/masters/" + masterId + "/gallery-posts/" + postId + "/media/" + mediaId).DELETE().build();
+      var response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+      ensureSuccess(response, "delete gallery media");
+      return mapper.readValue(response.body(), BackendGalleryPostResponse.class);
+    } catch (Exception error) {
+      log.warn("Backend gallery media delete failed masterId={} postId={} mediaId={}", masterId, postId, mediaId, error);
+      throw new IllegalStateException("Не удалось удалить фотографию из публикации. Попробуйте немного позже.");
+    }
+  }
+
   public BackendStoredMediaResponse uploadGalleryMedia(byte[] bytes, String filename, String contentType, String namespace, String altText) {
     try {
       var boundary = "----taverna-" + UUID.randomUUID().toString().replace("-", "");

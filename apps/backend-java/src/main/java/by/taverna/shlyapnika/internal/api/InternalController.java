@@ -103,6 +103,17 @@ public class InternalController {
     return new InternalGalleryPostResponse(service.setMasterGalleryPostStatus(masterId, postId, request.status()));
   }
 
+  @DeleteMapping("/api/internal/masters/{masterId}/gallery-posts/{postId}")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  public void deleteMasterGalleryPost(@PathVariable String masterId, @PathVariable String postId) {
+    service.deleteMasterGalleryPost(masterId, postId);
+  }
+
+  @DeleteMapping("/api/internal/masters/{masterId}/gallery-posts/{postId}/media/{mediaId}")
+  public InternalGalleryPostResponse deleteMasterGalleryMedia(@PathVariable String masterId, @PathVariable String postId, @PathVariable String mediaId) {
+    return new InternalGalleryPostResponse(service.deleteMasterGalleryMedia(masterId, postId, mediaId));
+  }
+
   @PostMapping(value = "/api/internal/media/gallery", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
   @ResponseStatus(HttpStatus.CREATED)
   public StoredMediaResponse uploadGalleryMedia(

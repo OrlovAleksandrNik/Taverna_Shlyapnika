@@ -2,6 +2,7 @@ package by.taverna.shlyapnika.bot.telegram;
 
 import by.taverna.shlyapnika.bot.backend.BackendApiClient;
 import by.taverna.shlyapnika.bot.backend.BackendGalleryMediaRequest;
+import by.taverna.shlyapnika.bot.backend.BackendGalleryPostResponse;
 import by.taverna.shlyapnika.bot.backend.BackendGalleryPostRequest;
 import by.taverna.shlyapnika.bot.backend.BackendGameRequest;
 import by.taverna.shlyapnika.bot.backend.BackendGameUpdateRequest;
@@ -235,6 +236,22 @@ public class TelegramPollingService {
     }
     if (data.startsWith("gallery_category:")) {
       setGalleryCategory(chatId, userId, data.substring("gallery_category:".length()));
+      return;
+    }
+    if (data.startsWith("gdel:")) {
+      confirmDeleteGalleryPost(chatId, userId, data.substring("gdel:".length()));
+      return;
+    }
+    if (data.startsWith("gdelok:")) {
+      deleteGalleryPost(chatId, userId, data.substring("gdelok:".length()));
+      return;
+    }
+    if (data.startsWith("gmdel:")) {
+      confirmDeleteGalleryMedia(chatId, userId, data.substring("gmdel:".length()));
+      return;
+    }
+    if (data.startsWith("gmdelok:")) {
+      deleteGalleryMedia(chatId, userId, data.substring("gmdelok:".length()));
       return;
     }
     if (data.startsWith("gallery_set_")) {
@@ -759,8 +776,89 @@ public class TelegramPollingService {
       if (!"published".equals(post.status())) rows.add(row(button("Опубликовать", "gallery_set_published:" + post.id())));
       if (!"hidden".equals(post.status())) rows.add(row(button("Скрыть", "gallery_set_hidden:" + post.id())));
       if ("hidden".equals(post.status())) rows.add(row(button("Вернуть", "gallery_set_published:" + post.id())));
+      var media = post.media() == null ? List.<BackendGalleryPostResponse.MediaDto>of() : post.media();
+      for (var i = 0; i < Math.min(media.size(), 4); i++) {
+        rows.add(row(button("Удалить фото " + (i + 1), "gmdel:" + post.id() + ":" + i)));
+      }
+      rows.add(row(button("Удалить публикацию", "gdel:" + post.id())));
       rows.add(row(button("Назад", "gallery_menu")));
       telegram.sendMessage(chatId, text, keyboard(rows));
+    }
+  }
+
+  private void confirmDeleteGalleryPost(long chatId, long userId, String postId) {
+    var post = findGalleryPost(chatId, userId, postId);
+    if (post == null) return;
+    telegram.sendMessage(
+        chatId,
+        "Удалить публикацию безвозвратно?\n\n" + post.title(),
+        keyboard(List.of(
+            row(button("Да, удалить", "gdelok:" + post.id())),
+            row(button("Нет, оставить", "gallery_posts"))
+        ))
+    );
+  }
+
+  private void deleteGalleryPost(long chatId, long userId, String postId) {
+    var master = requireActiveMaster(chatId, userId);
+    if (master == null) return;
+    backend.deleteGalleryPost(master.id(), postId);
+    telegram.sendMessage(chatId, "Публикация удалена из галереи.", galleryMenuKeyboard());
+  }
+
+  private void confirmDeleteGalleryMedia(long chatId, long userId, String payload) {
+    var parts = payload.split(":", 2);
+    if (parts.length != 2) return;
+    var post = findGalleryPost(chatId, userId, parts[0]);
+    if (post == null) return;
+    var index = parseIndex(parts[1]);
+    if (index < 0 || post.media() == null || index >= post.media().size()) {
+      telegram.sendMessage(chatId, "Не удалось найти эту фотографию. Обновите список публикаций.", galleryMenuKeyboard());
+      return;
+    }
+    telegram.sendMessage(
+        chatId,
+        "Удалить фото " + (index + 1) + " из публикации?\n\n" + post.title(),
+        keyboard(List.of(
+            row(button("Да, удалить фото", "gmdelok:" + post.id() + ":" + index)),
+            row(button("Нет, оставить", "gallery_posts"))
+        ))
+    );
+  }
+
+  private void deleteGalleryMedia(long chatId, long userId, String payload) {
+    var parts = payload.split(":", 2);
+    if (parts.length != 2) return;
+    var master = requireActiveMaster(chatId, userId);
+    if (master == null) return;
+    var post = findGalleryPost(chatId, userId, parts[0]);
+    if (post == null) return;
+    var index = parseIndex(parts[1]);
+    if (index < 0 || post.media() == null || index >= post.media().size()) {
+      telegram.sendMessage(chatId, "Не удалось найти эту фотографию. Обновите список публикаций.", galleryMenuKeyboard());
+      return;
+    }
+    var result = backend.deleteGalleryMedia(master.id(), post.id(), post.media().get(index).id());
+    telegram.sendMessage(chatId, "Фотография удалена. Осталось фото: " + result.post().mediaCount() + ".", galleryMenuKeyboard());
+  }
+
+  private BackendGalleryPostResponse.PostDto findGalleryPost(long chatId, long userId, String postId) {
+    var master = requireActiveMaster(chatId, userId);
+    if (master == null) return null;
+    return backend.listGalleryPosts(master.id()).posts().stream()
+        .filter((post) -> post.id().equals(postId))
+        .findFirst()
+        .orElseGet(() -> {
+          telegram.sendMessage(chatId, "Публикация не найдена. Возможно, она уже удалена.", galleryMenuKeyboard());
+          return null;
+        });
+  }
+
+  private int parseIndex(String value) {
+    try {
+      return Integer.parseInt(value);
+    } catch (NumberFormatException error) {
+      return -1;
     }
   }
 
