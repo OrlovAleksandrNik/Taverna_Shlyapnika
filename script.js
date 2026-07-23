@@ -428,12 +428,16 @@ document.addEventListener("click", (event) => {
     return;
   }
 
-  if (target.closest("[data-gallery-photo-prev]")) {
+  const prevPhotoButton = target.closest("[data-gallery-photo-prev]");
+  if (prevPhotoButton instanceof HTMLButtonElement) {
+    if (prevPhotoButton.disabled) return;
     shiftGalleryPhoto(-1);
     return;
   }
 
-  if (target.closest("[data-gallery-photo-next]")) {
+  const nextPhotoButton = target.closest("[data-gallery-photo-next]");
+  if (nextPhotoButton instanceof HTMLButtonElement) {
+    if (nextPhotoButton.disabled) return;
     shiftGalleryPhoto(1);
     return;
   }
@@ -770,6 +774,8 @@ function galleryPostModal(post, mediaIndex = 0) {
   const postIndex = galleryPostIndex(post.publicId);
   const prevPost = postIndex > 0 ? galleryPosts[postIndex - 1] : null;
   const nextPost = postIndex >= 0 && postIndex < galleryPosts.length - 1 ? galleryPosts[postIndex + 1] : null;
+  const canGoPrevPhoto = media.length > 1 || Boolean(prevPost);
+  const canGoNextPhoto = media.length > 1 || Boolean(nextPost);
   const meta = galleryMetaRows(post);
 
   return `
@@ -778,8 +784,8 @@ function galleryPostModal(post, mediaIndex = 0) {
       ${activeSrc ? `
         <figure class="gallery-modal-figure">
           <img src="${escapeHtml(activeSrc)}" alt="${escapeHtml(activeAlt)}" loading="eager" decoding="async">
-          ${media.length > 1 || prevPost ? `<button class="gallery-photo-nav gallery-photo-nav-prev" type="button" data-gallery-photo-prev aria-label="Предыдущее фото">‹</button>` : ""}
-          ${media.length > 1 || nextPost ? `<button class="gallery-photo-nav gallery-photo-nav-next" type="button" data-gallery-photo-next aria-label="Следующее фото">›</button>` : ""}
+          <button class="gallery-photo-nav gallery-photo-nav-prev" type="button" data-gallery-photo-prev aria-label="Предыдущее фото"${canGoPrevPhoto ? "" : " disabled aria-disabled=\"true\""}>‹</button>
+          <button class="gallery-photo-nav gallery-photo-nav-next" type="button" data-gallery-photo-next aria-label="Следующее фото"${canGoNextPhoto ? "" : " disabled aria-disabled=\"true\""}>›</button>
           ${media.length > 1 ? `<figcaption>${activeIndex + 1} / ${media.length}</figcaption>` : ""}
         </figure>
       ` : ""}

@@ -2631,6 +2631,12 @@ h3 {
   transform: translateY(-50%) scale(1.04);
 }
 
+.gallery-photo-nav:disabled {
+  opacity: 0.34;
+  cursor: default;
+  transform: translateY(-50%);
+}
+
 .gallery-photo-nav-prev {
   left: 14px;
 }
