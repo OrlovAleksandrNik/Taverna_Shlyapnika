@@ -3763,7 +3763,7 @@ h3 {
 
 @media (max-width: 420px) {
   .gallery-masonry {
-    columns: 1;
+    grid-template-columns: 1fr;
   }
 
   .gallery-modal-body {
