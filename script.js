@@ -754,6 +754,43 @@ function galleryImageUrl(item, preferred = "medium") {
   return item.mediumUrl || item.fileUrl || item.thumbnailUrl || "";
 }
 
+function galleryCardSpan(media) {
+  const width = Number(media?.width || 0);
+  const height = Number(media?.height || 0);
+  if (!width || !height) return 34;
+  const previewWidth = 230;
+  const rowSize = 20;
+  return Math.max(16, Math.ceil(((previewWidth * height) / width + 16) / rowSize));
+}
+
+function resizeGalleryMasonry() {
+  const grid = document.querySelector("[data-gallery-content]");
+  if (!(grid instanceof HTMLElement) || !grid.classList.contains("gallery-masonry")) return;
+  const styles = window.getComputedStyle(grid);
+  const rowHeight = parseFloat(styles.gridAutoRows) || 6;
+  const rowGap = parseFloat(styles.rowGap) || 16;
+  grid.querySelectorAll("[data-gallery-post]").forEach((card) => {
+    if (!(card instanceof HTMLElement)) return;
+    card.style.gridRowEnd = "";
+    window.requestAnimationFrame(() => {
+      const height = card.getBoundingClientRect().height;
+      const span = Math.max(12, Math.ceil((height + rowGap) / (rowHeight + rowGap)));
+      card.style.gridRowEnd = `span ${span}`;
+    });
+  });
+}
+
+function bindGalleryMasonryImages() {
+  const grid = document.querySelector("[data-gallery-content]");
+  if (!(grid instanceof HTMLElement)) return;
+  grid.querySelectorAll("img").forEach((image) => {
+    if (!(image instanceof HTMLImageElement) || image.complete) return;
+    image.addEventListener("load", resizeGalleryMasonry, { once: true });
+    image.addEventListener("error", resizeGalleryMasonry, { once: true });
+  });
+  window.requestAnimationFrame(resizeGalleryMasonry);
+}
+
 function galleryMetaRows(post) {
   const rows = [];
   const published = formatGalleryDate(post.publishedAt || post.createdAt);
@@ -772,9 +809,10 @@ function renderGalleryCard(post) {
   const width = cover?.width ? ` width="${escapeHtml(cover.width)}"` : "";
   const height = cover?.height ? ` height="${escapeHtml(cover.height)}"` : "";
   const storyClass = isGalleryStory(post) ? " gallery-post-card-story" : "";
+  const rowSpan = galleryCardSpan(cover);
 
   return `
-    <article class="gallery-post-card${storyClass}${src ? "" : " gallery-post-card-text"}" tabindex="0" role="button" data-gallery-post="${escapeHtml(post.publicId)}" aria-label="Открыть публикацию ${escapeHtml(post.title || "галереи")}">
+    <article class="gallery-post-card${storyClass}${src ? "" : " gallery-post-card-text"}" style="--gallery-row-span: ${rowSpan}; --gallery-row-span-mobile: ${Math.max(14, Math.round(rowSpan * 0.82))};" tabindex="0" role="button" data-gallery-post="${escapeHtml(post.publicId)}" aria-label="Открыть публикацию ${escapeHtml(post.title || "галереи")}">
       ${src ? `
         <img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" loading="lazy" decoding="async"${width}${height}>
       ` : `
@@ -914,6 +952,7 @@ async function renderGalleryPage() {
           <p>${emptyText}</p>
         </article>
       `;
+    bindGalleryMasonryImages();
   } catch (error) {
     console.error("Gallery load failed", error);
     galleryPosts = [];
@@ -1303,5 +1342,6 @@ if (document.querySelector("[data-rating-page]")) {
 }
 
 if (document.querySelector("[data-gallery-page]")) {
+  window.addEventListener("resize", () => window.requestAnimationFrame(resizeGalleryMasonry));
   window.setInterval(() => renderGalleryPage(), 60_000);
 }

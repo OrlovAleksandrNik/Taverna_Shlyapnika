@@ -2550,6 +2550,7 @@ h3 {
 }
 
 .gallery-modal-panel {
+  position: relative;
   width: min(980px, 100%);
   max-height: min(92vh, 980px);
   padding: 0;
@@ -2569,7 +2570,7 @@ h3 {
   top: 12px;
   left: calc(100% - 54px);
   z-index: 4;
-  margin: 12px 12px -54px auto;
+  margin: 0 12px -48px auto;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.42);
 }
 
@@ -2610,7 +2611,7 @@ h3 {
 .gallery-modal-figure img {
   width: 100%;
   height: auto;
-  max-height: 82vh;
+  max-height: min(76vh, 760px);
   object-fit: contain;
   display: block;
 }
@@ -2991,22 +2992,27 @@ h3 {
 
 .gallery-masonry {
   width: 100%;
-  columns: 4 230px;
-  column-gap: 16px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(230px, 100%), 1fr));
+  grid-auto-rows: 6px;
+  grid-auto-flow: dense;
+  gap: 16px;
+  align-items: start;
 }
 
 .gallery-masonry .empty-state {
-  break-inside: avoid;
   display: block;
+  grid-column: 1 / -1;
   width: 100%;
 }
 
 .gallery-post-card {
   position: relative;
-  display: inline-block;
+  display: block;
+  align-self: start;
   width: 100%;
-  margin: 0 0 16px;
-  break-inside: avoid;
+  margin: 0;
+  grid-row-end: span var(--gallery-row-span, 34);
   border: 1px solid rgba(215, 168, 79, 0.22);
   border-radius: var(--radius);
   overflow: hidden;
@@ -3603,7 +3609,7 @@ h3 {
 
 @media (max-width: 1024px) {
   .gallery-masonry {
-    columns: 3 210px;
+    grid-template-columns: repeat(auto-fill, minmax(min(210px, 100%), 1fr));
   }
 
   .diary-shell {
@@ -3622,12 +3628,13 @@ h3 {
   }
 
   .gallery-masonry {
-    columns: 2 170px;
-    column-gap: 12px;
+    grid-template-columns: repeat(auto-fill, minmax(min(160px, 100%), 1fr));
+    grid-auto-rows: 5px;
+    gap: 12px;
   }
 
   .gallery-post-card {
-    margin-bottom: 12px;
+    grid-row-end: span var(--gallery-row-span-mobile, var(--gallery-row-span, 34));
   }
 
   .gallery-modal-panel {
@@ -3643,7 +3650,7 @@ h3 {
   }
 
   .gallery-modal-figure img {
-    max-height: 70vh;
+    max-height: 64vh;
   }
 
   .gallery-photo-nav {
