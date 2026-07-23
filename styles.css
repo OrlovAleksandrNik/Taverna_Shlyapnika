@@ -2973,31 +2973,6 @@ h3 {
   padding: 16px;
 }
 
-.gallery-card-caption {
-  display: grid;
-  gap: 6px;
-  padding: 13px 14px 15px;
-}
-
-.gallery-card-caption h3 {
-  margin: 0;
-  color: var(--paper);
-  font-size: clamp(18px, 1.8vw, 24px);
-  line-height: 1.16;
-}
-
-.gallery-card-caption p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 14px;
-  line-height: 1.48;
-}
-
-.gallery-card-caption span {
-  color: var(--paper-dim);
-  font-size: 13px;
-}
-
 .archive-placeholder {
   width: 100%;
   aspect-ratio: 4 / 3;
@@ -3576,10 +3551,6 @@ h3 {
 
   .gallery-post-card {
     margin-bottom: 12px;
-  }
-
-  .gallery-card-caption {
-    padding: 11px 12px 13px;
   }
 
   .gallery-modal-panel {

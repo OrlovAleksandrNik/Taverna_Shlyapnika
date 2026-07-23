@@ -743,9 +743,8 @@ function galleryMetaRows(post) {
 function renderGalleryCard(post) {
   const media = galleryMedia(post);
   const cover = media[0];
-  const src = galleryImageUrl(cover, "thumb");
+  const src = galleryImageUrl(cover, "medium");
   const alt = cover?.altText || post.title || "Фотография из галереи Таверны";
-  const mediaCount = media.length > 1 ? `${media.length} фото` : "";
   const width = cover?.width ? ` width="${escapeHtml(cover.width)}"` : "";
   const height = cover?.height ? ` height="${escapeHtml(cover.height)}"` : "";
 
@@ -756,11 +755,6 @@ function renderGalleryCard(post) {
       ` : `
         <div class="archive-placeholder" aria-hidden="true"><span></span></div>
       `}
-      <div class="gallery-card-caption">
-        ${post.title ? `<h3>${escapeHtml(post.title)}</h3>` : ""}
-        ${post.description ? `<p>${escapeHtml(post.description)}</p>` : ""}
-        ${mediaCount ? `<span>${escapeHtml(mediaCount)}</span>` : ""}
-      </div>
     </article>
   `;
 }
