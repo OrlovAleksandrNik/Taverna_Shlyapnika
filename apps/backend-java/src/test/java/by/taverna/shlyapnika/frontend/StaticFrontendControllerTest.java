@@ -27,6 +27,18 @@ class StaticFrontendControllerTest {
   }
 
   @Test
+  void returnsRootHtmlPageWhenFrontendServingIsEnabled() throws Exception {
+    Files.writeString(staticDir.resolve("dnd-beginners.html"), "<!doctype html><title>D&D</title>", StandardCharsets.UTF_8);
+    var controller = new StaticFrontendController(properties(true, staticDir));
+
+    var response = controller.htmlPage("dnd-beginners.html");
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(response.getBody()).isNotNull();
+    assertThat(response.getBody().exists()).isTrue();
+  }
+
+  @Test
   void returnsNotFoundWhenFrontendServingIsDisabled() {
     var controller = new StaticFrontendController(properties(false, staticDir));
 
