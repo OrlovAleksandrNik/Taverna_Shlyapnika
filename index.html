@@ -24,7 +24,7 @@
 </head>
 <body data-page="home" data-root="">
   <header class="site-header" data-header>
-    <a class="brand" href="#top" aria-label="Таверна Шляпника">
+    <a class="brand" href="hatter-diary.html" aria-label="Открыть дневник Шляпника">
       <img class="brand__icon" src="assets/images/brand/hatter-mark.png" alt="" aria-hidden="true" loading="eager">
       <span>
         <strong>Таверна Шляпника</strong>
@@ -38,7 +38,6 @@
     </button>
     <nav class="main-nav" data-nav aria-label="Основная навигация">
       <a href="#top">Главная</a>
-      <a href="about.html">О таверне</a>
       <a href="#games">Афиша</a>
       <a href="services.html">Услуги</a>
       <a href="#masters">Мастера</a>
@@ -67,67 +66,37 @@
       <div class="section-copy section-copy-center reveal">
         <p class="eyebrow">Первый выбор у стойки</p>
         <h2 id="adventures-title">Выбери своё приключение</h2>
-        <p>Можно прийти впервые, собрать опытную группу или заказать отдельную историю под событие. Мастер подстроит формат под людей за столом.</p>
       </div>
       <div class="adventure-grid">
-        <article class="adventure-card adventure-card-newbie reveal" tabindex="0">
+        <a class="adventure-card adventure-card-newbie reveal" href="dnd-beginners.html">
           <div class="adventure-card-bg" aria-hidden="true"></div>
           <div class="adventure-card-content">
             <p class="tag">Первый бросок</p>
             <h3>D&D для новичков</h3>
-            <p>Никогда раньше не играли в Dungeons & Dragons? Это не проблема. Для первого приключения не нужно изучать толстые книги, покупать кубики или заранее разбираться в правилах.</p>
-            <p>Мастер поможет выбрать героя, объяснит всё необходимое и будет подсказывать по ходу игры. Вам останется принимать решения, общаться с другими участниками и смотреть, куда приведёт общая история.</p>
-            <ul>
-              <li>опыт не требуется;</li>
-              <li>персонажа помогут подготовить;</li>
-              <li>правила объясняются во время игры;</li>
-              <li>всё необходимое предоставляется на месте;</li>
-              <li>можно прийти одному или с друзьями.</li>
-            </ul>
-            <p class="adventure-note">Стоимость указана в карточке конкретной игры.</p>
-            <a class="button primary" href="?filter=newbie#games" data-schedule-link data-filter-target="newbie">Выбрать игру для новичков</a>
+            <p>Короткое знакомство с D&D без учебников и подготовки: мастер объяснит правила прямо за столом.</p>
+            <span class="adventure-card-more">Подробнее</span>
           </div>
-        </article>
+        </a>
 
-        <article class="adventure-card adventure-card-experienced reveal" tabindex="0">
+        <a class="adventure-card adventure-card-experienced reveal" href="dnd-experienced.html">
           <div class="adventure-card-bg" aria-hidden="true"></div>
           <div class="adventure-card-content">
             <p class="tag">Глубже в подземелье</p>
             <h3>D&D для опытных игроков</h3>
-            <p>Если базовых приключений уже недостаточно, можно отправиться глубже: больше тактики, сложных моральных выборов, внимательной работы с механиками и подробного взаимодействия с миром.</p>
-            <p>Здесь можно исследовать лор, испытывать необычные сборки персонажей, обсуждать спорные правила, создавать авторские механики и играть в истории, где решения имеют последствия.</p>
-            <ul>
-              <li>сложные игровые ситуации;</li>
-              <li>глубокая работа с механиками;</li>
-              <li>исследование мира и лора;</li>
-              <li>тактические столкновения;</li>
-              <li>авторские правила и механики;</li>
-              <li>возможность собрать собственную группу.</li>
-            </ul>
-            <p class="adventure-note">Стоимость указана в карточке конкретной игры.</p>
-            <a class="button primary" href="?filter=experienced#games" data-schedule-link data-filter-target="experienced">Найти игру для опытных</a>
+            <p>Тактика, последствия, сложные выборы и миры, где персонажи платят за каждое решение.</p>
+            <span class="adventure-card-more">Подробнее</span>
           </div>
-        </article>
+        </a>
 
-        <article class="adventure-card adventure-card-event reveal" tabindex="0">
+        <a class="adventure-card adventure-card-event reveal" href="dnd-events.html">
           <div class="adventure-card-bg" aria-hidden="true"></div>
           <div class="adventure-card-content">
             <p class="tag">Отдельная история</p>
             <h3>D&D для мероприятий</h3>
-            <p>Настольная ролевая игра может стать полноценным событием для друзей, семьи или команды. Мы можем подготовить отдельное приключение под день рождения, корпоратив, праздник или встречу друзей.</p>
-            <p>Сюжет, продолжительность, сложность и атмосфера подбираются под конкретную компанию. Игровой опыт не обязателен: мастер объяснит правила и поможет каждому включиться в историю.</p>
-            <ul>
-              <li>дни рождения;</li>
-              <li>корпоративы и тимбилдинги;</li>
-              <li>встречи друзей и семейные праздники;</li>
-              <li>тематические события;</li>
-              <li>выездные игры;</li>
-              <li>индивидуальные сценарии.</li>
-            </ul>
-            <p class="adventure-note">Стоимость рассчитывается индивидуально.</p>
-            <a class="button primary" href="services.html#event-games">Заказать мероприятие</a>
+            <p>День рождения, корпоратив или встреча друзей, превращённые в отдельное приключение.</p>
+            <span class="adventure-card-more">Подробнее</span>
           </div>
-        </article>
+        </a>
       </div>
     </section>
 
@@ -136,12 +105,7 @@
         <p class="eyebrow">Ближайшие игры</p>
         <h2 id="games-title">Афиша таверны</h2>
       </div>
-      <div class="filters reveal" role="group" aria-label="Фильтр расписания">
-        <button class="chip active" type="button" data-filter="all">Все</button>
-        <button class="chip" type="button" data-filter="dnd">D&D</button>
-        <button class="chip" type="button" data-filter="newbie">Новичкам</button>
-        <button class="chip" type="button" data-filter="experienced">Опытным</button>
-      </div>
+      <div class="schedule-week reveal" data-schedule-week aria-label="Актуальная неделя"></div>
       <div class="schedule-grid" id="schedule" data-schedule data-source="api"></div>
     </section>
 

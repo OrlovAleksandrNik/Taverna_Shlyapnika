@@ -23,7 +23,6 @@ const PRIVACY_POLICY_VERSION = "1.0";
 const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 let games = [];
 let ratingPlayers = [];
-let activeFilter = new URLSearchParams(window.location.search).get("filter") || "all";
 let activeRatingSort = "official";
 let activeDiaryIndex = 0;
 let galleryPosts = [];
@@ -137,6 +136,60 @@ function formatGameTime(date) {
   }).format(date);
 }
 
+function localDateKey(date) {
+  return new Intl.DateTimeFormat("sv-SE", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    timeZone: "Europe/Minsk"
+  }).format(date);
+}
+
+function startOfCurrentWeek() {
+  const today = new Date();
+  const monday = new Date(today);
+  const dayOffset = (today.getDay() + 6) % 7;
+  monday.setHours(0, 0, 0, 0);
+  monday.setDate(today.getDate() - dayOffset);
+  return monday;
+}
+
+function renderScheduleWeek() {
+  const week = document.querySelector("[data-schedule-week]");
+  if (!week) return;
+
+  const monday = startOfCurrentWeek();
+  const todayKey = localDateKey(new Date());
+  const gamesByDay = games.reduce((acc, game) => {
+    if (!(game.startsAt instanceof Date) || Number.isNaN(game.startsAt.getTime())) return acc;
+    const key = localDateKey(game.startsAt);
+    acc.set(key, (acc.get(key) || 0) + 1);
+    return acc;
+  }, new Map());
+  const weekdayFormatter = new Intl.DateTimeFormat("ru-RU", { weekday: "short", timeZone: "Europe/Minsk" });
+  const dayFormatter = new Intl.DateTimeFormat("ru-RU", { day: "numeric", timeZone: "Europe/Minsk" });
+  const monthFormatter = new Intl.DateTimeFormat("ru-RU", { month: "short", timeZone: "Europe/Minsk" });
+
+  week.innerHTML = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(monday);
+    date.setDate(monday.getDate() + index);
+    const key = localDateKey(date);
+    const count = gamesByDay.get(key) || 0;
+    const dots = Array.from({ length: Math.min(count, 4) }, () => `<i class="schedule-day-dot" aria-hidden="true"></i>`).join("");
+    const label = count
+      ? `${count} ${count === 1 ? "игра" : count < 5 ? "игры" : "игр"}`
+      : "игр нет";
+    return `
+      <div class="schedule-day${key === todayKey ? " is-today" : ""}" aria-label="${escapeHtml(`${weekdayFormatter.format(date)}, ${dayFormatter.format(date)} ${monthFormatter.format(date)}: ${label}`)}">
+        <span>${escapeHtml(weekdayFormatter.format(date))}</span>
+        <strong>${escapeHtml(dayFormatter.format(date))}</strong>
+        <span>${escapeHtml(monthFormatter.format(date))}</span>
+        <div class="schedule-day-dots" aria-hidden="true">${dots}</div>
+      </div>
+    `;
+  }).join("");
+}
+
 function normalizeApiGame(game) {
   const start = game.dateTimeStart ? new Date(game.dateTimeStart) : null;
   const duration = game.durationMinutes ? `${Math.round(game.durationMinutes / 60)} ч.` : "";
@@ -149,6 +202,7 @@ function normalizeApiGame(game) {
     title: game.title,
     system: game.system || game.gameSystem || "",
     description: game.description || "",
+    startsAt: start,
     dateLabel: start ? formatGameDate(start) : "",
     day: start ? formatGameDay(start) : "",
     time: start ? formatGameTime(start) : "",
@@ -177,8 +231,14 @@ function scheduleStatusElement(schedule) {
   return status;
 }
 
-function setScheduleStatus(schedule, text, retryText = "Обновить") {
+function setScheduleStatus(schedule, text = "", retryText = "Обновить") {
   const status = scheduleStatusElement(schedule);
+  if (!text) {
+    status.hidden = true;
+    status.innerHTML = "";
+    return;
+  }
+  status.hidden = false;
   status.innerHTML = `
     <span>${escapeHtml(text)}</span>
     <button class="chip" type="button" data-refresh-schedule>${escapeHtml(retryText)}</button>
@@ -186,19 +246,20 @@ function setScheduleStatus(schedule, text, retryText = "Обновить") {
   status.querySelector("[data-refresh-schedule]")?.addEventListener("click", () => renderSchedule());
 }
 
-async function loadScheduleFromApi(schedule) {
-  setScheduleStatus(schedule, "Загружаем афишу...");
+async function loadScheduleFromApi(schedule, options = {}) {
+  if (!options.silent) setScheduleStatus(schedule);
 
   try {
     const response = await fetch(`${apiRoot}api/games?limit=50`, { headers: { Accept: "application/json" } });
     if (!response.ok) throw new Error(`API unavailable: ${response.status}`);
     const payload = await response.json();
     games = (payload.games || []).map(normalizeApiGame);
-    setScheduleStatus(schedule, "Афиша обновлена автоматически");
+    setScheduleStatus(schedule);
     return true;
   } catch (error) {
     console.error("Schedule load failed", error);
     games = [];
+    renderScheduleWeek();
     setScheduleStatus(schedule, "Не удалось загрузить афишу. Попробуйте обновить страницу немного позже.", "Повторить");
     schedule.innerHTML = `
       <article class="empty-state reveal">
@@ -253,23 +314,13 @@ function telegramSignupUrl(game) {
   return `${base}${base.includes("?") ? "&" : "?"}text=${encodeURIComponent(message)}`;
 }
 
-function applyScheduleFilter(filter) {
-  activeFilter = filter || "all";
-  document.querySelectorAll("[data-filter]").forEach((button) => {
-    button.classList.toggle("active", button.dataset.filter === activeFilter);
-  });
-  document.querySelectorAll("[data-schedule] [data-type]").forEach((card) => {
-    const types = card.dataset.type?.split(" ") || [];
-    card.hidden = activeFilter !== "all" && !types.includes(activeFilter);
-  });
-}
-
-async function renderSchedule() {
+async function renderSchedule(options = {}) {
   const schedule = document.querySelector("[data-schedule]");
   if (!schedule) return;
 
-  const loaded = await loadScheduleFromApi(schedule);
+  const loaded = await loadScheduleFromApi(schedule, options);
   if (!loaded) return;
+  renderScheduleWeek();
 
   if (!games.length) {
     schedule.innerHTML = `
@@ -283,20 +334,8 @@ async function renderSchedule() {
   }
 
   schedule.innerHTML = games.map(gameCard).join("");
-  applyScheduleFilter(activeFilter);
   initReveal();
 }
-
-document.querySelectorAll("[data-filter]").forEach((button) => {
-  button.addEventListener("click", () => applyScheduleFilter(button.dataset.filter || "all"));
-});
-
-document.querySelectorAll("[data-schedule-link]").forEach((link) => {
-  link.addEventListener("click", () => {
-    activeFilter = link.dataset.filterTarget || "all";
-    window.setTimeout(() => applyScheduleFilter(activeFilter), 120);
-  });
-});
 
 document.querySelectorAll("[data-service-choice]").forEach((link) => {
   link.addEventListener("click", () => {
@@ -1219,7 +1258,6 @@ function renderFooter() {
       </div>
       <nav aria-label="Навигация в футере">
         <a href="${assetPath("index.html#top")}">Главная</a>
-        <a href="${assetPath("about.html")}">О таверне</a>
         <a href="${assetPath("index.html#games")}">Афиша</a>
         <a href="${assetPath("services.html")}">Услуги</a>
         <a href="${assetPath("index.html#masters")}">Мастера</a>
@@ -1334,7 +1372,7 @@ renderFooter();
 initReveal();
 
 if (document.querySelector("[data-schedule]")) {
-  window.setInterval(() => renderSchedule(), 45_000);
+  window.setInterval(() => renderSchedule({ silent: true }), 45_000);
 }
 
 if (document.querySelector("[data-rating-page]")) {
