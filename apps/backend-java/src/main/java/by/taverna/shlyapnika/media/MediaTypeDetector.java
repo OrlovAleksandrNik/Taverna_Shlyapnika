@@ -27,6 +27,14 @@ public final class MediaTypeDetector {
         && bytes[11] == 0x50) {
       return Optional.of(new DetectedMediaType("image/webp", "webp"));
     }
+    if (bytes[0] == 0x47
+        && bytes[1] == 0x49
+        && bytes[2] == 0x46
+        && bytes[3] == 0x38
+        && (bytes[4] == 0x37 || bytes[4] == 0x39)
+        && bytes[5] == 0x61) {
+      return Optional.of(new DetectedMediaType("image/gif", "gif"));
+    }
     return Optional.empty();
   }
 

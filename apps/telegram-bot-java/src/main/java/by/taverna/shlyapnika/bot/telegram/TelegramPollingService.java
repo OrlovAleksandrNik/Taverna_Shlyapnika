@@ -574,8 +574,54 @@ public class TelegramPollingService {
         default -> telegram.sendMessage(chatId, "Я вас слышу. Используйте нижнее меню или команды /register, /create_game и /my_games.", mainMenu());
       }
     } catch (IllegalArgumentException error) {
-      telegram.sendMessage(chatId, error.getMessage(), cancelKeyboard());
+      telegram.sendMessage(chatId, retryInputMessage(session.state(), error.getMessage()), retryInputKeyboard(session.state()));
     }
+  }
+
+  private String retryInputMessage(String state, String reason) {
+    return String.join("\n\n",
+        "Сообщение не подходит по формату.",
+        "Причина: " + reason,
+        retryInputPrompt(state)
+    );
+  }
+
+  private String retryInputPrompt(String state) {
+    if (state == null) return "Попробуйте ввести значение ещё раз.";
+    if (state.startsWith("edit:")) {
+      var parts = state.split(":", 3);
+      return parts.length == 3 ? editPrompt(parts[2]) : "Введите новое значение ещё раз.";
+    }
+    if (state.startsWith("rating:game:")) return "Введите данные в формате: очки; название игры; дата YYYY-MM-DD или нет; комментарий или нет.";
+    if (state.startsWith("rating:points:")) return "Введите изменение очков в формате: +5; причина или -5; причина.";
+    if (state.startsWith("rating:inspiration:")) return "Введите изменение вдохновения в формате: +1; причина или -1; причина.";
+    return switch (state) {
+      case "register:name" -> "Введите имя мастера от 2 до 80 символов.";
+      case "register:contact", "create:contact_manual" -> "Введите контакт в формате @username или https://t.me/username.";
+      case "create:title" -> "Напишите название игры от 3 до 100 символов.";
+      case "create:date_manual" -> "Введите дату в формате YYYY-MM-DD.";
+      case "create:time" -> "Укажите время начала игры в формате HH:MM, например 18:30.";
+      case "create:duration_manual" -> "Введите продолжительность в часах, например 3.5.";
+      case "create:description" -> "Кратко расскажите, о чём будет игра. Описание должно быть от 20 до 1000 символов.";
+      case "create:players" -> "Введите число игроков или диапазон, например 3-5.";
+      case "create:price" -> "Введите стоимость, например 35 BYN. Для бесплатной игры: 0 BYN.";
+      case "create:system_manual" -> "Введите игровую систему от 2 до 80 символов.";
+      case "create:experience_manual" -> "Введите уровень игроков от 2 до 80 символов.";
+      case "create:age_manual" -> "Введите возрастное ограничение от 2 до 30 символов.";
+      case "gallery:photo:title" -> "Напишите название публикации от 3 до 100 символов.";
+      case "gallery:photo:description" -> "Добавьте короткое описание или напишите «нет».";
+      case "gallery:story:title" -> "Напишите название истории от 3 до 100 символов.";
+      case "gallery:story:content" -> "Напишите историю публикации. Минимум 20 символов.";
+      case "gallery:story:description" -> "Добавьте короткое описание или напишите «нет».";
+      case "gallery:date" -> "Укажите дату события в формате YYYY-MM-DD или напишите «нет».";
+      case "rating:create:details" -> "Введите игрока одной строкой: имя игрока; персонаж; очки рейтинга; вдохновение.";
+      default -> "Попробуйте ввести значение ещё раз.";
+    };
+  }
+
+  private Object retryInputKeyboard(String state) {
+    if (state != null && state.startsWith("create:duration")) return durationKeyboard();
+    return cancelKeyboard();
   }
 
   private void useProfileContact(long chatId, long userId) {
@@ -675,32 +721,40 @@ public class TelegramPollingService {
     if (master == null) return;
     var fileId = galleryFileId(message);
     if (fileId == null) {
-      telegram.sendMessage(chatId, "Отправьте изображение как фото или документ JPEG, PNG или WEBP.", galleryMediaKeyboard());
+      telegram.sendMessage(chatId, "Отправьте изображение как фото или документ JPEG, PNG, WEBP или GIF.", galleryMediaKeyboard());
       return;
     }
-    var telegramFile = telegram.downloadFile(fileId);
-    var draft = session.draft();
-    var media = draft.galleryMedia();
-    var uploaded = backend.uploadGalleryMedia(
-        telegramFile.bytes(),
-        telegramFile.filename(),
-        telegramFile.contentType(),
-        "gallery/telegram/" + userId,
-        draft.galleryTitle() == null ? "Галерея Таверны Шляпника" : draft.galleryTitle()
-    ).media();
-    media.add(new GameDraft.GalleryMediaDraft(
-        uploaded.fileUrl(),
-        uploaded.thumbnailUrl(),
-        uploaded.mediumUrl(),
-        uploaded.width(),
-        uploaded.height(),
-        uploaded.mimeType(),
-        uploaded.altText(),
-        media.size()
-    ));
-    draft.galleryMedia(media);
-    sessions.save(userId, session.state(), draft);
-    telegram.sendMessage(chatId, "Изображение добавлено. Сейчас в черновике: " + media.size() + ".", galleryMediaKeyboard());
+    try {
+      var telegramFile = telegram.downloadFile(fileId);
+      var draft = session.draft();
+      var media = draft.galleryMedia();
+      var uploaded = backend.uploadGalleryMedia(
+          telegramFile.bytes(),
+          telegramFile.filename(),
+          telegramFile.contentType(),
+          "gallery/telegram/" + userId,
+          draft.galleryTitle() == null ? "Галерея Таверны Шляпника" : draft.galleryTitle()
+      ).media();
+      media.add(new GameDraft.GalleryMediaDraft(
+          uploaded.fileUrl(),
+          uploaded.thumbnailUrl(),
+          uploaded.mediumUrl(),
+          uploaded.width(),
+          uploaded.height(),
+          uploaded.mimeType(),
+          uploaded.altText(),
+          media.size()
+      ));
+      draft.galleryMedia(media);
+      sessions.save(userId, session.state(), draft);
+      telegram.sendMessage(chatId, "Изображение добавлено. Сейчас в черновике: " + media.size() + ".", galleryMediaKeyboard());
+    } catch (RuntimeException error) {
+      telegram.sendMessage(
+          chatId,
+          "Не удалось добавить изображение.\n\nПричина: " + error.getMessage() + "\n\nОтправьте изображение ещё раз или нажмите «Далее», если хотите продолжить с уже добавленными фото.",
+          galleryMediaKeyboard()
+      );
+    }
   }
 
   private void finishGalleryMediaStep(long chatId, long userId) {

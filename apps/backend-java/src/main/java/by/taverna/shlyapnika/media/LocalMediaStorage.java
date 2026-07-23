@@ -14,7 +14,7 @@ import org.springframework.stereotype.Service;
 @Service
 @ConditionalOnProperty(prefix = "taverna.media", name = "storage", havingValue = "local", matchIfMissing = true)
 public class LocalMediaStorage implements MediaStorage {
-  private static final int MAX_FILE_SIZE = 12 * 1024 * 1024;
+  private static final int MAX_FILE_SIZE = 50 * 1024 * 1024;
   private final TavernaProperties properties;
 
   public LocalMediaStorage(TavernaProperties properties) {
@@ -24,8 +24,8 @@ public class LocalMediaStorage implements MediaStorage {
   @Override
   public StoredMedia store(MediaUpload upload) {
     if (upload.bytes() == null || upload.bytes().length == 0) throw new IllegalArgumentException("Файл пустой.");
-    if (upload.bytes().length > MAX_FILE_SIZE) throw new IllegalArgumentException("Файл слишком большой. Максимум 12 МБ.");
-    var detected = MediaTypeDetector.detect(upload.bytes()).orElseThrow(() -> new IllegalArgumentException("Поддерживаются только JPEG, PNG и WEBP."));
+    if (upload.bytes().length > MAX_FILE_SIZE) throw new IllegalArgumentException("Файл слишком большой. Максимум 50 МБ.");
+    var detected = MediaTypeDetector.detect(upload.bytes()).orElseThrow(() -> new IllegalArgumentException("Поддерживаются только JPEG, PNG, WEBP и GIF."));
     try {
       var namespace = safeNamespace(upload.namespace());
       var filename = Ids.newId("media") + "." + detected.extension();

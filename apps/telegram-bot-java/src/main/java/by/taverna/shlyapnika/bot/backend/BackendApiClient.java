@@ -246,7 +246,7 @@ public class BackendApiClient {
       return mapper.readValue(response.body(), BackendStoredMediaResponse.class);
     } catch (Exception error) {
       log.warn("Backend gallery media upload failed", error);
-      throw new IllegalStateException("Не удалось сохранить изображение галереи. Попробуйте другое изображение или немного позже.");
+      throw new IllegalStateException("Не удалось сохранить изображение галереи. Причина: " + readableReason(error), error);
     }
   }
 
@@ -314,6 +314,14 @@ public class BackendApiClient {
     } catch (Exception ignored) {
       return "unknown error";
     }
+  }
+
+  private String readableReason(Throwable error) {
+    var message = error.getMessage();
+    if (message == null || message.isBlank()) return "попробуйте другое изображение или немного позже.";
+    var marker = ": ";
+    var index = message.lastIndexOf(marker);
+    return index >= 0 ? message.substring(index + marker.length()) : message;
   }
 
   private String normalizeBaseUrl(String value) {
