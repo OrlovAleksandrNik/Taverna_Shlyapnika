@@ -711,7 +711,7 @@ function formatGalleryDate(value) {
     month: "long",
     year: "numeric",
     timeZone: "Europe/Minsk"
-  }).format(date);
+  }).format(date).replace(/\s*г\.$/, "");
 }
 
 function galleryStatusNode() {
