@@ -3,6 +3,7 @@ package by.taverna.shlyapnika.media;
 import by.taverna.shlyapnika.common.Ids;
 import by.taverna.shlyapnika.config.TavernaProperties;
 import java.io.ByteArrayInputStream;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import javax.imageio.ImageIO;
@@ -37,6 +38,8 @@ public class LocalMediaStorage implements MediaStorage {
       var size = imageSize(upload.bytes(), detected.mimeType());
       var url = publicUrl(storageKey);
       return new StoredMedia(storageKey, url, url, url, detected.mimeType(), size.width(), size.height(), upload.bytes().length, upload.altText());
+    } catch (AccessDeniedException error) {
+      throw new IllegalStateException("Нет прав на папку загрузок. Проверьте FILE_STORAGE_DIR или права Railway volume.", error);
     } catch (Exception error) {
       if (error instanceof IllegalArgumentException illegalArgumentException) throw illegalArgumentException;
       throw new IllegalStateException("Не удалось сохранить файл.", error);

@@ -104,7 +104,7 @@ public class TelegramApiClient {
 
       var downloadRequest = HttpRequest.newBuilder()
           .uri(URI.create("https://api.telegram.org/file/bot" + properties.token() + "/" + filePath))
-          .timeout(Duration.ofSeconds(30))
+          .timeout(Duration.ofSeconds(60))
           .GET()
           .build();
       var downloadResponse = httpClient.send(downloadRequest, HttpResponse.BodyHandlers.ofByteArray());

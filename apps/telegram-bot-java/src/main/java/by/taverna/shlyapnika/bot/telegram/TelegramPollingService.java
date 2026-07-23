@@ -751,10 +751,17 @@ public class TelegramPollingService {
     } catch (RuntimeException error) {
       telegram.sendMessage(
           chatId,
-          "Не удалось добавить изображение.\n\nПричина: " + error.getMessage() + "\n\nОтправьте изображение ещё раз или нажмите «Далее», если хотите продолжить с уже добавленными фото.",
+          "Не удалось добавить изображение.\n\nПричина: " + galleryUploadReason(error) + "\n\nОтправьте изображение ещё раз или нажмите «Далее», если хотите продолжить с уже добавленными фото.",
           galleryMediaKeyboard()
       );
     }
+  }
+
+  private String galleryUploadReason(RuntimeException error) {
+    var message = error.getMessage();
+    if (message == null || message.isBlank()) return "попробуйте отправить изображение ещё раз.";
+    var prefix = "Не удалось сохранить изображение галереи. Причина: ";
+    return message.startsWith(prefix) ? message.substring(prefix.length()) : message;
   }
 
   private void finishGalleryMediaStep(long chatId, long userId) {

@@ -29,7 +29,8 @@ RUN apt-get update \
   && useradd --system --uid 10001 --create-home taverna \
   && mkdir -p /app/uploads \
   && chown -R taverna:taverna /app
-USER taverna
+# Railway mounts volumes as root-owned directories. The uploads volume is mounted
+# at /app/uploads, so the service must keep write access to persist gallery media.
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 CMD curl -fsS "http://127.0.0.1:${PORT:-8080}/actuator/health/readiness" || exit 1
 CMD ["java", "-jar", "/app/app.jar"]

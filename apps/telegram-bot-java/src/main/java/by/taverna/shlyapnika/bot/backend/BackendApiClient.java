@@ -238,6 +238,7 @@ public class BackendApiClient {
       var boundary = "----taverna-" + UUID.randomUUID().toString().replace("-", "");
       var payload = multipart(boundary, bytes, filename, contentType, namespace, altText);
       var request = baseRequest("/api/internal/media/gallery")
+          .timeout(Duration.ofSeconds(60))
           .header("Content-Type", "multipart/form-data; boundary=" + boundary)
           .POST(HttpRequest.BodyPublishers.ofByteArray(payload))
           .build();

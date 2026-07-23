@@ -10,6 +10,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -37,6 +38,11 @@ public class GlobalExceptionHandler {
         .map(FieldError::getDefaultMessage)
         .orElse("Проверьте данные.");
     return error(HttpStatus.UNPROCESSABLE_ENTITY, "VALIDATION_ERROR", message, request.getRequestURI());
+  }
+
+  @ExceptionHandler(MaxUploadSizeExceededException.class)
+  ResponseEntity<ApiError> maxUploadSize(MaxUploadSizeExceededException error, HttpServletRequest request) {
+    return error(HttpStatus.UNPROCESSABLE_ENTITY, "VALIDATION_ERROR", "Файл слишком большой. Максимум 50 МБ.", request.getRequestURI());
   }
 
   @ExceptionHandler(Exception.class)
