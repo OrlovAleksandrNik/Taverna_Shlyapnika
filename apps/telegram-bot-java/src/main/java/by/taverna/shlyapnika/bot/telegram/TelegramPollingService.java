@@ -42,6 +42,7 @@ public class TelegramPollingService {
   private final ExecutorService executor = Executors.newSingleThreadExecutor();
   private final ConcurrentMap<Long, String> telegramUsernames = new ConcurrentHashMap<>();
   private long offset = 0;
+  private int consecutivePollingFailures = 0;
 
   public TelegramPollingService(
       BotProperties properties,
@@ -90,14 +91,18 @@ public class TelegramPollingService {
     while (running.get() && !Thread.currentThread().isInterrupted()) {
       try {
         var updates = telegram.getUpdates(offset);
+        consecutivePollingFailures = 0;
         if (updates.isArray()) {
           for (var update : updates) {
             handleUpdate(update);
           }
         }
       } catch (Exception error) {
-        log.warn("Telegram polling iteration failed", error);
-        sleepAfterError();
+        consecutivePollingFailures += 1;
+        status.markPollingError(error);
+        var delay = pollingRetryDelayMillis();
+        log.warn("Telegram polling iteration failed attempt={} retryDelayMs={}", consecutivePollingFailures, delay, error);
+        sleepAfterError(delay);
       }
     }
   }
@@ -1436,9 +1441,14 @@ public class TelegramPollingService {
     return minutes + " мин.";
   }
 
-  private void sleepAfterError() {
+  private long pollingRetryDelayMillis() {
+    var cappedFailures = Math.min(consecutivePollingFailures, 6);
+    return Math.min(60_000L, 2_000L * (1L << Math.max(0, cappedFailures - 1)));
+  }
+
+  private void sleepAfterError(long delayMillis) {
     try {
-      Thread.sleep(3_000);
+      Thread.sleep(delayMillis);
     } catch (InterruptedException interrupted) {
       Thread.currentThread().interrupt();
     }

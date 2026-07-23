@@ -25,7 +25,9 @@ public class HealthController {
             "running", status.running(),
             "mode", properties.mode() == null ? "polling" : properties.mode(),
             "lastUpdateId", status.lastUpdateId(),
-            "lastUpdateAt", status.lastUpdateAt() == null ? "" : status.lastUpdateAt().toString()
+            "lastUpdateAt", status.lastUpdateAt() == null ? "" : status.lastUpdateAt().toString(),
+            "lastPollingErrorAt", status.lastPollingErrorAt() == null ? "" : status.lastPollingErrorAt().toString(),
+            "lastPollingError", status.lastPollingError()
         ),
         "checkedAt", Instant.now().toString()
     );

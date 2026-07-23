@@ -67,6 +67,7 @@ public class TelegramApiClient {
         return null;
       }
       var messageId = mapper.readTree(response.body()).path("result").path("message_id").asLong(0);
+      log.info("Telegram sendMessage delivered chatId={} messageId={}", chatId, messageId);
       if (managedLifecycle && messageId > 0) {
         mirrorToCache(chatId, text);
         scheduleCleanup(chatId, messageId);

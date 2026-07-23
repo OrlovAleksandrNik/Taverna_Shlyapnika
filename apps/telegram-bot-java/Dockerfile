@@ -2,7 +2,7 @@ FROM maven:3.9.9-eclipse-temurin-21 AS maven-build
 WORKDIR /workspace
 COPY pom.xml ./pom.xml
 COPY src ./src
-RUN mvn -B -DskipTests package
+RUN mvn -B package
 
 FROM eclipse-temurin:21-jre-jammy
 WORKDIR /app
