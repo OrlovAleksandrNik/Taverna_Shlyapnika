@@ -23,7 +23,15 @@
 - frontend actions for login, session check, password reset, user invitations, game creation/lifecycle, generic record creation/lifecycle, project mock launch and backup contracts;
 - frontend settings and tech screens backed by feature-flag and integration-status endpoints;
 - frontend action contract test for endpoint and CSRF wiring;
+- frontend TOTP setup controls with bundled scannable QR canvas rendering, confirm/disable actions and session revoke actions;
+- persisted table search/status/sort/page/column preferences in `localStorage`;
+- Playwright e2e suite for desktop and mobile preview checks;
 - Flyway mock seed data for management sections;
+- Flyway Spring Session JDBC schema migration;
+- SMTP mail provider behind `CONTROL_MAIL_PROVIDER=smtp`;
+- persistent revoked-session enforcement for known `CONTROLSESSION` ids;
+- allowlisted Desktop Agent launch contract for VoiceMod and ScreenStage;
+- Testcontainers PostgreSQL migration validation suite;
 - frontend role-based navigation smoke checks;
 - audit log;
 - security headers, CORS и CSRF;
@@ -32,10 +40,8 @@
 
 Следующие production-hardening задачи:
 
-- QR rendering on frontend for TOTP setup;
-- production mail provider;
-- persistent active-device invalidation with Spring Session;
-- real table pagination/filter persistence;
-- Testcontainers PostgreSQL integration suite;
-- e2e через Playwright после установки frontend dev dependencies;
-- Desktop Agent для VoiceMod/ScreenStage.
+- добавить визуальный download/copy flow для QR/secret и recovery codes перед реальным rollout 2FA;
+- подключить реальные SMTP credentials и домен отправителя;
+- установить Docker Desktop или локальный PostgreSQL для полного `docker compose up --build`;
+- запустить Testcontainers suite на машине с Docker daemon;
+- добавить service-to-service authentication/checksum layer для полноценного Desktop Agent.

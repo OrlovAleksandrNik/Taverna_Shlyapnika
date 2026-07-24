@@ -12,17 +12,18 @@ Access assignments:
 - revoke access deletes only the assignment, not the project folder;
 - every assignment change is written to audit log.
 
-В кабинете они представлены как `ManagedProject` с mock status.
+В кабинете они представлены как `ManagedProject` с isolated launch contract.
 
 Текущая политика:
 
-- не запускать `.exe` из браузера;
+- не запускать произвольный `.exe` из браузера;
 - не принимать путь запуска от frontend;
 - не объединять код проектов с backend;
-- фиксировать mock-launch в audit;
-- реальные действия только через будущий Desktop Agent.
+- при `CONTROL_DESKTOP_AGENT_ENABLED=false` фиксировать mock-launch в audit;
+- при `CONTROL_DESKTOP_AGENT_ENABLED=true` запускать только allowlist path из `CONTROL_DESKTOP_AGENT_VOICEMOD_PATH` или `CONTROL_DESKTOP_AGENT_SCREENSTAGE_PATH`;
+- отклонять missing path, отсутствующий файл и расширения вне `.exe`, `.cmd`, `.bat`.
 
-Desktop Agent должен иметь:
+Следующий слой Desktop Agent должен иметь:
 
 - локальную установку на доверенной машине;
 - service-to-service authentication;

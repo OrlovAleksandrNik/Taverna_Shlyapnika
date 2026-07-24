@@ -75,6 +75,9 @@ public class AccountController {
   @PostMapping("/sessions/revoke-all")
   Map<String, Boolean> revokeSessions(Authentication authentication, HttpServletRequest servletRequest) {
     authService.revokeAllSessions(user(authentication), servletRequest.getRemoteAddr());
+    if (servletRequest.getSession(false) != null) {
+      servletRequest.getSession(false).invalidate();
+    }
     return Map.of("sessionsRevoked", true);
   }
 

@@ -14,7 +14,8 @@
 Email-подсистема:
 
 - `EmailGateway` описывает invitation, email verification, password reset и security alert.
-- `MockEmailGateway` пишет dev-сообщения в backend log и не подключается к production provider.
+- `MockEmailGateway` пишет dev-сообщения в backend log и используется при `CONTROL_MAIL_PROVIDER=mock`.
+- `SmtpEmailGateway` включается через `CONTROL_MAIL_PROVIDER=smtp` и использует `CONTROL_MAIL_HOST`, `CONTROL_MAIL_PORT`, `CONTROL_MAIL_USERNAME`, `CONTROL_MAIL_PASSWORD`, `CONTROL_MAIL_FROM` и `CONTROL_MAIL_START_TLS`.
 - Invitation, password reset и email verification tokens хранятся только как SHA-256 hash.
 - Password reset request возвращает одинаковый успешный ответ и не раскрывает существование email.
 
@@ -26,11 +27,12 @@ Email-подсистема:
 
 Сессии:
 
-- создаются как server-side session;
+- создаются как server-side session и могут храниться через Spring Session JDBC;
 - logout удаляет session cookie;
 - таблица `control_sessions` хранит metadata устройств;
-- revoke-all помечает известные sessions как revoked и пишет audit;
-- полная invalidation distributed sessions требует Spring Session/Redis или JDBC session store на следующем этапе.
+- `ControlSessionValidationFilter` проверяет hash текущего `CONTROLSESSION` и отклоняет revoked/expired session;
+- revoke-all помечает известные sessions как revoked, инвалидирует текущую HTTP-session и пишет audit;
+- Flyway migration `V3__spring_session_jdbc.sql` создаёт таблицы `SPRING_SESSION` и `SPRING_SESSION_ATTRIBUTES`.
 
 2FA:
 

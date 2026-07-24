@@ -4,6 +4,7 @@ import { extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
+const publicRoot = join(root, "public");
 const port = Number(process.env.PORT || 4191);
 const types = {
   ".html": "text/html; charset=utf-8",
@@ -17,8 +18,13 @@ createServer((request, response) => {
   const url = new URL(request.url || "/", `http://${request.headers.host}`);
   const requested = normalize(decodeURIComponent(url.pathname)).replace(/^[/\\]+/, "");
   let filePath = join(root, requested);
+  const publicPath = join(publicRoot, requested);
 
-  if (!filePath.startsWith(root) || !existsSync(filePath) || statSync(filePath).isDirectory()) {
+  if (filePath.startsWith(root) && existsSync(filePath) && !statSync(filePath).isDirectory()) {
+    // Serve source files for the static preview.
+  } else if (publicPath.startsWith(publicRoot) && existsSync(publicPath) && !statSync(publicPath).isDirectory()) {
+    filePath = publicPath;
+  } else {
     filePath = join(root, "index.html");
   }
 

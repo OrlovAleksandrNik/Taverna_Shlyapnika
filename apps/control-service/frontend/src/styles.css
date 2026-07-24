@@ -251,6 +251,21 @@ nav {
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.24);
 }
 
+.totp-setup {
+  display: grid;
+  grid-template-columns: 164px minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+}
+
+.totp-qr {
+  width: 164px;
+  height: 164px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper);
+}
+
 .metric {
   display: grid;
   gap: 6px;
@@ -316,6 +331,11 @@ th {
   color: var(--paper-2);
   font-size: 12px;
   text-transform: uppercase;
+}
+
+.table-block.compact th:nth-child(n+5),
+.table-block.compact td:nth-child(n+5) {
+  display: none;
 }
 
 .table-foot {
@@ -447,5 +467,9 @@ button:disabled {
   .table-head input,
   .table-head select {
     max-width: none;
+  }
+
+  .totp-setup {
+    grid-template-columns: 1fr;
   }
 }

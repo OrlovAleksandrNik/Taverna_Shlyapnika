@@ -45,6 +45,10 @@ public class ControlSession {
   public Instant getCreatedAt() { return createdAt; }
   public Instant getExpiresAt() { return expiresAt; }
 
+  public boolean isActive(Instant now) {
+    return revokedAt == null && expiresAt.isAfter(now);
+  }
+
   public void revoke() {
     revokedAt = Instant.now();
   }

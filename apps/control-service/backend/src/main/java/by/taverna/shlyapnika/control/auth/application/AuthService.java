@@ -198,7 +198,11 @@ public class AuthService {
 
   @Transactional
   public void recordSession(UserAccount account, String rawSessionId, String userAgent, String ipAddress) {
-    sessions.save(new ControlSession(account.getId(), sha256(rawSessionId), userAgent, ipAddress, Instant.now().plus(Duration.ofHours(12))));
+    String sessionHash = sha256(rawSessionId);
+    if (sessions.findBySessionHash(sessionHash).isPresent()) {
+      return;
+    }
+    sessions.save(new ControlSession(account.getId(), sessionHash, userAgent, ipAddress, Instant.now().plus(Duration.ofHours(12))));
   }
 
   @Transactional

@@ -7,10 +7,14 @@
     "dev": "vite --host 0.0.0.0 --port 4191",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0 --port 4191",
-    "test": "node scripts/frontend-smoke-test.mjs && node scripts/role-navigation-test.mjs && node scripts/action-contract-test.mjs"
+    "test": "node scripts/frontend-smoke-test.mjs && node scripts/role-navigation-test.mjs && node scripts/action-contract-test.mjs",
+    "test:e2e": "playwright test",
+    "test:all": "npm test && npm run test:e2e"
   },
   "devDependencies": {
-    "vite": "^5.4.11",
-    "typescript": "^5.7.2"
+    "@playwright/test": "^1.48.2",
+    "qrcode": "^1.5.4",
+    "typescript": "^5.7.2",
+    "vite": "^5.4.11"
   }
 }

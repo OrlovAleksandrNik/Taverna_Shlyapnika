@@ -21,7 +21,8 @@ class SecretEncryptionServiceTest {
         "./backups",
         "",
         "",
-        new ControlProperties.Mail("localhost", 1025, "", ""));
+        new ControlProperties.Mail("mock", "localhost", 1025, "", "", "test@taverna-control.local", false),
+        new ControlProperties.DesktopAgent(java.util.Map.of()));
     SecretEncryptionService service = new SecretEncryptionService(properties);
 
     String encrypted = service.encrypt("JBSWY3DPEHPK3PXP");

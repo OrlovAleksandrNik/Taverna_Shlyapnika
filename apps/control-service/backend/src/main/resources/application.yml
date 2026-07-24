@@ -29,6 +29,11 @@ spring:
         jdbc:
           time_zone: UTC
         format_sql: false
+  session:
+    store-type: jdbc
+    jdbc:
+      initialize-schema: never
+      table-name: SPRING_SESSION
 
 management:
   endpoint:
@@ -58,7 +63,14 @@ control:
   bootstrap-owner-email: ${CONTROL_BOOTSTRAP_OWNER_EMAIL:}
   bootstrap-token: ${CONTROL_BOOTSTRAP_TOKEN:}
   mail:
+    provider: ${CONTROL_MAIL_PROVIDER:mock}
     host: ${CONTROL_MAIL_HOST:localhost}
     port: ${CONTROL_MAIL_PORT:1025}
     username: ${CONTROL_MAIL_USERNAME:}
     password: ${CONTROL_MAIL_PASSWORD:}
+    from: ${CONTROL_MAIL_FROM:no-reply@taverna-control.local}
+    start-tls: ${CONTROL_MAIL_START_TLS:false}
+  desktop-agent:
+    launch-paths:
+      voicemod: ${CONTROL_DESKTOP_AGENT_VOICEMOD_PATH:}
+      screenstage: ${CONTROL_DESKTOP_AGENT_SCREENSTAGE_PATH:}

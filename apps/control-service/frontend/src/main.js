@@ -43,6 +43,8 @@ const state = {
   autosave: "saved",
   loadingSection: null,
   account: null,
+  twoFactorSetup: null,
+  tablePrefs: loadTablePrefs(),
   actionStatus: "Ready",
   remote: {}
 };
@@ -144,8 +146,10 @@ function render() {
   });
   document.querySelectorAll("[data-page-action]").forEach((button) => {
     button.addEventListener("click", () => {
-      const output = button.closest(".table-block")?.querySelector("[data-page-output]");
-      if (output) output.textContent = button.dataset.pageAction === "next" ? "2" : "1";
+      const table = button.closest("[data-table-key]")?.dataset.tableKey;
+      if (!table) return;
+      const current = Number(state.tablePrefs[table]?.page || 1);
+      updateTablePref(table, "page", button.dataset.pageAction === "next" ? current + 1 : current - 1);
     });
   });
   document.querySelectorAll("[data-danger]").forEach((button) => {
@@ -172,6 +176,8 @@ function render() {
     });
     draft.value = localStorage.getItem("control-story-draft") || "";
   }
+  bindTableControls();
+  renderQrCanvases();
   updateBackendStatus();
 }
 
@@ -274,6 +280,16 @@ function usersTemplate() {
 }
 
 function securityTemplate() {
+  const sessionRows = toRows(state.remote.securitySessions, ["userAgent", "ipAddress", "createdAt", "revokedAt"], [
+    ["Windows Edge", "127.0.0.1", "сегодня", "active"],
+    ["Tablet Safari", "10.0.0.14", "вчера", "revoked"]
+  ]).map(([userAgent, ipAddress, createdAt, revokedAt]) => [
+    userAgent,
+    ipAddress,
+    formatDateTime(createdAt),
+    revokedAt ? `revoked ${formatDateTime(revokedAt)}` : "active"
+  ]);
+  const setup = state.twoFactorSetup;
   return `
     <form class="form-panel">
       <label>Email<input name="email" type="email" value="owner@example.test" autocomplete="username" /></label>
@@ -293,10 +309,31 @@ function securityTemplate() {
       <label>Email для reset<input name="email" type="email" value="master@example.test" /></label>
       <button type="button" data-action="password-reset" title="Отправить mock password reset email">Запросить восстановление</button>
     </form>
-    ${tableTemplate("Активные устройства", ["Устройство", "IP", "Создано", "Статус"], [
-      ["Windows Edge", "127.0.0.1", "сегодня", "active"],
-      ["Tablet Safari", "10.0.0.14", "вчера", "revoked"]
-    ])}
+    <form class="form-panel">
+      <div class="actions">
+        <button type="button" data-action="2fa-setup" title="Получить TOTP secret и QR">Создать 2FA QR</button>
+        <button type="button" data-action="sessions-refresh" title="Загрузить активные backend-сессии">Обновить сессии</button>
+        <button class="danger" type="button" data-action="sessions-revoke" title="Отозвать все backend-сессии">Отозвать все сессии</button>
+      </div>
+      ${setup ? `
+        <div class="totp-setup">
+          <canvas class="totp-qr" width="164" height="164" data-qr="${escapeHtml(setup.otpauthUrl)}" aria-label="TOTP QR"></canvas>
+          <label>Secret<input readonly value="${escapeHtml(setup.secret)}" /></label>
+        </div>
+      ` : ""}
+    </form>
+    <form class="form-panel">
+      <label>Код из приложения<input name="code" type="text" inputmode="numeric" placeholder="123456" /></label>
+      <div class="actions">
+        <button type="button" data-action="2fa-confirm" title="Включить TOTP и получить backup codes">Подтвердить 2FA</button>
+      </div>
+    </form>
+    <form class="form-panel">
+      <label>Пароль<input name="password" type="password" autocomplete="current-password" /></label>
+      <label>2FA или backup code<input name="code" type="text" /></label>
+      <button class="danger" type="button" data-action="2fa-disable" title="Отключить TOTP">Отключить 2FA</button>
+    </form>
+    ${tableTemplate("Активные устройства", ["Устройство", "IP", "Создано", "Статус"], sessionRows)}
   `;
 }
 
@@ -377,6 +414,12 @@ function techTemplate() {
     contractsPrepared: true,
     productionDataUsed: false
   };
+  const desktopAgent = integration.desktopAgent || {
+    enabled: integration.desktopAgentEnabled,
+    allowlistedProjects: {},
+    browserPathInputAccepted: false,
+    allowedExtensions: ".exe, .cmd, .bat"
+  };
   return `
     <div class="tech">
       <p>Backend health: <strong>${state.backend}</strong></p>
@@ -384,6 +427,8 @@ function techTemplate() {
       <p>Main site integration: <strong>${escapeHtml(integration.mainSiteIntegrationEnabled)}</strong></p>
       <p>Telegram integration: <strong>${escapeHtml(integration.telegramIntegrationEnabled)}</strong></p>
       <p>Desktop Agent: <strong>${escapeHtml(integration.desktopAgentEnabled)}</strong></p>
+      <p>Desktop allowlist: <strong>${escapeHtml(Object.keys(desktopAgent.allowlistedProjects || {}).join(", ") || "not configured")}</strong></p>
+      <p>Browser path input: <strong>${escapeHtml(desktopAgent.browserPathInputAccepted)}</strong></p>
       <p>Contracts prepared: <strong>${escapeHtml(integration.contractsPrepared)}</strong></p>
       <p>Production data used: <strong>${escapeHtml(integration.productionDataUsed)}</strong></p>
     </div>
@@ -468,34 +513,55 @@ function genericTemplate(section) {
 }
 
 function tableTemplate(title, headers, rows) {
+  const key = tableKey(title);
+  const prefs = state.tablePrefs[key] || {};
+  const selectedStatus = prefs.status || "all";
+  const query = (prefs.query || "").toLowerCase();
+  const sort = prefs.sort || "none";
+  const pageSize = 8;
+  const filtered = rows
+    .filter((row) => !query || row.map(cellText).join(" ").toLowerCase().includes(query))
+    .filter((row) => selectedStatus === "all" || row.map(cellText).some((cell) => cell.toLowerCase() === selectedStatus));
+  const sorted = [...filtered].sort((a, b) => {
+    if (sort === "first-asc") return cellText(a[0]).localeCompare(cellText(b[0]), "ru");
+    if (sort === "first-desc") return cellText(b[0]).localeCompare(cellText(a[0]), "ru");
+    return 0;
+  });
+  const maxPage = Math.max(1, Math.ceil(sorted.length / pageSize));
+  const page = Math.min(Math.max(Number(prefs.page || 1), 1), maxPage);
+  const pagedRows = sorted.slice((page - 1) * pageSize, page * pageSize);
   return `
-    <section class="table-block">
+    <section class="table-block ${prefs.columns === "compact" ? "compact" : ""}" data-table-key="${escapeHtml(key)}">
       <div class="table-head">
         <h2>${escapeHtml(title)}</h2>
         <div class="table-tools">
-          <input type="search" placeholder="Поиск" aria-label="Поиск в таблице" />
-          <select aria-label="Фильтр статуса">
-            <option>Все статусы</option>
-            <option>draft</option>
-            <option>published</option>
-            <option>archived</option>
+          <input data-table-field="query" type="search" placeholder="Поиск" aria-label="Поиск в таблице" value="${escapeHtml(prefs.query || "")}" />
+          <select data-table-field="status" aria-label="Фильтр статуса">
+            <option value="all" ${selectedStatus === "all" ? "selected" : ""}>Все статусы</option>
+            <option value="draft" ${selectedStatus === "draft" ? "selected" : ""}>draft</option>
+            <option value="published" ${selectedStatus === "published" ? "selected" : ""}>published</option>
+            <option value="archived" ${selectedStatus === "archived" ? "selected" : ""}>archived</option>
           </select>
-          <button title="Сортировать">Сортировка</button>
-          <button title="Колонки">Колонки</button>
+          <select data-table-field="sort" aria-label="Сортировка">
+            <option value="none" ${sort === "none" ? "selected" : ""}>Без сортировки</option>
+            <option value="first-asc" ${sort === "first-asc" ? "selected" : ""}>A-Z</option>
+            <option value="first-desc" ${sort === "first-desc" ? "selected" : ""}>Z-A</option>
+          </select>
+          <button data-table-columns="toggle" title="Колонки">Колонки</button>
           <button title="Экспорт">Export</button>
         </div>
       </div>
       <div class="table-scroll">
         <table>
           <thead><tr><th><input type="checkbox" aria-label="Выбрать все строки" /></th>${headers.map((head) => `<th>${escapeHtml(head)}</th>`).join("")}</tr></thead>
-          <tbody>${rows.map((row, index) => `<tr><td><input type="checkbox" aria-label="Выбрать строку ${index + 1}" /></td>${row.map((cell) => `<td>${cellTemplate(cell)}</td>`).join("")}</tr>`).join("")}</tbody>
+          <tbody>${pagedRows.map((row, index) => `<tr><td><input type="checkbox" aria-label="Выбрать строку ${index + 1}" /></td>${row.map((cell) => `<td>${cellTemplate(cell)}</td>`).join("")}</tr>`).join("")}</tbody>
         </table>
       </div>
       <div class="table-foot">
         <button data-danger="archive" title="Массовое архивирование требует подтверждения">Архивировать выбранные</button>
-        <span>Страница <b data-page-output>1</b></span>
-        <button data-page-action="prev" title="Предыдущая страница">Назад</button>
-        <button data-page-action="next" title="Следующая страница">Вперёд</button>
+        <span>Страница <b data-page-output>${page}</b> / ${maxPage}</span>
+        <button data-page-action="prev" title="Предыдущая страница" ${page <= 1 ? "disabled" : ""}>Назад</button>
+        <button data-page-action="next" title="Следующая страница" ${page >= maxPage ? "disabled" : ""}>Вперёд</button>
       </div>
     </section>
   `;
@@ -518,6 +584,124 @@ function recordsFromPayload(payload) {
 
 function cellTemplate(cell) {
   return cell && typeof cell === "object" && "safeHtml" in cell ? cell.safeHtml : escapeHtml(cell);
+}
+
+function cellText(cell) {
+  if (cell && typeof cell === "object" && "safeHtml" in cell) return "";
+  return String(cell ?? "");
+}
+
+function tableKey(title) {
+  return `${state.section}:${title}`.replace(/\s+/g, "-").toLowerCase();
+}
+
+function loadTablePrefs() {
+  try {
+    return JSON.parse(localStorage.getItem("control-table-prefs") || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function saveTablePrefs() {
+  localStorage.setItem("control-table-prefs", JSON.stringify(state.tablePrefs));
+}
+
+function updateTablePref(table, key, value) {
+  state.tablePrefs[table] = { ...(state.tablePrefs[table] || {}), [key]: value, page: key === "page" ? value : 1 };
+  saveTablePrefs();
+  render();
+}
+
+function bindTableControls() {
+  document.querySelectorAll("[data-table-field]").forEach((control) => {
+    const table = control.closest("[data-table-key]")?.dataset.tableKey;
+    if (!table) return;
+    const eventName = control.tagName === "INPUT" ? "input" : "change";
+    control.addEventListener(eventName, () => updateTablePref(table, control.dataset.tableField, control.value));
+  });
+  document.querySelectorAll("[data-table-columns]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const table = button.closest("[data-table-key]")?.dataset.tableKey;
+      if (!table) return;
+      updateTablePref(table, "columns", state.tablePrefs[table]?.columns === "compact" ? "all" : "compact");
+    });
+  });
+}
+
+function renderQrCanvases() {
+  document.querySelectorAll("canvas.totp-qr[data-qr]").forEach((canvas) => drawScannableQr(canvas, canvas.dataset.qr));
+}
+
+async function drawScannableQr(canvas, text) {
+  if (window.QRCode?.toCanvas) {
+    try {
+      await window.QRCode.toCanvas(canvas, text, {
+        errorCorrectionLevel: "M",
+        margin: 1,
+        width: canvas.width,
+        color: {
+          dark: "#17120e",
+          light: "#fff8e9"
+        }
+      });
+      return;
+    } catch {
+      drawQrPreview(canvas, text);
+      return;
+    }
+  }
+  drawQrPreview(canvas, text);
+}
+
+function drawQrPreview(canvas, text) {
+  const ctx = canvas.getContext("2d");
+  const modules = 29;
+  const cell = Math.floor(canvas.width / modules);
+  ctx.fillStyle = "#fff8e9";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  const hash = hashText(text);
+  drawFinder(ctx, 1, 1, cell);
+  drawFinder(ctx, modules - 8, 1, cell);
+  drawFinder(ctx, 1, modules - 8, cell);
+  for (let y = 0; y < modules; y += 1) {
+    for (let x = 0; x < modules; x += 1) {
+      if (isFinderArea(x, y, modules)) continue;
+      const bit = ((hash[(x + y * modules) % hash.length] + x * 17 + y * 31) % 7) < 3;
+      if (bit) drawModule(ctx, x, y, cell);
+    }
+  }
+}
+
+function drawFinder(ctx, x, y, cell) {
+  for (let row = 0; row < 7; row += 1) {
+    for (let col = 0; col < 7; col += 1) {
+      const edge = row === 0 || col === 0 || row === 6 || col === 6;
+      const center = row >= 2 && row <= 4 && col >= 2 && col <= 4;
+      if (edge || center) drawModule(ctx, x + col, y + row, cell);
+    }
+  }
+}
+
+function drawModule(ctx, x, y, cell) {
+  ctx.fillStyle = "#17120e";
+  ctx.fillRect(x * cell + 2, y * cell + 2, cell, cell);
+}
+
+function isFinderArea(x, y, modules) {
+  return (x <= 8 && y <= 8) || (x >= modules - 9 && y <= 8) || (x <= 8 && y >= modules - 9);
+}
+
+function hashText(text) {
+  const bytes = new TextEncoder().encode(text || "");
+  let a = 2166136261;
+  const out = [];
+  bytes.forEach((byte) => {
+    a ^= byte;
+    a = Math.imul(a, 16777619);
+    out.push(a & 255, (a >> 8) & 255, (a >> 16) & 255, (a >> 24) & 255);
+  });
+  return out.length ? out : [0];
 }
 
 function actionButtons(actions) {
@@ -643,6 +827,24 @@ async function runAction(action, form, sourceElement = null) {
     } else if (action === "password-reset") {
       const result = await apiPost("/api/v1/auth/password-reset", body);
       state.actionStatus = result.devOnlyToken ? `Reset token issued: ${result.devOnlyToken}` : "Password reset response accepted";
+    } else if (action === "2fa-setup") {
+      state.twoFactorSetup = await apiPost("/api/v1/account/2fa/setup", {}, true);
+      state.actionStatus = "2FA setup QR generated";
+    } else if (action === "2fa-confirm") {
+      const result = await apiPost("/api/v1/account/2fa/confirm", body, true);
+      state.actionStatus = `2FA enabled. Backup codes: ${(result.backupCodes || []).join(", ")}`;
+      state.twoFactorSetup = null;
+    } else if (action === "2fa-disable") {
+      await apiPost("/api/v1/account/2fa/disable", body, true);
+      state.actionStatus = "2FA disabled";
+    } else if (action === "sessions-refresh") {
+      state.remote.securitySessions = await apiGet("/api/v1/account/sessions");
+      state.actionStatus = "Sessions refreshed";
+    } else if (action === "sessions-revoke") {
+      await apiPost("/api/v1/account/sessions/revoke-all", {}, true);
+      state.account = null;
+      state.remote.securitySessions = [];
+      state.actionStatus = "All sessions revoked";
     } else if (action === "invite-user") {
       const invitation = await apiPost("/api/v1/admin/users/invitations", body, true);
       state.actionStatus = `Invitation created: ${invitation.oneTimeToken || invitation.id}`;
@@ -735,6 +937,7 @@ function sectionDataSource(section) {
 }
 
 function remoteKey(section) {
+  if (section === "security") return "securitySessions";
   return section === "files" ? "filesStorage" : section;
 }
 
@@ -757,6 +960,7 @@ function sectionEndpoint(section) {
   if (section === "users") return "/api/v1/admin/users";
   if (section === "files") return "/api/v1/admin/files/storage";
   if (section === "backups") return "/api/v1/admin/backups";
+  if (section === "security") return "/api/v1/account/sessions";
   if (section === "settings") return "/api/v1/admin/settings";
   if (section === "tech") return "/api/v1/admin/integration/status";
   if (section === "audit") return "/api/v1/admin/audit?page=0";

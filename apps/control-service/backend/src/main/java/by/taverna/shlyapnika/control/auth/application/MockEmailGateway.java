@@ -3,9 +3,11 @@ package by.taverna.shlyapnika.control.auth.application;
 import java.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 @Component
+@ConditionalOnProperty(prefix = "control.mail", name = "provider", havingValue = "mock", matchIfMissing = true)
 public class MockEmailGateway implements EmailGateway {
   private static final Logger log = LoggerFactory.getLogger(MockEmailGateway.class);
 

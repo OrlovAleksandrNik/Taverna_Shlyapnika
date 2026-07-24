@@ -1,6 +1,7 @@
 package by.taverna.shlyapnika.control.projects.api;
 
 import by.taverna.shlyapnika.control.audit.application.AuditService;
+import by.taverna.shlyapnika.control.projects.application.DesktopAgentLauncher;
 import by.taverna.shlyapnika.control.projects.domain.ManagedProject;
 import by.taverna.shlyapnika.control.projects.domain.ProjectAssignment;
 import by.taverna.shlyapnika.control.projects.infrastructure.ManagedProjectRepository;
@@ -8,7 +9,6 @@ import by.taverna.shlyapnika.control.projects.infrastructure.ProjectAssignmentRe
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
-import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -28,11 +28,13 @@ public class ProjectsController {
   private final ManagedProjectRepository projects;
   private final ProjectAssignmentRepository assignments;
   private final AuditService audit;
+  private final DesktopAgentLauncher desktopAgentLauncher;
 
-  public ProjectsController(ManagedProjectRepository projects, ProjectAssignmentRepository assignments, AuditService audit) {
+  public ProjectsController(ManagedProjectRepository projects, ProjectAssignmentRepository assignments, AuditService audit, DesktopAgentLauncher desktopAgentLauncher) {
     this.projects = projects;
     this.assignments = assignments;
     this.audit = audit;
+    this.desktopAgentLauncher = desktopAgentLauncher;
   }
 
   @GetMapping
@@ -43,15 +45,11 @@ public class ProjectsController {
 
   @PostMapping("/{code}/launch")
   @PreAuthorize("hasAuthority('projects.launch')")
-  Map<String, Object> mockLaunch(@PathVariable String code, Authentication authentication, HttpServletRequest request) {
+  DesktopAgentLauncher.LaunchResult launch(@PathVariable String code, Authentication authentication, HttpServletRequest request) {
     ManagedProject project = projects.findByCode(code).orElseThrow(() -> new IllegalArgumentException("Project not found."));
-    audit.record(authentication.getName(), "projects.mock_launch", "ManagedProject", code, "Desktop Agent disabled; no executable started", request.getRemoteAddr());
-    return Map.of(
-        "code", project.getCode(),
-        "status", "mock-launch-recorded",
-        "desktopAgentRequired", true,
-        "startedAt", Instant.now(),
-        "message", "Real launch is disabled until Desktop Agent and allowlist policy are implemented.");
+    DesktopAgentLauncher.LaunchResult result = desktopAgentLauncher.launch(project);
+    audit.record(authentication.getName(), "projects.launch", "ManagedProject", code, result.status() + "; " + result.message(), request.getRemoteAddr());
+    return result;
   }
 
   @GetMapping("/{code}/assignments")

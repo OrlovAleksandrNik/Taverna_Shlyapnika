@@ -1,6 +1,7 @@
 package by.taverna.shlyapnika.control.config;
 
 import jakarta.validation.constraints.NotBlank;
+import java.util.Map;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
@@ -19,8 +20,12 @@ public record ControlProperties(
     @NotBlank String backupStorageRoot,
     String bootstrapOwnerEmail,
     String bootstrapToken,
-    Mail mail
+    Mail mail,
+    DesktopAgent desktopAgent
 ) {
-  public record Mail(String host, int port, String username, String password) {
+  public record Mail(String provider, String host, int port, String username, String password, String from, boolean startTls) {
+  }
+
+  public record DesktopAgent(Map<String, String> launchPaths) {
   }
 }
