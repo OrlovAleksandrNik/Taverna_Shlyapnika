@@ -44,8 +44,10 @@ Implemented frontend actions:
 - auth: login, current session check, password reset request;
 - users: invitation creation through `/api/v1/admin/users/invitations`;
 - games: create draft games through `/api/v1/admin/games`;
-- generic records: create draft records through `/api/v1/admin/data/{section}`;
+- games: publish, cancel and soft-delete existing backend games;
+- generic records: create, publish and archive draft records through `/api/v1/admin/data/{section}`;
 - projects: mock launch through `/api/v1/admin/projects/{code}/launch`;
 - backups: create metadata-only backup manifest and call restore-blocked contract.
+- settings/tech: read feature flags and isolated integration status from backend when authenticated.
 
 Known local blocker in this workspace: `java` and `mvn` are not available in PATH, so backend build/tests require JDK 21 plus Maven or the Maven wrapper with Java installed.
