@@ -374,12 +374,20 @@ function genericTemplate(section) {
     [`${section}-001`, "Mock запись", "draft", "edit, publish, soft-delete"],
     [`${section}-002`, "Контракт будущего API", "ready", "read-only"]
   ]);
-  return tableTemplate(sections[section][1], ["ID", "Название", "Статус", "Действия"], rows.map(([id, title, status, updatedAt]) => [
-    id,
-    title,
-    status,
-    updatedAt ? formatDateTime(updatedAt) : "read-only"
-  ]));
+  return `
+    <form class="form-panel">
+      <input name="section" type="hidden" value="${escapeHtml(section)}" />
+      <label>Название<input name="title" type="text" value="Новая запись ${escapeHtml(sections[section][0])}" /></label>
+      <label>Payload<textarea name="payload" rows="4">{ "source": "control-ui", "draft": true }</textarea></label>
+      <button type="button" data-action="create-record" title="Создать запись в isolated control backend">Создать запись</button>
+    </form>
+    ${tableTemplate(sections[section][1], ["ID", "Название", "Статус", "Действия"], rows.map(([id, title, status, updatedAt]) => [
+      id,
+      title,
+      status,
+      updatedAt ? formatDateTime(updatedAt) : "read-only"
+    ]))}
+  `;
 }
 
 function tableTemplate(title, headers, rows) {
@@ -507,6 +515,11 @@ async function runAction(action, form) {
       const invitation = await apiPost("/api/v1/admin/users/invitations", body, true);
       state.actionStatus = `Invitation created: ${invitation.oneTimeToken || invitation.id}`;
       await loadSectionData("users");
+    } else if (action === "create-record") {
+      const { section, title, payload } = body;
+      const record = await apiPost(`/api/v1/admin/data/${section}`, { title, payload }, true);
+      state.actionStatus = `Record saved: ${record.publicId || record.title}`;
+      await loadSectionData(section);
     }
     state.backend = "online";
   } catch (error) {
