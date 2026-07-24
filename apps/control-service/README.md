@@ -34,3 +34,17 @@ node scripts/static-server.mjs
 ```
 
 Preview: `http://localhost:4191`. Backend status can be `offline` when Java backend is not running.
+
+## Current UI contracts
+
+The static preview is backend-aware. It tries `http://localhost:4190` first and falls back to mock data when the backend is offline or the current browser has no authenticated `CONTROLSESSION`.
+
+Implemented frontend actions:
+
+- auth: login, current session check, password reset request;
+- users: invitation creation through `/api/v1/admin/users/invitations`;
+- generic records: create draft records through `/api/v1/admin/data/{section}`;
+- projects: mock launch through `/api/v1/admin/projects/{code}/launch`;
+- backups: create metadata-only backup manifest and call restore-blocked contract.
+
+Known local blocker in this workspace: `java` and `mvn` are not available in PATH, so backend build/tests require JDK 21 plus Maven or the Maven wrapper with Java installed.
