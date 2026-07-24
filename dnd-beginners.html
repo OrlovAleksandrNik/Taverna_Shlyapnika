@@ -21,13 +21,13 @@
 </head>
 <body data-page="adventure-detail" data-root="">
   <header class="site-header" data-header>
-    <a class="brand" href="hatter-diary.html" aria-label="Открыть дневник Шляпника">
-      <img class="brand__icon" src="assets/images/brand/hatter-mark.png" alt="" aria-hidden="true" loading="eager">
-      <span>
+    <div class="brand">
+      <a class="brand__mark" href="hatter-diary.html" aria-label="Открыть дневник Шляпника"><img class="brand__icon" src="assets/images/brand/hatter-mark.png" alt="" aria-hidden="true" loading="eager"></a>
+      <a class="brand__text" href="index.html#top" aria-label="На главную страницу"><span>
         <strong>Таверна Шляпника</strong>
         <small>D&D Могилёв</small>
-      </span>
-    </a>
+      </span></a>
+    </div>
     <button class="menu-button" type="button" aria-label="Открыть меню" aria-expanded="false" data-menu-button>
       <span></span>
       <span></span>
@@ -62,15 +62,15 @@
 
     <section class="section adventure-detail-section">
       <div class="adventure-detail-layout">
-        <article class="article-card reveal">
+        <div class="adventure-detail-top">
+          <article class="article-card reveal">
           <p class="eyebrow">Как это происходит</p>
           <h2>За столом всё проще, чем кажется</h2>
           <p>Сначала вы создаёте персонажа. Это можно сделать заранее самому, но для первой игры спокойнее пройти этот шаг вместе с мастером. Он поможет выбрать расу, класс, характер, пару ярких деталей и объяснит, что действительно понадобится за столом.</p>
           <p>Потом мастер вводит вашего героя и героев других участников в событие: странная просьба незнакомца, шум в старом подвале, пропажа реликвии или дверь, которой вчера здесь точно не было. Вы говорите, что делает персонаж, общаетесь с другими игроками, спорите, пробуете, рискуете.</p>
           <p>Когда исход действия не очевиден, в дело вступают кубики. Результат броска помогает понять, получилось ли задуманное, а мастер описывает, что происходит дальше. Так история рождается прямо во время игры.</p>
         </article>
-
-        <aside class="adventure-detail-panel reveal">
+          <aside class="adventure-detail-panel reveal">
           <h3>Для первой игры</h3>
           <ul>
             <li>опыт не требуется;</li>
@@ -80,6 +80,7 @@
             <li>можно прийти одному или с друзьями.</li>
           </ul>
         </aside>
+        </div>
 
         <article class="article-card reveal">
           <h2>Что выбрать новичку</h2>

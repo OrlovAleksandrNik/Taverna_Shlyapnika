@@ -23,7 +23,6 @@ const PRIVACY_POLICY_VERSION = "1.0";
 const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 let games = [];
 let ratingPlayers = [];
-let activeRatingSort = "official";
 let activeDiaryIndex = 0;
 let galleryPosts = [];
 let activeGalleryMode = "photos";
@@ -158,6 +157,7 @@ function renderScheduleWeek() {
   const week = document.querySelector("[data-schedule-week]");
   if (!week) return;
 
+  // Недельная строка афиши показывает только наличие игр, сами карточки остаются ниже.
   const monday = startOfCurrentWeek();
   const todayKey = localDateKey(new Date());
   const gamesByDay = games.reduce((acc, game) => {
@@ -653,6 +653,19 @@ function renderMastersList() {
       <span class="master-more">Подробнее о мастере</span>
     </a>
   `).join("");
+  settleHashScroll("masters");
+}
+
+function settleHashScroll(id) {
+  if (window.location.hash !== `#${id}`) return;
+  const target = document.getElementById(id);
+  if (!target) return;
+  // Список мастеров появляется после JS-рендера, поэтому якорь аккуратно доводится повторно.
+  window.setTimeout(() => {
+    const headerHeight = document.querySelector("[data-header]")?.getBoundingClientRect().height || 0;
+    const top = target.getBoundingClientRect().top + window.scrollY - headerHeight - 12;
+    window.scrollTo({ top, behavior: prefersReducedMotion ? "auto" : "smooth" });
+  }, 80);
 }
 
 function renderMasterPage() {
@@ -1103,6 +1116,12 @@ function ratingStatusElement() {
 function setRatingStatus(text, retryText = "Обновить") {
   const status = ratingStatusElement();
   if (!status) return;
+  if (!text) {
+    status.hidden = true;
+    status.innerHTML = "";
+    return;
+  }
+  status.hidden = false;
   status.innerHTML = `
     <span>${escapeHtml(text)}</span>
     <button class="chip" type="button" data-refresh-rating>${escapeHtml(retryText)}</button>
@@ -1124,29 +1143,14 @@ function ratingDate(value) {
   }).format(new Date(value));
 }
 
-function ratingAvatar(player, large = false) {
-  if (player.avatarUrl) {
-    return `<img loading="lazy" src="${escapeHtml(player.avatarUrl)}" alt="Аватар игрока ${escapeHtml(player.displayName)}">`;
-  }
-  const initials = String(player.displayName || "?").trim().slice(0, 1).toUpperCase();
-  return `<span class="rating-avatar-fallback${large ? " large" : ""}" aria-hidden="true">${escapeHtml(initials)}</span>`;
-}
-
-function ratingPlayerName(player) {
-  return `
-    <strong>${escapeHtml(player.displayName)}</strong>
-    ${player.nickname ? `<span>${escapeHtml(player.nickname)}</span>` : ""}
-  `;
-}
-
-async function loadRatingFromApi() {
-  setRatingStatus("Загружаем рейтинг...");
+async function loadRatingFromApi(options = {}) {
+  if (!options.silent) setRatingStatus("");
   try {
     const response = await fetch(`${apiRoot}api/rating?limit=200`, { headers: { Accept: "application/json" } });
     if (!response.ok) throw new Error(`Rating API unavailable: ${response.status}`);
     const payload = await response.json();
     ratingPlayers = Array.isArray(payload.players) ? payload.players : [];
-    setRatingStatus(`Рейтинг обновлён автоматически. Игроков: ${Number(payload.total || ratingPlayers.length)}.`);
+    setRatingStatus("");
     return true;
   } catch (error) {
     console.error("Rating load failed", error);
@@ -1163,24 +1167,16 @@ function filteredRatingPlayers() {
     if (!search) return true;
     return `${player.displayName || ""} ${player.nickname || ""}`.toLowerCase().includes(search);
   });
-
-  const sorters = {
-    official: (a, b) => a.rank - b.rank,
-    points: (a, b) => b.totalPoints - a.totalPoints || a.rank - b.rank,
-    games: (a, b) => b.gamesPlayed - a.gamesPlayed || a.rank - b.rank,
-    average: (a, b) => b.averagePointsPerGame - a.averagePointsPerGame || a.rank - b.rank,
-    inspiration: (a, b) => b.inspirationCount - a.inspirationCount || a.rank - b.rank
-  };
-
-  return filtered.sort(sorters[activeRatingSort] || sorters.official);
+  return filtered.sort((a, b) => a.rank - b.rank);
 }
 
 function ratingRow(player) {
+  const rank = Number(player.rank || 0);
   return `
-    <article class="rating-row reveal">
-      <div class="rating-rank">#${escapeHtml(player.rank)}</div>
-      <div class="rating-avatar">${ratingAvatar(player)}</div>
-      <div class="rating-player-name">${ratingPlayerName(player)}</div>
+    <article class="rating-row reveal ${rank === 1 ? "rating-row-gold" : rank === 2 ? "rating-row-silver" : rank === 3 ? "rating-row-bronze" : ""}">
+      <div class="rating-rank">${rank > 0 ? escapeHtml(rank) : "—"}</div>
+      <div class="rating-player-name"><strong>${escapeHtml(player.displayName || "Игрок")}</strong></div>
+      <div class="rating-character-name">${player.nickname ? escapeHtml(player.nickname) : "—"}</div>
       <div class="rating-stat" data-label="Игры"><strong>${escapeHtml(player.gamesPlayed)}</strong></div>
       <div class="rating-stat" data-label="Очки"><strong>${escapeHtml(player.totalPoints)}</strong></div>
       <div class="rating-stat" data-label="Вдохновение"><strong>${escapeHtml(player.inspirationCount)}</strong></div>
@@ -1192,9 +1188,9 @@ function ratingRow(player) {
 function ratingListHeader() {
   return `
     <div class="rating-row rating-row-head" aria-hidden="true">
-      <div></div>
-      <div></div>
+      <div>Место</div>
       <div>Игрок</div>
+      <div>Персонаж</div>
       <div>Игры</div>
       <div>Очки</div>
       <div>Вдохновение</div>
@@ -1203,11 +1199,11 @@ function ratingListHeader() {
   `;
 }
 
-async function renderRatingPage() {
+async function renderRatingPage(options = {}) {
   const page = document.querySelector("[data-rating-page]");
   if (!page) return;
 
-  const loaded = await loadRatingFromApi();
+  const loaded = await loadRatingFromApi(options);
   const list = page.querySelector("[data-rating-list]");
   if (!list) return;
 
@@ -1307,21 +1303,8 @@ document.querySelector("[data-rating-search]")?.addEventListener("input", () => 
   initReveal();
 });
 
-document.querySelector("[data-rating-sort]")?.addEventListener("change", (event) => {
-  if (!(event.target instanceof HTMLSelectElement)) return;
-  activeRatingSort = event.target.value;
-  const list = document.querySelector("[data-rating-list]");
-  if (!list) return;
-  const players = filteredRatingPlayers();
-  list.innerHTML = players.length
-    ? ratingListHeader() + players.map(ratingRow).join("")
-    : `
-      <article class="empty-state reveal">
-        <h3>По этому запросу никого не нашлось.</h3>
-        <p>Попробуйте изменить имя, персонажа или мастера.</p>
-      </article>
-    `;
-  initReveal();
+document.querySelectorAll("[data-refresh-rating]").forEach((button) => {
+  button.addEventListener("click", () => renderRatingPage());
 });
 
 document.addEventListener("click", async (event) => {
@@ -1376,7 +1359,7 @@ if (document.querySelector("[data-schedule]")) {
 }
 
 if (document.querySelector("[data-rating-page]")) {
-  window.setInterval(() => renderRatingPage(), 60_000);
+  window.setInterval(() => renderRatingPage({ silent: true }), 60_000);
 }
 
 if (document.querySelector("[data-gallery-page]")) {

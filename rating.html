@@ -24,13 +24,13 @@
 </head>
 <body data-page="rating" data-root="">
   <header class="site-header" data-header>
-    <a class="brand" href="hatter-diary.html" aria-label="Открыть дневник Шляпника">
-      <img class="brand__icon" src="assets/images/brand/hatter-mark.png" alt="" aria-hidden="true" loading="eager">
-      <span>
+    <div class="brand">
+      <a class="brand__mark" href="hatter-diary.html" aria-label="Открыть дневник Шляпника"><img class="brand__icon" src="assets/images/brand/hatter-mark.png" alt="" aria-hidden="true" loading="eager"></a>
+      <a class="brand__text" href="index.html#top" aria-label="На главную страницу"><span>
         <strong>Таверна Шляпника</strong>
         <small>D&D Могилёв</small>
-      </span>
-    </a>
+      </span></a>
+    </div>
     <button class="menu-button" type="button" aria-label="Открыть меню" aria-expanded="false" data-menu-button>
       <span></span>
       <span></span>
@@ -62,7 +62,6 @@
       <div class="section-copy section-copy-center reveal">
         <p class="eyebrow">Таблица лидеров</p>
         <h2 id="rating-leaders-title">Герои, чьи имена уже звучат за столами</h2>
-        <p>Официальное место считается сервером: сначала общие очки, затем среднее за игру, количество игр и имя по алфавиту.</p>
       </div>
 
       <div class="rating-status" data-rating-status>
@@ -72,30 +71,12 @@
       <div class="rating-tools reveal">
         <label>
           <span>Поиск игрока</span>
-          <input type="search" placeholder="Имя или псевдоним" data-rating-search>
-        </label>
-        <label>
-          <span>Показать по</span>
-          <select data-rating-sort>
-            <option value="official">Официальному месту</option>
-            <option value="points">Очкам</option>
-            <option value="games">Играм</option>
-            <option value="average">Среднему</option>
-            <option value="inspiration">Вдохновениям</option>
-          </select>
+          <input type="search" placeholder="Имя игрока или персонажа" data-rating-search>
         </label>
         <button class="button ghost" type="button" data-refresh-rating>Обновить</button>
       </div>
 
       <div class="rating-list" data-rating-list></div>
-
-      <aside class="rating-legend reveal" aria-labelledby="rating-how-title">
-        <h2 id="rating-how-title">Как работает рейтинг?</h2>
-        <p><strong>Игры</strong> — количество сыгранных игр, добавленных через Telegram-бота.</p>
-        <p><strong>Очки</strong> — общая сумма очков игрока.</p>
-        <p><strong>Вдохновения</strong> — отдельные награды, полученные во время игр.</p>
-        <p><strong>Среднее</strong> — очки, разделённые на количество сыгранных игр. Если игр пока нет, среднее равно 0.</p>
-      </aside>
     </section>
   </main>
 

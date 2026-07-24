@@ -21,13 +21,13 @@
 </head>
 <body data-page="adventure-detail" data-root="">
   <header class="site-header" data-header>
-    <a class="brand" href="hatter-diary.html" aria-label="Открыть дневник Шляпника">
-      <img class="brand__icon" src="assets/images/brand/hatter-mark.png" alt="" aria-hidden="true" loading="eager">
-      <span>
+    <div class="brand">
+      <a class="brand__mark" href="hatter-diary.html" aria-label="Открыть дневник Шляпника"><img class="brand__icon" src="assets/images/brand/hatter-mark.png" alt="" aria-hidden="true" loading="eager"></a>
+      <a class="brand__text" href="index.html#top" aria-label="На главную страницу"><span>
         <strong>Таверна Шляпника</strong>
         <small>D&D Могилёв</small>
-      </span>
-    </a>
+      </span></a>
+    </div>
     <button class="menu-button" type="button" aria-label="Открыть меню" aria-expanded="false" data-menu-button>
       <span></span>
       <span></span>
@@ -62,14 +62,14 @@
 
     <section class="section adventure-detail-section">
       <div class="adventure-detail-layout">
-        <article class="article-card reveal">
+        <div class="adventure-detail-top">
+          <article class="article-card reveal">
           <p class="eyebrow">Для тех, кто уже слышал зов кубов</p>
           <h2>Больше глубины, риска и последствий</h2>
           <p>Игры для опытных участников могут быть плотнее по механикам, серьёзнее по конфликтам и внимательнее к деталям мира. Здесь важны не только броски, но и то, как персонажи думают, договариваются, ошибаются и выбирают сторону.</p>
           <p>Мастер может усилить тактическую часть, добавить сложные моральные развилки, вывести на первый план лор, политические последствия, редкие правила или авторские механики. Формат не обязан быть одинаковым для всех: его можно настроить под конкретную группу.</p>
         </article>
-
-        <aside class="adventure-detail-panel reveal">
+          <aside class="adventure-detail-panel reveal">
           <h3>Что может быть внутри</h3>
           <ul>
             <li>сложные игровые ситуации;</li>
@@ -80,6 +80,7 @@
             <li>истории с последствиями.</li>
           </ul>
         </aside>
+        </div>
 
         <article class="article-card reveal">
           <h2>Можно спорить, искать и создавать</h2>
