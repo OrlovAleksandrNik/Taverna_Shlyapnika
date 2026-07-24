@@ -154,6 +154,7 @@ function sectionTemplate(section) {
   if (section === "projects") return projectsTemplate();
   if (section === "users") return usersTemplate();
   if (section === "security") return securityTemplate();
+  if (section === "files") return filesTemplate();
   if (section === "stories") return storiesTemplate();
   if (section === "tech") return techTemplate();
   if (section === "audit") return tableTemplate("Последние действия", ["Кто", "Операция", "Объект", "Когда"], mock.audit);
@@ -228,6 +229,21 @@ function securityTemplate() {
     ${tableTemplate("Активные устройства", ["Устройство", "IP", "Создано", "Статус"], [
       ["Windows Edge", "127.0.0.1", "сегодня", "active"],
       ["Tablet Safari", "10.0.0.14", "вчера", "revoked"]
+    ])}
+  `;
+}
+
+function filesTemplate() {
+  return `
+    <div class="metric-grid">
+      <article class="metric"><span>MediaStorage</span><strong>local</strong><small>CONTROL_MEDIA_STORAGE_ROOT</small></article>
+      <article class="metric"><span>ProjectArtifactStorage</span><strong>local</strong><small>не для загрузки .exe из UI</small></article>
+      <article class="metric"><span>Upload policy</span><strong>strict</strong><small>MIME, extension, size, safe name</small></article>
+    </div>
+    ${tableTemplate("Политика файлов", ["Тип", "Правило", "Статус", "Заметка"], [
+      ["images", ".jpg .png .webp .gif", "allowed", "проверять dimensions"],
+      ["documents", ".pdf .txt .md", "allowed", "без секретов"],
+      ["executables", ".exe .bat .cmd .ps1 .msi .dll .jar", "blocked", "только Desktop Agent allowlist"]
     ])}
   `;
 }

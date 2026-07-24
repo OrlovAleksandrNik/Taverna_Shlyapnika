@@ -14,6 +14,8 @@
 - dashboard mock data;
 - managed projects mock contracts;
 - backup manifest contract;
+- local media/project artifact storage contracts;
+- file validation policy that blocks executable upload formats;
 - audit log;
 - security headers, CORS и CSRF;
 - Docker Compose;

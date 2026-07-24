@@ -4,6 +4,7 @@
 - Invitation, password reset и email verification tokens хранятся только как SHA-256 hash.
 - TOTP secrets шифруются AES-GCM; ключ берётся из `CONTROL_ENCRYPTION_KEY`.
 - Backup codes 2FA хранятся только как password hashes.
+- File validation policy blocks executable extensions and requires safe names, MIME and size bounds.
 - Браузерная авторизация использует server-side session cookie `CONTROLSESSION` с `HttpOnly`, `SameSite=Strict`, production `Secure`.
 - CSRF включён через `CookieCsrfTokenRepository`; исключены только login, accept invitation и public endpoints.
 - CORS ограничен `CONTROL_FRONTEND_ORIGIN`; wildcard credentials не используется.
