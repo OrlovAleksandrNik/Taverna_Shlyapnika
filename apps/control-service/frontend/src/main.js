@@ -1,4 +1,4 @@
-import "./styles.css";
+const API_BASE = "http://localhost:4190";
 
 const roles = {
   OWNER: [
@@ -40,8 +40,12 @@ const state = {
   role: "OWNER",
   section: "overview",
   backend: "unknown",
-  autosave: "saved"
+  autosave: "saved",
+  loadingSection: null,
+  remote: {}
 };
+
+const genericDataSections = new Set(["applications", "services", "masters", "players", "rating", "gallery", "stories", "notifications"]);
 
 const mock = {
   metrics: [
@@ -72,6 +76,7 @@ const app = document.querySelector("#app");
 
 function render() {
   const visible = roles[state.role];
+  const dataSource = sectionDataSource(state.section);
   app.innerHTML = `
     <div class="shell">
       <aside class="sidebar" aria-label="Разделы кабинета">
@@ -103,8 +108,8 @@ function render() {
             <h1>${sections[state.section][0]}</h1>
           </div>
           <div class="status-line" aria-live="polite">
-            <span class="dot ${state.backend === "online" ? "ok" : ""}"></span>
-            Backend: ${state.backend}
+            <span><span class="dot ${state.backend === "online" ? "ok" : ""}"></span>Backend: ${state.backend}</span>
+            <span class="source-badge ${dataSource}">Data: ${dataSource}</span>
           </div>
         </header>
         <section class="content">
@@ -124,11 +129,13 @@ function render() {
     state.role = event.target.value;
     if (!roles[state.role].includes(state.section)) state.section = roles[state.role][0];
     render();
+    loadSectionData(state.section);
   });
   document.querySelectorAll("[data-section]").forEach((button) => {
     button.addEventListener("click", () => {
       state.section = button.dataset.section;
       render();
+      loadSectionData(state.section);
     });
   });
   document.querySelectorAll("[data-page-action]").forEach((button) => {
@@ -158,44 +165,68 @@ function render() {
     });
     draft.value = localStorage.getItem("control-story-draft") || "";
   }
-  checkBackend();
+  updateBackendStatus();
 }
 
 function sectionTemplate(section) {
   if (section === "overview") return overviewTemplate();
+  if (section === "games" || section === "schedule") return gamesTemplate(section);
   if (section === "projects") return projectsTemplate();
   if (section === "users") return usersTemplate();
   if (section === "security") return securityTemplate();
   if (section === "files") return filesTemplate();
   if (section === "stories") return storiesTemplate();
   if (section === "tech") return techTemplate();
-  if (section === "audit") return tableTemplate("Последние действия", ["Кто", "Операция", "Объект", "Когда"], mock.audit);
+  if (section === "audit") return auditTemplate();
   if (section === "backups") return backupsTemplate();
   return genericTemplate(section);
 }
 
 function overviewTemplate() {
+  const snapshot = state.remote.overview;
+  const metrics = snapshot?.metrics?.map((metric) => [
+    metric.label,
+    metric.value,
+    metric.tone || snapshot.source || "backend"
+  ]) || mock.metrics;
+  const games = snapshot?.upcomingGames?.map((game) => [
+    game.title,
+    formatDateTime(game.startsAt),
+    game.master,
+    game.status
+  ]) || mock.games;
+  const actions = snapshot?.recentActions?.map((action) => [
+    action.actor,
+    action.action,
+    action.entity,
+    snapshot.generatedAt ? formatDateTime(snapshot.generatedAt) : "backend"
+  ]) || [
+    ["Мария", "game_result", "+12", "applied"],
+    ["Илья", "correction", "-2", "needs review"]
+  ];
   return `
     <div class="metric-grid">
-      ${mock.metrics.map(([label, value, hint]) => `<article class="metric"><span>${label}</span><strong>${value}</strong><small>${hint}</small></article>`).join("")}
+      ${metrics.map(([label, value, hint]) => `<article class="metric"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong><small>${escapeHtml(hint)}</small></article>`).join("")}
     </div>
-    ${tableTemplate("Ближайшие игры", ["Игра", "Дата", "Мастер", "Статус"], mock.games)}
-    ${tableTemplate("Последние операции рейтинга", ["Игрок", "Операция", "Очки", "Статус"], [
-      ["Мария", "game_result", "+12", "applied"],
-      ["Илья", "correction", "-2", "needs review"]
-    ])}
+    ${tableTemplate("Ближайшие игры", ["Игра", "Дата", "Мастер", "Статус"], games)}
+    ${tableTemplate("Последние операции", ["Кто", "Операция", "Объект", "Когда"], actions)}
   `;
 }
 
 function projectsTemplate() {
   return `
     <div class="project-grid">
-      ${mock.projects.map(([name, stack, path, status]) => `
+      ${(state.remote.projects?.map((project) => [
+        project.name || project.code,
+        project.stack || project.kind,
+        project.detectedPath || project.code,
+        project.status || project.launchMode
+      ]) || mock.projects).map(([name, stack, path, status]) => `
         <article class="project">
-          <h3>${name}</h3>
-          <p>${stack}</p>
-          <code>${path}</code>
-          <span>${status}</span>
+          <h3>${escapeHtml(name)}</h3>
+          <p>${escapeHtml(stack)}</p>
+          <code>${escapeHtml(path)}</code>
+          <span>${escapeHtml(status)}</span>
           <label>Назначить мастеру<input type="text" value="usr_mock_master" aria-label="Public ID мастера" /></label>
           <button title="Создать запись mock-launch без запуска программы">Mock launch</button>
         </article>
@@ -206,6 +237,10 @@ function projectsTemplate() {
 }
 
 function usersTemplate() {
+  const accountRows = toRows(state.remote.users, ["publicId", "email", "roles", "status"], [
+    ["usr_owner_mock", "owner@example.test", "OWNER", "active"],
+    ["usr_master_mock", "master@example.test", "MASTER", "invited"]
+  ]);
   return `
     <form class="form-panel">
       <label>Email<input type="email" value="master@example.test" /></label>
@@ -224,6 +259,7 @@ function usersTemplate() {
       ["Деактивировать", "users.update", "yes", "soft state"],
       ["Удалить", "users.update", "yes", "soft delete"]
     ])}
+    ${tableTemplate("Accounts", ["ID", "Email", "Roles", "Status"], accountRows)}
   `;
 }
 
@@ -246,17 +282,23 @@ function securityTemplate() {
 }
 
 function filesTemplate() {
+  const storage = state.remote.filesStorage;
+  const fileRows = storage ? [
+    ["media", storage.media?.adapter, storage.media?.root, "configured"],
+    ["projectArtifacts", storage.projectArtifacts?.adapter, storage.projectArtifacts?.root, "configured"],
+    ["futureAdapters", Array.isArray(storage.futureAdapters) ? storage.futureAdapters.join(", ") : "", "planned"]
+  ] : [
+    ["images", ".jpg .png .webp .gif", "allowed", "проверять dimensions"],
+    ["documents", ".pdf .txt .md", "allowed", "без секретов"],
+    ["executables", ".exe .bat .cmd .ps1 .msi .dll .jar", "blocked", "только Desktop Agent allowlist"]
+  ];
   return `
     <div class="metric-grid">
-      <article class="metric"><span>MediaStorage</span><strong>local</strong><small>CONTROL_MEDIA_STORAGE_ROOT</small></article>
-      <article class="metric"><span>ProjectArtifactStorage</span><strong>local</strong><small>не для загрузки .exe из UI</small></article>
+      <article class="metric"><span>MediaStorage</span><strong>${escapeHtml(storage?.media?.adapter || "local")}</strong><small>CONTROL_MEDIA_STORAGE_ROOT</small></article>
+      <article class="metric"><span>ProjectArtifactStorage</span><strong>${escapeHtml(storage?.projectArtifacts?.adapter || "local")}</strong><small>не для загрузки .exe из UI</small></article>
       <article class="metric"><span>Upload policy</span><strong>strict</strong><small>MIME, extension, size, safe name</small></article>
     </div>
-    ${tableTemplate("Политика файлов", ["Тип", "Правило", "Статус", "Заметка"], [
-      ["images", ".jpg .png .webp .gif", "allowed", "проверять dimensions"],
-      ["documents", ".pdf .txt .md", "allowed", "без секретов"],
-      ["executables", ".exe .bat .cmd .ps1 .msi .dll .jar", "blocked", "только Desktop Agent allowlist"]
-    ])}
+    ${tableTemplate("Политика файлов", ["Тип", "Правило", "Статус", "Заметка"], fileRows)}
   `;
 }
 
@@ -282,6 +324,12 @@ function backupsTemplate() {
   `;
 }
 
+function auditTemplate() {
+  const rows = toRows(state.remote.audit, ["actorPublicId", "action", "entityType", "createdAt"], mock.audit)
+    .map(([actor, action, entity, createdAt]) => [actor, action, entity, formatDateTime(createdAt)]);
+  return tableTemplate("Последние действия", ["Кто", "Операция", "Объект", "Когда"], rows);
+}
+
 function techTemplate() {
   return `
     <div class="tech">
@@ -294,18 +342,35 @@ function techTemplate() {
   `;
 }
 
+function gamesTemplate(section) {
+  const fallback = section === "games" ? mock.games : mock.games.map((row) => [row[0], row[1], row[2], row[3]]);
+  const rows = toRows(state.remote[section], ["title", "startsAt", "masterPublicId", "status"], fallback);
+  return tableTemplate(sections[section][1], ["Игра", "Дата", "Мастер", "Статус"], rows.map(([title, startsAt, master, status]) => [
+    title,
+    formatDateTime(startsAt),
+    master || "unassigned",
+    status
+  ]));
+}
+
 function genericTemplate(section) {
-  return tableTemplate(sections[section][1], ["ID", "Название", "Статус", "Действия"], [
+  const rows = toRows(state.remote[section], ["publicId", "title", "status", "updatedAt"], [
     [`${section}-001`, "Mock запись", "draft", "edit, publish, soft-delete"],
     [`${section}-002`, "Контракт будущего API", "ready", "read-only"]
   ]);
+  return tableTemplate(sections[section][1], ["ID", "Название", "Статус", "Действия"], rows.map(([id, title, status, updatedAt]) => [
+    id,
+    title,
+    status,
+    updatedAt ? formatDateTime(updatedAt) : "read-only"
+  ]));
 }
 
 function tableTemplate(title, headers, rows) {
   return `
     <section class="table-block">
       <div class="table-head">
-        <h2>${title}</h2>
+        <h2>${escapeHtml(title)}</h2>
         <div class="table-tools">
           <input type="search" placeholder="Поиск" aria-label="Поиск в таблице" />
           <select aria-label="Фильтр статуса">
@@ -321,8 +386,8 @@ function tableTemplate(title, headers, rows) {
       </div>
       <div class="table-scroll">
         <table>
-          <thead><tr><th><input type="checkbox" aria-label="Выбрать все строки" /></th>${headers.map((head) => `<th>${head}</th>`).join("")}</tr></thead>
-          <tbody>${rows.map((row, index) => `<tr><td><input type="checkbox" aria-label="Выбрать строку ${index + 1}" /></td>${row.map((cell) => `<td>${cell}</td>`).join("")}</tr>`).join("")}</tbody>
+          <thead><tr><th><input type="checkbox" aria-label="Выбрать все строки" /></th>${headers.map((head) => `<th>${escapeHtml(head)}</th>`).join("")}</tr></thead>
+          <tbody>${rows.map((row, index) => `<tr><td><input type="checkbox" aria-label="Выбрать строку ${index + 1}" /></td>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`).join("")}</tbody>
         </table>
       </div>
       <div class="table-foot">
@@ -335,6 +400,36 @@ function tableTemplate(title, headers, rows) {
   `;
 }
 
+function toRows(payload, fields, fallback) {
+  const records = Array.isArray(payload) ? payload : payload?.content || payload?.items;
+  if (!Array.isArray(records) || records.length === 0) return fallback;
+  return records.map((record) => fields.map((field) => {
+    const value = record?.[field];
+    if (Array.isArray(value)) return value.join(", ");
+    if (value && typeof value === "object") return JSON.stringify(value);
+    return value ?? "";
+  }));
+}
+
+function formatDateTime(value) {
+  if (!value || typeof value !== "string" || Number.isNaN(Date.parse(value))) return value || "";
+  return new Intl.DateTimeFormat("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(new Date(value));
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
 function updateAutosave() {
   const label = document.querySelector("#autosave");
   if (label) label.textContent = state.autosave === "saved" ? "Сохранено" : "Сохраняю...";
@@ -342,15 +437,79 @@ function updateAutosave() {
 
 async function checkBackend() {
   try {
-    const response = await fetch("http://localhost:4190/actuator/health/liveness", { credentials: "include" });
+    const response = await fetch(`${API_BASE}/actuator/health/liveness`, { credentials: "include" });
     state.backend = response.ok ? "online" : "offline";
   } catch {
     state.backend = "offline";
   }
+  updateBackendStatus();
+}
+
+function updateBackendStatus() {
   const statusLine = document.querySelector(".status-line");
   if (statusLine) {
-    statusLine.innerHTML = `<span class="dot ${state.backend === "online" ? "ok" : ""}"></span>Backend: ${state.backend}`;
+    const dataSource = sectionDataSource(state.section);
+    statusLine.innerHTML = `<span><span class="dot ${state.backend === "online" ? "ok" : ""}"></span>Backend: ${state.backend}</span><span class="source-badge ${dataSource}">Data: ${dataSource}</span>`;
+  }
+}
+
+function sectionDataSource(section) {
+  if (state.loadingSection === section) return "loading";
+  return state.remote[remoteKey(section)] ? "backend" : "mock";
+}
+
+function remoteKey(section) {
+  return section === "files" ? "filesStorage" : section;
+}
+
+async function apiGet(path) {
+  const response = await fetch(`${API_BASE}${path}`, {
+    credentials: "include",
+    headers: { Accept: "application/json" }
+  });
+  if (!response.ok) {
+    const error = new Error(`GET ${path} failed with ${response.status}`);
+    error.status = response.status;
+    throw error;
+  }
+  return response.json();
+}
+
+function sectionEndpoint(section) {
+  if (section === "overview") return "/api/v1/admin/dashboard";
+  if (section === "projects") return "/api/v1/admin/projects";
+  if (section === "users") return "/api/v1/admin/users";
+  if (section === "files") return "/api/v1/admin/files/storage";
+  if (section === "audit") return "/api/v1/admin/audit?page=0";
+  if (section === "games") return "/api/v1/admin/games?page=0&size=20";
+  if (section === "schedule") {
+    const from = new Date();
+    const to = new Date(from);
+    to.setDate(to.getDate() + 45);
+    return `/api/v1/admin/schedule?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}`;
+  }
+  if (genericDataSections.has(section)) return `/api/v1/admin/data/${section}?page=0&size=20`;
+  return null;
+}
+
+async function loadSectionData(section) {
+  const endpoint = sectionEndpoint(section);
+  if (!endpoint) return;
+  state.loadingSection = section;
+  updateBackendStatus();
+  try {
+    const payload = await apiGet(endpoint);
+    state.remote[remoteKey(section)] = payload;
+    state.backend = "online";
+  } catch (error) {
+    delete state.remote[remoteKey(section)];
+    state.backend = error.status ? "online" : "offline";
+  } finally {
+    if (state.loadingSection === section) state.loadingSection = null;
+    if (state.section === section) render();
   }
 }
 
 render();
+checkBackend();
+loadSectionData(state.section);

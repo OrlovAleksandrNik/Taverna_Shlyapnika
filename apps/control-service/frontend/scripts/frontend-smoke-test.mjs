@@ -6,7 +6,7 @@ const html = readFileSync(resolve(root, "index.html"), "utf8");
 const js = readFileSync(resolve(root, "src/main.js"), "utf8");
 const css = readFileSync(resolve(root, "src/styles.css"), "utf8");
 
-const requiredText = ["Taverna Control", "Программы мастера", "Desktop Agent", "PUBLIC_REGISTRATION_ENABLED", "hashed backup codes", "Upload policy", "Колонки", "Export"];
+const requiredText = ["Taverna Control", "Программы мастера", "Desktop Agent", "PUBLIC_REGISTRATION_ENABLED", "hashed backup codes", "Upload policy", "Колонки", "Export", "API_BASE", "Data:"];
 const missing = requiredText.filter((text) => !html.includes(text) && !js.includes(text) && !css.includes(text));
 
 if (missing.length) {

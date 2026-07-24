@@ -173,7 +173,14 @@ nav {
   display: inline-flex;
   gap: 8px;
   align-items: center;
+  flex-wrap: wrap;
   white-space: nowrap;
+}
+
+.status-line > span {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
 }
 
 .dot {
@@ -185,6 +192,24 @@ nav {
 
 .dot.ok {
   background: var(--ok);
+}
+
+.source-badge {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 5px 8px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 12px;
+}
+
+.source-badge.backend {
+  color: #17120e;
+  background: var(--brass);
+}
+
+.source-badge.loading {
+  color: var(--paper);
 }
 
 .content {
