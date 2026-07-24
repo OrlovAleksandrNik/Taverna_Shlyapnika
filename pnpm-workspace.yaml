@@ -1,5 +1,6 @@
 packages:
   - .
+  - apps/control-service/frontend
 
 allowBuilds:
   '@prisma/client': true

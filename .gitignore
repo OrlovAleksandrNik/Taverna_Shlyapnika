@@ -15,6 +15,9 @@ coverage/
 apps/backend-java/.mvn/apache-maven-*/
 apps/backend-java/.mvn/apache-maven-*.zip
 apps/backend-java/target/
+apps/control-service/backend/.mvn/apache-maven-*/
+apps/control-service/backend/.mvn/apache-maven-*.zip
+apps/control-service/backend/target/
 apps/telegram-bot-java/target/
 apps/telegram-bot-java/.mvn/apache-maven-*/
 apps/telegram-bot-java/.mvn/apache-maven-*.zip
