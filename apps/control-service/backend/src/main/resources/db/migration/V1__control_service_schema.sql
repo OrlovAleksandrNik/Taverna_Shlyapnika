@@ -145,6 +145,21 @@ CREATE TABLE control_backup_jobs (
   completed_at TIMESTAMPTZ
 );
 
+CREATE TABLE control_records (
+  id UUID PRIMARY KEY,
+  section VARCHAR(80) NOT NULL,
+  public_id VARCHAR(64) NOT NULL UNIQUE,
+  title VARCHAR(220) NOT NULL,
+  status VARCHAR(48) NOT NULL,
+  payload TEXT NOT NULL,
+  deleted_at TIMESTAMPTZ,
+  published_at TIMESTAMPTZ,
+  version BIGINT NOT NULL DEFAULT 0,
+  created_by VARCHAR(64),
+  created_at TIMESTAMPTZ NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL
+);
+
 CREATE TABLE control_settings (
   key VARCHAR(160) PRIMARY KEY,
   value TEXT NOT NULL,
@@ -156,5 +171,7 @@ CREATE TABLE control_settings (
 CREATE INDEX idx_control_users_status ON control_users(status);
 CREATE INDEX idx_control_security_tokens_type ON control_security_tokens(token_type, expires_at);
 CREATE INDEX idx_control_games_status_starts ON control_games(status, starts_at);
+CREATE INDEX idx_control_records_section_status ON control_records(section, status);
+CREATE INDEX idx_control_records_section_updated ON control_records(section, updated_at);
 CREATE INDEX idx_control_audit_created ON control_audit_log(created_at);
 CREATE INDEX idx_control_login_history_email_created ON control_login_history(email, created_at);

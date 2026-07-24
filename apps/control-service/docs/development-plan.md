@@ -17,6 +17,8 @@
 - backup manifest contract;
 - local media/project artifact storage contracts;
 - file validation policy that blocks executable upload formats;
+- generic control records CRUD API with pagination, search, optimistic locking, publish and soft-delete;
+- frontend table controls for search, filters, sorting, selection, bulk actions, columns and export;
 - audit log;
 - security headers, CORS и CSRF;
 - Docker Compose;

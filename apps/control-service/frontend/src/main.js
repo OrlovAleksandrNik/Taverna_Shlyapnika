@@ -131,6 +131,18 @@ function render() {
       render();
     });
   });
+  document.querySelectorAll("[data-page-action]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const output = button.closest(".table-block")?.querySelector("[data-page-output]");
+      if (output) output.textContent = button.dataset.pageAction === "next" ? "2" : "1";
+    });
+  });
+  document.querySelectorAll("[data-danger]").forEach((button) => {
+    button.addEventListener("click", () => {
+      button.textContent = button.dataset.confirmed ? "Архивировать выбранные" : "Подтвердить";
+      button.dataset.confirmed = "true";
+    });
+  });
   const draft = document.querySelector("#draft");
   if (draft) {
     let timer;
@@ -294,13 +306,30 @@ function tableTemplate(title, headers, rows) {
     <section class="table-block">
       <div class="table-head">
         <h2>${title}</h2>
-        <input type="search" placeholder="Поиск" aria-label="Поиск в таблице" />
+        <div class="table-tools">
+          <input type="search" placeholder="Поиск" aria-label="Поиск в таблице" />
+          <select aria-label="Фильтр статуса">
+            <option>Все статусы</option>
+            <option>draft</option>
+            <option>published</option>
+            <option>archived</option>
+          </select>
+          <button title="Сортировать">Сортировка</button>
+          <button title="Колонки">Колонки</button>
+          <button title="Экспорт">Export</button>
+        </div>
       </div>
       <div class="table-scroll">
         <table>
-          <thead><tr>${headers.map((head) => `<th>${head}</th>`).join("")}</tr></thead>
-          <tbody>${rows.map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join("")}</tr>`).join("")}</tbody>
+          <thead><tr><th><input type="checkbox" aria-label="Выбрать все строки" /></th>${headers.map((head) => `<th>${head}</th>`).join("")}</tr></thead>
+          <tbody>${rows.map((row, index) => `<tr><td><input type="checkbox" aria-label="Выбрать строку ${index + 1}" /></td>${row.map((cell) => `<td>${cell}</td>`).join("")}</tr>`).join("")}</tbody>
         </table>
+      </div>
+      <div class="table-foot">
+        <button data-danger="archive" title="Массовое архивирование требует подтверждения">Архивировать выбранные</button>
+        <span>Страница <b data-page-output>1</b></span>
+        <button data-page-action="prev" title="Предыдущая страница">Назад</button>
+        <button data-page-action="next" title="Следующая страница">Вперёд</button>
       </div>
     </section>
   `;
