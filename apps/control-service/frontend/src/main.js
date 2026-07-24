@@ -183,6 +183,7 @@ function sectionTemplate(section) {
   if (section === "security") return securityTemplate();
   if (section === "files") return filesTemplate();
   if (section === "stories") return storiesTemplate();
+  if (section === "settings") return settingsTemplate();
   if (section === "tech") return techTemplate();
   if (section === "audit") return auditTemplate();
   if (section === "backups") return backupsTemplate();
@@ -349,14 +350,42 @@ function auditTemplate() {
   return tableTemplate("Последние действия", ["Кто", "Операция", "Объект", "Когда"], rows);
 }
 
+function settingsTemplate() {
+  const flags = state.remote.settings?.featureFlags || {
+    publicRegistration: false,
+    mainSiteIntegration: false,
+    telegramIntegration: false,
+    desktopAgent: false
+  };
+  const rows = Object.entries(flags).map(([key, value]) => [key, String(value), value ? "enabled" : "disabled"]);
+  const stored = toRows(state.remote.settings?.storedSettings, ["key", "value", "sensitive", "encrypted"], [
+    ["mock.theme", "tavern", "false", "false"],
+    ["mock.integration.mode", "isolated", "false", "false"]
+  ]);
+  return `
+    ${tableTemplate("Feature flags", ["Key", "Value", "Status"], rows)}
+    ${tableTemplate("Stored settings", ["Key", "Value", "Sensitive", "Encrypted"], stored)}
+  `;
+}
+
 function techTemplate() {
+  const integration = state.remote.tech || {
+    mode: "isolated",
+    mainSiteIntegrationEnabled: false,
+    telegramIntegrationEnabled: false,
+    desktopAgentEnabled: false,
+    contractsPrepared: true,
+    productionDataUsed: false
+  };
   return `
     <div class="tech">
       <p>Backend health: <strong>${state.backend}</strong></p>
-      <p>PUBLIC_REGISTRATION_ENABLED: <strong>false</strong></p>
-      <p>Main site integration: <strong>false</strong></p>
-      <p>Telegram integration: <strong>false</strong></p>
-      <p>Desktop Agent: <strong>false</strong></p>
+      <p>Integration mode: <strong>${escapeHtml(integration.mode)}</strong></p>
+      <p>Main site integration: <strong>${escapeHtml(integration.mainSiteIntegrationEnabled)}</strong></p>
+      <p>Telegram integration: <strong>${escapeHtml(integration.telegramIntegrationEnabled)}</strong></p>
+      <p>Desktop Agent: <strong>${escapeHtml(integration.desktopAgentEnabled)}</strong></p>
+      <p>Contracts prepared: <strong>${escapeHtml(integration.contractsPrepared)}</strong></p>
+      <p>Production data used: <strong>${escapeHtml(integration.productionDataUsed)}</strong></p>
     </div>
   `;
 }
@@ -728,6 +757,8 @@ function sectionEndpoint(section) {
   if (section === "users") return "/api/v1/admin/users";
   if (section === "files") return "/api/v1/admin/files/storage";
   if (section === "backups") return "/api/v1/admin/backups";
+  if (section === "settings") return "/api/v1/admin/settings";
+  if (section === "tech") return "/api/v1/admin/integration/status";
   if (section === "audit") return "/api/v1/admin/audit?page=0";
   if (section === "games") return "/api/v1/admin/games?page=0&size=20";
   if (section === "schedule") {
