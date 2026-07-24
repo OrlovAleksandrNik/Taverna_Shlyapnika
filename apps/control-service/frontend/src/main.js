@@ -363,13 +363,29 @@ function techTemplate() {
 
 function gamesTemplate(section) {
   const fallback = section === "games" ? mock.games : mock.games.map((row) => [row[0], row[1], row[2], row[3]]);
-  const rows = toRows(state.remote[section], ["title", "startsAt", "masterPublicId", "status"], fallback);
-  const table = tableTemplate(sections[section][1], ["Игра", "Дата", "Мастер", "Статус"], rows.map(([title, startsAt, master, status]) => [
+  const records = recordsFromPayload(state.remote[section]);
+  const rows = records.length ? records.map((game) => [
+    game.title,
+    formatDateTime(game.startsAt),
+    game.masterPublicId || "unassigned",
+    game.status,
+    actionButtons([
+      ["publish-game", "Опубликовать", game.id],
+      ["cancel-game", "Отменить", game.id],
+      ["delete-game", "Удалить", game.id]
+    ])
+  ]) : fallback.map(([title, startsAt, master, status]) => [
     title,
     formatDateTime(startsAt),
     master || "unassigned",
-    status
-  ]));
+    status,
+    actionButtons([
+      ["publish-game", "Опубликовать", ""],
+      ["cancel-game", "Отменить", ""],
+      ["delete-game", "Удалить", ""]
+    ])
+  ]);
+  const table = tableTemplate(sections[section][1], ["Игра", "Дата", "Мастер", "Статус", "Действия"], rows);
   if (section === "schedule") return table;
   return `
     <form class="form-panel game-form">
@@ -391,10 +407,20 @@ function gamesTemplate(section) {
 }
 
 function genericTemplate(section) {
-  const rows = toRows(state.remote[section], ["publicId", "title", "status", "updatedAt"], [
-    [`${section}-001`, "Mock запись", "draft", "edit, publish, soft-delete"],
-    [`${section}-002`, "Контракт будущего API", "ready", "read-only"]
-  ]);
+  const records = recordsFromPayload(state.remote[section]);
+  const rows = records.length ? records.map((record) => [
+    record.publicId,
+    record.title,
+    record.status,
+    record.updatedAt ? formatDateTime(record.updatedAt) : "read-only",
+    actionButtons([
+      ["publish-record", "Publish", record.publicId, section],
+      ["delete-record", "Archive", record.publicId, section]
+    ])
+  ]) : [
+    [`${section}-001`, "Mock запись", "draft", "edit, publish, soft-delete", actionButtons([["publish-record", "Publish", "", section], ["delete-record", "Archive", "", section]])],
+    [`${section}-002`, "Контракт будущего API", "ready", "read-only", actionButtons([["publish-record", "Publish", "", section], ["delete-record", "Archive", "", section]])]
+  ];
   return `
     <form class="form-panel">
       <input name="section" type="hidden" value="${escapeHtml(section)}" />
@@ -402,11 +428,12 @@ function genericTemplate(section) {
       <label>Payload<textarea name="payload" rows="4">{ "source": "control-ui", "draft": true }</textarea></label>
       <button type="button" data-action="create-record" title="Создать запись в isolated control backend">Создать запись</button>
     </form>
-    ${tableTemplate(sections[section][1], ["ID", "Название", "Статус", "Действия"], rows.map(([id, title, status, updatedAt]) => [
+    ${tableTemplate(sections[section][1], ["ID", "Название", "Статус", "Обновлено", "Действия"], rows.map(([id, title, status, updatedAt, actions]) => [
       id,
       title,
       status,
-      updatedAt ? formatDateTime(updatedAt) : "read-only"
+      updatedAt,
+      actions
     ]))}
   `;
 }
@@ -432,7 +459,7 @@ function tableTemplate(title, headers, rows) {
       <div class="table-scroll">
         <table>
           <thead><tr><th><input type="checkbox" aria-label="Выбрать все строки" /></th>${headers.map((head) => `<th>${escapeHtml(head)}</th>`).join("")}</tr></thead>
-          <tbody>${rows.map((row, index) => `<tr><td><input type="checkbox" aria-label="Выбрать строку ${index + 1}" /></td>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`).join("")}</tbody>
+          <tbody>${rows.map((row, index) => `<tr><td><input type="checkbox" aria-label="Выбрать строку ${index + 1}" /></td>${row.map((cell) => `<td>${cellTemplate(cell)}</td>`).join("")}</tr>`).join("")}</tbody>
         </table>
       </div>
       <div class="table-foot">
@@ -446,7 +473,7 @@ function tableTemplate(title, headers, rows) {
 }
 
 function toRows(payload, fields, fallback) {
-  const records = Array.isArray(payload) ? payload : payload?.content || payload?.items;
+  const records = recordsFromPayload(payload);
   if (!Array.isArray(records) || records.length === 0) return fallback;
   return records.map((record) => fields.map((field) => {
     const value = record?.[field];
@@ -454,6 +481,22 @@ function toRows(payload, fields, fallback) {
     if (value && typeof value === "object") return JSON.stringify(value);
     return value ?? "";
   }));
+}
+
+function recordsFromPayload(payload) {
+  return Array.isArray(payload) ? payload : payload?.content || payload?.items || [];
+}
+
+function cellTemplate(cell) {
+  return cell && typeof cell === "object" && "safeHtml" in cell ? cell.safeHtml : escapeHtml(cell);
+}
+
+function actionButtons(actions) {
+  return {
+    safeHtml: `<div class="inline-actions">${actions.map(([action, label, id, section]) => `
+      <button type="button" data-action="${escapeHtml(action)}" data-id="${escapeHtml(id)}" ${section ? `data-section-key="${escapeHtml(section)}"` : ""} ${id ? "" : "disabled"}>${escapeHtml(label)}</button>
+    `).join("")}</div>`
+  };
 }
 
 function formatDateTime(value) {
@@ -541,6 +584,22 @@ async function apiPost(path, body, csrf = false) {
   return text ? JSON.parse(text) : {};
 }
 
+async function apiDelete(path) {
+  const response = await fetch(`${API_BASE}${path}`, {
+    method: "DELETE",
+    credentials: "include",
+    headers: {
+      Accept: "application/json",
+      "X-XSRF-TOKEN": await ensureCsrf()
+    }
+  });
+  if (!response.ok) {
+    const error = new Error(`DELETE ${path} failed with ${response.status}`);
+    error.status = response.status;
+    throw error;
+  }
+}
+
 async function runAction(action, form, sourceElement = null) {
   const body = form ? formJson(form) : {};
   state.actionStatus = `${action}: sending...`;
@@ -568,6 +627,28 @@ async function runAction(action, form, sourceElement = null) {
       const game = await apiPost("/api/v1/admin/games", gamePayload(body), true);
       state.actionStatus = `Game created: ${game.title || game.id}`;
       await loadSectionData("games");
+    } else if (action === "publish-game") {
+      const game = await apiPost(`/api/v1/admin/games/${sourceElement?.dataset.id}/publish`, {}, true);
+      state.actionStatus = `Game published: ${game.title || game.id}`;
+      await loadSectionData("games");
+    } else if (action === "cancel-game") {
+      const game = await apiPost(`/api/v1/admin/games/${sourceElement?.dataset.id}/cancel`, {}, true);
+      state.actionStatus = `Game cancelled: ${game.title || game.id}`;
+      await loadSectionData("games");
+    } else if (action === "delete-game") {
+      await apiDelete(`/api/v1/admin/games/${sourceElement?.dataset.id}`);
+      state.actionStatus = "Game archived";
+      await loadSectionData("games");
+    } else if (action === "publish-record") {
+      const section = sourceElement?.dataset.sectionKey;
+      const record = await apiPost(`/api/v1/admin/data/${section}/${sourceElement?.dataset.id}/publish`, {}, true);
+      state.actionStatus = `Record published: ${record.publicId || record.title}`;
+      await loadSectionData(section);
+    } else if (action === "delete-record") {
+      const section = sourceElement?.dataset.sectionKey;
+      await apiDelete(`/api/v1/admin/data/${section}/${sourceElement?.dataset.id}`);
+      state.actionStatus = "Record archived";
+      await loadSectionData(section);
     } else if (action === "project-launch") {
       const projectCode = sourceElement?.dataset.project;
       const result = await apiPost(`/api/v1/admin/projects/${projectCode}/launch`, {}, true);

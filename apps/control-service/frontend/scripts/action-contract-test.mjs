@@ -16,6 +16,11 @@ const contracts = [
   ['apiPost("/api/v1/admin/users/invitations", body, true)', "invitation endpoint with CSRF"],
   ["apiPost(`/api/v1/admin/data/${section}`, { title, payload }, true)", "generic records endpoint with CSRF"],
   ['apiPost("/api/v1/admin/games", gamePayload(body), true)', "game creation endpoint with CSRF"],
+  ["apiPost(`/api/v1/admin/games/${sourceElement?.dataset.id}/publish`, {}, true)", "game publish endpoint with CSRF"],
+  ["apiPost(`/api/v1/admin/games/${sourceElement?.dataset.id}/cancel`, {}, true)", "game cancel endpoint with CSRF"],
+  ["apiDelete(`/api/v1/admin/games/${sourceElement?.dataset.id}`)", "game delete endpoint with CSRF"],
+  ["apiPost(`/api/v1/admin/data/${section}/${sourceElement?.dataset.id}/publish`, {}, true)", "record publish endpoint with CSRF"],
+  ["apiDelete(`/api/v1/admin/data/${section}/${sourceElement?.dataset.id}`)", "record delete endpoint with CSRF"],
   ["apiPost(`/api/v1/admin/projects/${projectCode}/launch`, {}, true)", "project launch endpoint with CSRF"],
   ['apiPost("/api/v1/admin/backups", {}, true)', "backup creation endpoint with CSRF"],
   ['apiPost("/api/v1/admin/backups/restore", {}, true)', "restore-blocked endpoint with CSRF"]
@@ -26,6 +31,7 @@ for (const [needle, label] of contracts) {
 }
 
 assertIncludes('headers["X-XSRF-TOKEN"] = await ensureCsrf()', "CSRF header");
+assertIncludes('"X-XSRF-TOKEN": await ensureCsrf()', "DELETE CSRF header");
 assertIncludes("new Date(body.startsAt).toISOString()", "game date normalization");
 assertIncludes("state.actionStatus = actionErrorMessage(action, error)", "action failure feedback");
 

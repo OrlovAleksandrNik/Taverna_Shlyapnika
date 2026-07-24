@@ -359,6 +359,22 @@ th {
   gap: 10px;
 }
 
+.inline-actions {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.inline-actions button {
+  min-height: 30px;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
 .danger {
   border-color: rgba(184, 66, 66, 0.62);
 }
