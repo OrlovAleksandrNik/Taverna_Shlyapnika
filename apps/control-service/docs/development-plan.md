@@ -9,6 +9,7 @@
 - password reset and email verification hashed token flows;
 - TOTP setup, encrypted TOTP secret and hashed backup codes;
 - account session metadata and revoke-all contract;
+- in-memory login throttling contract;
 - games CRUD with optimistic locking field and soft delete;
 - schedule read contract;
 - dashboard mock data;

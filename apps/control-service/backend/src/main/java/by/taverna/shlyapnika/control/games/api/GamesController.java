@@ -52,9 +52,9 @@ public class GamesController {
   @PutMapping("/{id}")
   @PreAuthorize("hasAuthority('games.update')")
   GameResponse update(@PathVariable UUID id, @Valid @RequestBody GameRequest request, Authentication authentication, HttpServletRequest servletRequest) {
-    ControlGame game = games.findById(id).orElseThrow(() -> new IllegalArgumentException("Игра не найдена."));
+    ControlGame game = games.findById(id).orElseThrow(() -> new IllegalArgumentException("Game not found."));
     if (request.version() != null && !request.version().equals(game.getVersion())) {
-      throw new IllegalArgumentException("Запись изменилась. Обновите данные перед сохранением.");
+      throw new IllegalArgumentException("Record was changed. Reload before saving.");
     }
     game.update(request.title(), request.description(), request.gameSystem(), request.experienceLevel(), request.startsAt(),
         request.durationMinutes(), request.minPlayers(), request.maxPlayers(), request.price(), request.masterPublicId(), request.staffNotes());
@@ -65,7 +65,7 @@ public class GamesController {
   @PostMapping("/{id}/publish")
   @PreAuthorize("hasAuthority('games.publish')")
   GameResponse publish(@PathVariable UUID id, Authentication authentication, HttpServletRequest servletRequest) {
-    ControlGame game = games.findById(id).orElseThrow(() -> new IllegalArgumentException("Игра не найдена."));
+    ControlGame game = games.findById(id).orElseThrow(() -> new IllegalArgumentException("Game not found."));
     game.publish();
     audit.record(authentication.getName(), "games.publish", "ControlGame", id.toString(), game.getTitle(), servletRequest.getRemoteAddr());
     return toResponse(games.save(game));
@@ -74,7 +74,7 @@ public class GamesController {
   @PostMapping("/{id}/cancel")
   @PreAuthorize("hasAuthority('games.update')")
   GameResponse cancel(@PathVariable UUID id, Authentication authentication, HttpServletRequest servletRequest) {
-    ControlGame game = games.findById(id).orElseThrow(() -> new IllegalArgumentException("Игра не найдена."));
+    ControlGame game = games.findById(id).orElseThrow(() -> new IllegalArgumentException("Game not found."));
     game.cancel();
     audit.record(authentication.getName(), "games.cancel", "ControlGame", id.toString(), game.getTitle(), servletRequest.getRemoteAddr());
     return toResponse(games.save(game));
@@ -83,7 +83,7 @@ public class GamesController {
   @DeleteMapping("/{id}")
   @PreAuthorize("hasAuthority('games.delete')")
   void delete(@PathVariable UUID id, Authentication authentication, HttpServletRequest servletRequest) {
-    ControlGame game = games.findById(id).orElseThrow(() -> new IllegalArgumentException("Игра не найдена."));
+    ControlGame game = games.findById(id).orElseThrow(() -> new IllegalArgumentException("Game not found."));
     game.softDelete();
     games.save(game);
     audit.record(authentication.getName(), "games.soft_delete", "ControlGame", id.toString(), game.getTitle(), servletRequest.getRemoteAddr());

@@ -44,14 +44,14 @@ public class ProjectsController {
   @PostMapping("/{code}/launch")
   @PreAuthorize("hasAuthority('projects.launch')")
   Map<String, Object> mockLaunch(@PathVariable String code, Authentication authentication, HttpServletRequest request) {
-    ManagedProject project = projects.findByCode(code).orElseThrow(() -> new IllegalArgumentException("Проект не найден."));
+    ManagedProject project = projects.findByCode(code).orElseThrow(() -> new IllegalArgumentException("Project not found."));
     audit.record(authentication.getName(), "projects.mock_launch", "ManagedProject", code, "Desktop Agent disabled; no executable started", request.getRemoteAddr());
     return Map.of(
         "code", project.getCode(),
         "status", "mock-launch-recorded",
         "desktopAgentRequired", true,
         "startedAt", Instant.now(),
-        "message", "Реальный запуск отключён до появления Desktop Agent и allowlist-политики.");
+        "message", "Real launch is disabled until Desktop Agent and allowlist policy are implemented.");
   }
 
   @GetMapping("/{code}/assignments")

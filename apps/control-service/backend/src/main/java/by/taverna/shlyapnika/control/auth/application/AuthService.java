@@ -45,12 +45,13 @@ public class AuthService {
   private final EmailGateway emailGateway;
   private final SecretEncryptionService encryption;
   private final TotpService totp;
+  private final LoginAttemptLimiter loginAttemptLimiter;
   private final SecureRandom random = new SecureRandom();
 
   public AuthService(UserAccountRepository users, InvitationRepository invitations, LoginHistoryRepository loginHistory,
       SecurityTokenRepository securityTokens, TwoFactorBackupCodeRepository backupCodes, ControlSessionRepository sessions,
       PasswordEncoder passwordEncoder, AuditService audit, ControlProperties properties, EmailGateway emailGateway,
-      SecretEncryptionService encryption, TotpService totp) {
+      SecretEncryptionService encryption, TotpService totp, LoginAttemptLimiter loginAttemptLimiter) {
     this.users = users;
     this.invitations = invitations;
     this.loginHistory = loginHistory;
@@ -63,12 +64,13 @@ public class AuthService {
     this.emailGateway = emailGateway;
     this.encryption = encryption;
     this.totp = totp;
+    this.loginAttemptLimiter = loginAttemptLimiter;
   }
 
   @Transactional
   public InvitationResult createInvitation(UserAccount actor, String email, String displayName, UserRole role, String ipAddress) {
     if (users.existsByEmail(email.toLowerCase())) {
-      throw new IllegalArgumentException("Пользователь с таким email уже существует.");
+      throw new IllegalArgumentException("User with this email already exists.");
     }
     String token = randomToken();
     Invitation invitation = invitations.save(new Invitation(sha256(token), email, displayName, role, Instant.now().plus(Duration.ofDays(3)), actor.getId()));
@@ -81,9 +83,9 @@ public class AuthService {
   public UserAccount acceptInvitation(String token, String password) {
     Invitation invitation = invitations.findByTokenHash(sha256(token))
         .filter(invite -> invite.isUsable(Instant.now()))
-        .orElseThrow(() -> new IllegalArgumentException("Приглашение недействительно или истекло."));
+        .orElseThrow(() -> new IllegalArgumentException("Invitation is invalid or expired."));
     if (users.existsByEmail(invitation.getEmail())) {
-      throw new IllegalArgumentException("Пользователь уже создан.");
+      throw new IllegalArgumentException("User already exists.");
     }
     UserAccount account = new UserAccount(invitation.getDisplayName(), invitation.getEmail(), passwordEncoder.encode(password), Set.of(invitation.getRole()));
     account.verifyEmail();
@@ -95,6 +97,7 @@ public class AuthService {
 
   @Transactional
   public UserAccount authenticate(String email, String password, String twoFactorCode, String ipAddress, String userAgent) {
+    loginAttemptLimiter.assertAllowed(email, ipAddress);
     UserAccount account = users.findByEmail(email.toLowerCase()).orElse(null);
     boolean ok = account != null
         && account.getStatus() == UserStatus.ACTIVE
@@ -104,8 +107,10 @@ public class AuthService {
     }
     loginHistory.save(new LoginHistory(account == null ? null : account.getId(), email, ok, ok ? "ok" : "invalid_credentials", ipAddress, userAgent));
     if (!ok) {
-      throw new IllegalArgumentException("Неверный email или пароль.");
+      loginAttemptLimiter.recordFailure(email, ipAddress);
+      throw new IllegalArgumentException("Invalid email or password.");
     }
+    loginAttemptLimiter.recordSuccess(email, ipAddress);
     account.markLogin();
     audit.record(account.getPublicId(), "auth.login", "UserAccount", account.getPublicId(), "session-cookie", ipAddress);
     return account;
@@ -213,7 +218,7 @@ public class AuthService {
     if (properties.bootstrapOwnerEmail() == null || properties.bootstrapOwnerEmail().isBlank()) return;
     if (properties.bootstrapToken() == null || properties.bootstrapToken().length() < 16) return;
     if (users.countByRole(UserRole.OWNER) > 0) return;
-    UserAccount owner = new UserAccount("Первичный владелец", properties.bootstrapOwnerEmail(), passwordEncoder.encode(properties.bootstrapToken()), Set.of(UserRole.OWNER));
+    UserAccount owner = new UserAccount("Bootstrap owner", properties.bootstrapOwnerEmail(), passwordEncoder.encode(properties.bootstrapToken()), Set.of(UserRole.OWNER));
     owner.verifyEmail();
     users.save(owner);
     audit.record(owner.getPublicId(), "bootstrap.owner_created", "UserAccount", owner.getPublicId(), "bootstrap disabled after first OWNER presence", null);

@@ -17,12 +17,12 @@ public class GlobalExceptionHandler {
 
   @ExceptionHandler({MethodArgumentNotValidException.class, ConstraintViolationException.class})
   ResponseEntity<ApiError> validation(Exception error) {
-    return ResponseEntity.badRequest().body(ApiError.of(400, "validation_failed", "Проверьте поля формы."));
+    return ResponseEntity.badRequest().body(ApiError.of(400, "validation_failed", "Check form fields."));
   }
 
   @ExceptionHandler(AccessDeniedException.class)
   ResponseEntity<ApiError> denied(AccessDeniedException error) {
     return ResponseEntity.status(HttpStatus.FORBIDDEN)
-        .body(ApiError.of(403, "forbidden", "Недостаточно прав для операции."));
+        .body(ApiError.of(403, "forbidden", "Not enough permissions for this operation."));
   }
 }
