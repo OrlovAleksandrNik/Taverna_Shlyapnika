@@ -169,6 +169,12 @@ nav {
   font-size: 12px;
 }
 
+.session-line {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
 .status-line {
   display: inline-flex;
   gap: 8px;
@@ -216,6 +222,14 @@ nav {
   display: grid;
   gap: 18px;
   padding: 20px 24px 40px;
+}
+
+.action-status {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  color: var(--paper);
+  background: rgba(23, 23, 23, 0.66);
 }
 
 .metric-grid,

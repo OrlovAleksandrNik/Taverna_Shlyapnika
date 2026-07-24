@@ -42,6 +42,8 @@ const state = {
   backend: "unknown",
   autosave: "saved",
   loadingSection: null,
+  account: null,
+  actionStatus: "Ready",
   remote: {}
 };
 
@@ -106,6 +108,7 @@ function render() {
           <div>
             <p class="eyebrow">Изолированный микросервис</p>
             <h1>${sections[state.section][0]}</h1>
+            <p class="session-line">${escapeHtml(sessionLabel())}</p>
           </div>
           <div class="status-line" aria-live="polite">
             <span><span class="dot ${state.backend === "online" ? "ok" : ""}"></span>Backend: ${state.backend}</span>
@@ -113,6 +116,7 @@ function render() {
           </div>
         </header>
         <section class="content">
+          <div class="action-status" aria-live="polite">${escapeHtml(state.actionStatus)}</div>
           ${sectionTemplate(state.section)}
         </section>
       </main>
@@ -149,6 +153,9 @@ function render() {
       button.textContent = button.dataset.confirmed ? "Архивировать выбранные" : "Подтвердить";
       button.dataset.confirmed = "true";
     });
+  });
+  document.querySelectorAll("[data-action]").forEach((button) => {
+    button.addEventListener("click", () => runAction(button.dataset.action, button.closest("form")));
   });
   const draft = document.querySelector("#draft");
   if (draft) {
@@ -243,10 +250,10 @@ function usersTemplate() {
   ]);
   return `
     <form class="form-panel">
-      <label>Email<input type="email" value="master@example.test" /></label>
-      <label>Имя<input type="text" value="Новый мастер" /></label>
-      <label>Роль<select><option>MASTER</option><option>CONTENT_MANAGER</option><option>RATING_MANAGER</option></select></label>
-      <button type="button" title="Создать одноразовое приглашение">Создать приглашение</button>
+      <label>Email<input name="email" type="email" value="master@example.test" /></label>
+      <label>Имя<input name="displayName" type="text" value="Новый мастер" /></label>
+      <label>Роль<select name="role"><option>MASTER</option><option>CONTENT_MANAGER</option><option>RATING_MANAGER</option></select></label>
+      <button type="button" data-action="invite-user" title="Создать одноразовое приглашение">Создать приглашение</button>
     </form>
     ${tableTemplate("Роли", ["Роль", "Смысл", "2FA"], [
       ["OWNER", "Полный доступ, последнего удалить нельзя", "required"],
@@ -265,14 +272,23 @@ function usersTemplate() {
 
 function securityTemplate() {
   return `
+    <form class="form-panel">
+      <label>Email<input name="email" type="email" value="owner@example.test" autocomplete="username" /></label>
+      <label>Пароль<input name="password" type="password" autocomplete="current-password" placeholder="CONTROL_BOOTSTRAP_OWNER_PASSWORD" /></label>
+      <label>2FA code<input name="twoFactorCode" type="text" inputmode="numeric" placeholder="если включено" /></label>
+      <div class="actions">
+        <button type="button" data-action="login" title="Войти в isolated control backend">Войти</button>
+        <button type="button" data-action="me" title="Проверить текущую session cookie">Проверить сессию</button>
+      </div>
+    </form>
     <div class="metric-grid">
       <article class="metric"><span>2FA OWNER/SUPERADMIN</span><strong>required</strong><small>TOTP + hashed backup codes</small></article>
       <article class="metric"><span>Сессии</span><strong>HttpOnly</strong><small>CONTROLSESSION, SameSite Strict</small></article>
       <article class="metric"><span>Reset tokens</span><strong>hashed</strong><small>одинаковый ответ без user enumeration</small></article>
     </div>
     <form class="form-panel">
-      <label>Email для reset<input type="email" value="master@example.test" /></label>
-      <button type="button" title="Отправить mock password reset email">Запросить восстановление</button>
+      <label>Email для reset<input name="email" type="email" value="master@example.test" /></label>
+      <button type="button" data-action="password-reset" title="Отправить mock password reset email">Запросить восстановление</button>
     </form>
     ${tableTemplate("Активные устройства", ["Устройство", "IP", "Создано", "Статус"], [
       ["Windows Edge", "127.0.0.1", "сегодня", "active"],
@@ -428,6 +444,83 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
+}
+
+function sessionLabel() {
+  if (!state.account) return "Session: not authenticated";
+  const roles = Array.isArray(state.account.roles) ? state.account.roles.join(", ") : state.account.roles;
+  return `${state.account.displayName || state.account.email} / ${roles || "no roles"}`;
+}
+
+function formJson(form) {
+  return Object.fromEntries(new FormData(form).entries());
+}
+
+function xsrfToken() {
+  return document.cookie
+    .split("; ")
+    .find((part) => part.startsWith("XSRF-TOKEN="))
+    ?.split("=")[1];
+}
+
+async function ensureCsrf() {
+  await apiGet("/api/v1/auth/csrf");
+  return decodeURIComponent(xsrfToken() || "");
+}
+
+async function apiPost(path, body, csrf = false) {
+  const headers = {
+    Accept: "application/json",
+    "Content-Type": "application/json"
+  };
+  if (csrf) headers["X-XSRF-TOKEN"] = await ensureCsrf();
+  const response = await fetch(`${API_BASE}${path}`, {
+    method: "POST",
+    credentials: "include",
+    headers,
+    body: JSON.stringify(body)
+  });
+  if (!response.ok) {
+    const error = new Error(`POST ${path} failed with ${response.status}`);
+    error.status = response.status;
+    throw error;
+  }
+  const text = await response.text();
+  return text ? JSON.parse(text) : {};
+}
+
+async function runAction(action, form) {
+  const body = form ? formJson(form) : {};
+  state.actionStatus = `${action}: sending...`;
+  render();
+  try {
+    if (action === "login") {
+      state.account = await apiPost("/api/v1/auth/login", body);
+      state.actionStatus = `Logged in as ${state.account.email}`;
+    } else if (action === "me") {
+      state.account = await apiGet("/api/v1/auth/me");
+      state.actionStatus = `Session active for ${state.account.email}`;
+    } else if (action === "password-reset") {
+      const result = await apiPost("/api/v1/auth/password-reset", body);
+      state.actionStatus = result.devOnlyToken ? `Reset token issued: ${result.devOnlyToken}` : "Password reset response accepted";
+    } else if (action === "invite-user") {
+      const invitation = await apiPost("/api/v1/admin/users/invitations", body, true);
+      state.actionStatus = `Invitation created: ${invitation.oneTimeToken || invitation.id}`;
+      await loadSectionData("users");
+    }
+    state.backend = "online";
+  } catch (error) {
+    state.backend = error.status ? "online" : "offline";
+    state.actionStatus = actionErrorMessage(action, error);
+  } finally {
+    render();
+  }
+}
+
+function actionErrorMessage(action, error) {
+  if (!error.status) return `${action}: backend is not reachable on ${API_BASE}`;
+  if (error.status === 401 || error.status === 403) return `${action}: backend answered ${error.status}; login or permission required`;
+  return `${action}: backend answered ${error.status}`;
 }
 
 function updateAutosave() {
