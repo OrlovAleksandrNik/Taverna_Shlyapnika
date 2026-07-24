@@ -24,6 +24,16 @@ Frontend: `http://localhost:4191`.
 Backend: `http://localhost:4190`.
 Mail dev UI: `http://localhost:4192`.
 
+## Railway
+
+Для безопасного deploy в том же Railway project, где живёт сайт, создавайте отдельные services:
+
+- `control-backend` с root directory `apps/control-service/backend`;
+- `control-frontend` с root directory `apps/control-service/frontend`;
+- отдельный PostgreSQL service `ControlPostgres`.
+
+Не используйте production `DATABASE_URL` сайта. Подробный гид и список variables: `../../docs/control-service-railway.md`.
+
 Первичный OWNER создаётся только при заданных `CONTROL_BOOTSTRAP_OWNER_EMAIL` и `CONTROL_BOOTSTRAP_TOKEN`. Не используйте `admin/admin`.
 
 ## Preview without backend

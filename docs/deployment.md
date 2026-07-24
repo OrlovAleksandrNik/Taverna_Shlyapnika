@@ -95,6 +95,20 @@ Java backend отдает:
 
 Для polling не включайте несколько реплик одного и того же бота, иначе Telegram может вернуть `409 Conflict`.
 
+## Railway: Taverna Control
+
+Административный кабинет `apps/control-service` добавлен как отдельный микросервис и не подключается к публичному сайту.
+
+Безопасная схема:
+
+- создать новые Railway services `control-backend` и `control-frontend` в том же Railway project;
+- выбрать root directories `apps/control-service/backend` и `apps/control-service/frontend`;
+- добавить отдельный PostgreSQL service `ControlPostgres`;
+- не использовать `DATABASE_URL` основного сайта;
+- оставить `CONTROL_MAIN_SITE_INTEGRATION_ENABLED=false`, `CONTROL_TELEGRAM_INTEGRATION_ENABLED=false`, `CONTROL_DESKTOP_AGENT_ENABLED=false`.
+
+Подробный гид: `docs/control-service-railway.md`.
+
 ## HTTPS и Telegram
 
 Для polling нужен только исходящий доступ к Telegram API.
