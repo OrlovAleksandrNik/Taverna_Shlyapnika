@@ -25,3 +25,12 @@ Backend: `http://localhost:4190`.
 Mail dev UI: `http://localhost:4192`.
 
 Первичный OWNER создаётся только при заданных `CONTROL_BOOTSTRAP_OWNER_EMAIL` и `CONTROL_BOOTSTRAP_TOKEN`. Не используйте `admin/admin`.
+
+## Preview without backend
+
+```powershell
+cd apps/control-service/frontend
+node scripts/static-server.mjs
+```
+
+Preview: `http://localhost:4191`. Backend status can be `offline` when Java backend is not running.

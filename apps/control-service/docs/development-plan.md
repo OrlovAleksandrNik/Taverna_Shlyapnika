@@ -19,6 +19,8 @@
 - file validation policy that blocks executable upload formats;
 - generic control records CRUD API with pagination, search, optimistic locking, publish and soft-delete;
 - frontend table controls for search, filters, sorting, selection, bulk actions, columns and export;
+- Flyway mock seed data for management sections;
+- frontend role-based navigation smoke checks;
 - audit log;
 - security headers, CORS и CSRF;
 - Docker Compose;
