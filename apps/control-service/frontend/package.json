@@ -1,0 +1,16 @@
+{
+  "name": "taverna-control-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --port 4191",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0 --port 4191",
+    "test": "node scripts/frontend-smoke-test.mjs"
+  },
+  "devDependencies": {
+    "vite": "^5.4.11",
+    "typescript": "^5.7.2"
+  }
+}
