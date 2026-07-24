@@ -43,6 +43,7 @@ Implemented frontend actions:
 
 - auth: login, current session check, password reset request;
 - users: invitation creation through `/api/v1/admin/users/invitations`;
+- games: create draft games through `/api/v1/admin/games`;
 - generic records: create draft records through `/api/v1/admin/data/{section}`;
 - projects: mock launch through `/api/v1/admin/projects/{code}/launch`;
 - backups: create metadata-only backup manifest and call restore-blocked contract.
