@@ -26,11 +26,10 @@ Mail dev UI: `http://localhost:4192`.
 
 ## Railway
 
-Для безопасного deploy в том же Railway project, где живёт сайт, создавайте отдельные services:
+Для безопасного deploy в том же Railway project, где живёт сайт, используйте отдельные ресурсы Control:
 
-- `control-backend` с root directory `apps/control-service/backend`;
-- `control-frontend` с root directory `apps/control-service/frontend`;
-- отдельный PostgreSQL service `ControlPostgres`.
+- `control-frontend` с root directory `apps/control-service` как combined UI + API service;
+- отдельный PostgreSQL service `Postgres-jr3Q`.
 
 Не используйте production `DATABASE_URL` сайта. Подробный гид и список variables: `../../docs/control-service-railway.md`.
 

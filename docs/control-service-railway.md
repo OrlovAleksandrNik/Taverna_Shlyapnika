@@ -8,9 +8,8 @@
 Railway project "Taverna Shlyapnika"
 ├── main-site                 # существующий публичный сайт, не менять
 ├── main-site-postgres        # существующая production DB сайта, не использовать
-├── control-backend           # новый service, root apps/control-service/backend
-├── control-frontend          # новый service, root apps/control-service/frontend
-└── control-postgres          # новый PostgreSQL только для control-backend
+├── control-frontend          # новый isolated service: UI + API, root apps/control-service
+└── Postgres-jr3Q             # новый PostgreSQL только для Taverna Control
 ```
 
 Запрещено на этом этапе:
@@ -23,24 +22,33 @@ Railway project "Taverna Shlyapnika"
 
 ## Railway services
 
-Создайте в том же Railway project два новых GitHub services из этого репозитория:
+Текущий безопасный deploy сделан в том же Railway project, но отдельными ресурсами:
+
+| Service | Root directory | Railway config | Назначение |
+| --- | --- | --- | --- |
+| `control-frontend` | `apps/control-service` | `railway.json` | Combined service: Spring Boot API + static admin UI |
+| `Postgres-jr3Q` | Railway PostgreSQL | Railway managed | Isolated DB только для Control |
+
+Название `control-frontend` осталось от первой попытки с двумя сервисами. Фактически это combined service, потому что Free plan Railway не дал создать отдельный backend service. Изоляция при этом сохраняется: root, Dockerfile, variables, cookie, schema и database отдельные, а публичный сайт не меняется.
+
+Текущий deploy выполнен через Railway CLI из каталога `apps/control-service`, поэтому в service settings `rootDirectory` очищен. Если позже подключать GitHub autodeploy из корня репозитория, выставьте `rootDirectory=apps/control-service`.
+
+Если позже тариф позволит больше ресурсов, можно разделить combined service на два:
 
 | Service | Root directory | Railway config | Назначение |
 | --- | --- | --- | --- |
 | `control-backend` | `apps/control-service/backend` | `railway.json` | Spring Boot API, Flyway, isolated DB |
 | `control-frontend` | `apps/control-service/frontend` | `railway.json` | Nginx static admin UI |
 
-Добавьте отдельный Railway PostgreSQL service, например `ControlPostgres`, и подключайте только его variables к `control-backend`.
-
-## Variables: control-backend
+## Variables: combined control service
 
 Минимальный набор:
 
 ```env
 PORT=4190
-CONTROL_DATABASE_URL=jdbc:postgresql://${{ControlPostgres.PGHOST}}:${{ControlPostgres.PGPORT}}/${{ControlPostgres.PGDATABASE}}
-CONTROL_DATABASE_USERNAME=${{ControlPostgres.PGUSER}}
-CONTROL_DATABASE_PASSWORD=${{ControlPostgres.PGPASSWORD}}
+CONTROL_DATABASE_URL=jdbc:postgresql://${{Postgres-jr3Q.PGHOST}}:${{Postgres-jr3Q.PGPORT}}/${{Postgres-jr3Q.PGDATABASE}}
+CONTROL_DATABASE_USERNAME=${{Postgres-jr3Q.PGUSER}}
+CONTROL_DATABASE_PASSWORD=${{Postgres-jr3Q.PGPASSWORD}}
 CONTROL_FRONTEND_ORIGIN=https://<control-frontend>.up.railway.app
 CONTROL_PUBLIC_URL=https://<control-frontend>.up.railway.app
 CONTROL_SESSION_SECRET=<generate-64-char-secret>
@@ -53,23 +61,26 @@ CONTROL_DESKTOP_AGENT_ENABLED=false
 CONTROL_MAIL_PROVIDER=mock
 CONTROL_BOOTSTRAP_OWNER_EMAIL=<owner-email>
 CONTROL_BOOTSTRAP_TOKEN=<one-time-strong-password>
+CONTROL_STATIC_LOCATIONS=file:/app/static/
+CONTROL_MEDIA_STORAGE_ROOT=/app/data/media
+CONTROL_BACKUP_STORAGE_ROOT=/app/data/backups
 ```
 
 `CONTROL_BOOTSTRAP_TOKEN` используется как первичный пароль только до создания первого OWNER. После первого входа смените пароль и уберите bootstrap variables из Railway.
 
-## Variables: control-frontend
+## Frontend runtime API URL
 
 ```env
-CONTROL_API_BASE=https://<control-backend>.up.railway.app
+CONTROL_API_BASE=
 ```
 
-Frontend получает это значение на runtime через `/control-runtime-config.js`; пересборка образа для смены backend URL не нужна.
+Для combined service оставьте `CONTROL_API_BASE` пустым или не задавайте его: frontend будет обращаться к API same-origin. При разделении на два сервиса задайте `CONTROL_API_BASE=https://<control-backend>.up.railway.app`.
 
 ## Проверка после deploy
 
-1. Откройте `https://<control-backend>.up.railway.app/health`.
-2. Откройте `https://<control-frontend>.up.railway.app/health`.
-3. Откройте frontend URL, выберите раздел `Безопасность`.
+1. Откройте `https://<control-frontend>.up.railway.app/health`.
+2. Откройте `https://<control-frontend>.up.railway.app/ready`.
+3. Откройте `https://<control-frontend>.up.railway.app/`, выберите раздел `Безопасность`.
 4. Войдите bootstrap OWNER.
 5. Создайте отдельного пользователя через invitation.
 6. Смените пароль OWNER и удалите `CONTROL_BOOTSTRAP_OWNER_EMAIL` / `CONTROL_BOOTSTRAP_TOKEN` из Railway variables.

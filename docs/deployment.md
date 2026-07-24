@@ -101,11 +101,13 @@ Java backend отдает:
 
 Безопасная схема:
 
-- создать новые Railway services `control-backend` и `control-frontend` в том же Railway project;
-- выбрать root directories `apps/control-service/backend` и `apps/control-service/frontend`;
-- добавить отдельный PostgreSQL service `ControlPostgres`;
+- использовать отдельный Railway service `control-frontend` с root directory `apps/control-service`;
+- этот service работает как combined deploy: Spring Boot API + static admin UI;
+- использовать отдельный PostgreSQL service `Postgres-jr3Q` только для Control;
 - не использовать `DATABASE_URL` основного сайта;
 - оставить `CONTROL_MAIN_SITE_INTEGRATION_ENABLED=false`, `CONTROL_TELEGRAM_INTEGRATION_ENABLED=false`, `CONTROL_DESKTOP_AGENT_ENABLED=false`.
+
+Combined deploy выбран из-за лимита Railway Free plan на количество ресурсов. При расширении тарифа его можно разделить на `control-backend` и `control-frontend` без изменения публичного сайта.
 
 Подробный гид: `docs/control-service-railway.md`.
 

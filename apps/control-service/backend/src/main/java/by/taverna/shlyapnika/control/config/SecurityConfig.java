@@ -43,7 +43,20 @@ public class SecurityConfig {
           headers.httpStrictTransportSecurity(hsts -> hsts.includeSubDomains(true).preload(true));
         })
         .authorizeHttpRequests(auth -> auth
-            .requestMatchers("/actuator/health/**", "/health", "/ready", "/api/v1/public/**", "/v3/api-docs/**", "/swagger-ui/**").permitAll()
+            .requestMatchers(
+                "/",
+                "/index.html",
+                "/control-runtime-config.js",
+                "/assets/**",
+                "/vendor/**",
+                "/*.png",
+                "/*.woff",
+                "/actuator/health/**",
+                "/health",
+                "/ready",
+                "/api/v1/public/**",
+                "/v3/api-docs/**",
+                "/swagger-ui/**").permitAll()
             .requestMatchers(
                 "/api/v1/auth/login",
                 "/api/v1/auth/invitations/accept",

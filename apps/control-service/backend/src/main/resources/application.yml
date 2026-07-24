@@ -11,6 +11,9 @@ server:
 spring:
   application:
     name: control-service-backend
+  web:
+    resources:
+      static-locations: ${CONTROL_STATIC_LOCATIONS:classpath:/static/,classpath:/public/,classpath:/resources/,classpath:/META-INF/resources/}
   datasource:
     url: ${CONTROL_DATABASE_URL:jdbc:postgresql://localhost:5434/taverna_control}
     username: ${CONTROL_DATABASE_USERNAME:control}
