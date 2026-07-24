@@ -155,7 +155,7 @@ function render() {
     });
   });
   document.querySelectorAll("[data-action]").forEach((button) => {
-    button.addEventListener("click", () => runAction(button.dataset.action, button.closest("form")));
+    button.addEventListener("click", () => runAction(button.dataset.action, button.closest("form"), button));
   });
   const draft = document.querySelector("#draft");
   if (draft) {
@@ -221,21 +221,23 @@ function overviewTemplate() {
 }
 
 function projectsTemplate() {
+  const projects = state.remote.projects?.map((project) => [
+    project.name || project.code,
+    project.stack || project.kind,
+    project.detectedPath || project.code,
+    project.status || project.launchMode,
+    project.code
+  ]) || mock.projects.map((project, index) => [...project, index === 0 ? "voicemod" : "screenstage"]);
   return `
     <div class="project-grid">
-      ${(state.remote.projects?.map((project) => [
-        project.name || project.code,
-        project.stack || project.kind,
-        project.detectedPath || project.code,
-        project.status || project.launchMode
-      ]) || mock.projects).map(([name, stack, path, status]) => `
+      ${projects.map(([name, stack, path, status, code]) => `
         <article class="project">
           <h3>${escapeHtml(name)}</h3>
           <p>${escapeHtml(stack)}</p>
           <code>${escapeHtml(path)}</code>
           <span>${escapeHtml(status)}</span>
           <label>Назначить мастеру<input type="text" value="usr_mock_master" aria-label="Public ID мастера" /></label>
-          <button title="Создать запись mock-launch без запуска программы">Mock launch</button>
+          <button data-action="project-launch" data-project="${escapeHtml(code)}" title="Создать запись mock-launch без запуска программы">Mock launch</button>
         </article>
       `).join("")}
     </div>
@@ -328,15 +330,16 @@ function storiesTemplate() {
 }
 
 function backupsTemplate() {
+  const rows = toRows(state.remote.backups, ["publicId", "status", "checksum", "manifestPath"], [
+    ["bkp_mock_01", "COMPLETED", "checksum ok", "disabled"],
+    ["bkp_mock_02", "PLANNED", "not started", "disabled"]
+  ]);
   return `
     <div class="actions">
-      <button title="Создать manifest backup в локальном storage">Создать backup</button>
-      <button class="danger" title="Восстановление требует отдельного подтверждения">Восстановление выключено</button>
+      <button data-action="backup-create" title="Создать manifest backup в локальном storage">Создать backup</button>
+      <button class="danger" data-action="backup-restore" title="Восстановление требует отдельного подтверждения">Восстановление выключено</button>
     </div>
-    ${tableTemplate("Backup jobs", ["ID", "Статус", "Проверка", "Restore"], [
-      ["bkp_mock_01", "COMPLETED", "checksum ok", "disabled"],
-      ["bkp_mock_02", "PLANNED", "not started", "disabled"]
-    ])}
+    ${tableTemplate("Backup jobs", ["ID", "Статус", "Проверка", "Manifest"], rows)}
   `;
 }
 
@@ -497,7 +500,7 @@ async function apiPost(path, body, csrf = false) {
   return text ? JSON.parse(text) : {};
 }
 
-async function runAction(action, form) {
+async function runAction(action, form, sourceElement = null) {
   const body = form ? formJson(form) : {};
   state.actionStatus = `${action}: sending...`;
   render();
@@ -520,6 +523,18 @@ async function runAction(action, form) {
       const record = await apiPost(`/api/v1/admin/data/${section}`, { title, payload }, true);
       state.actionStatus = `Record saved: ${record.publicId || record.title}`;
       await loadSectionData(section);
+    } else if (action === "project-launch") {
+      const projectCode = sourceElement?.dataset.project;
+      const result = await apiPost(`/api/v1/admin/projects/${projectCode}/launch`, {}, true);
+      state.actionStatus = `${result.code}: ${result.status}`;
+      await loadSectionData("projects");
+    } else if (action === "backup-create") {
+      const backup = await apiPost("/api/v1/admin/backups", {}, true);
+      state.actionStatus = `Backup created: ${backup.publicId || backup.status}`;
+      await loadSectionData("backups");
+    } else if (action === "backup-restore") {
+      const result = await apiPost("/api/v1/admin/backups/restore", {}, true);
+      state.actionStatus = result.reason || "Restore is disabled";
     }
     state.backend = "online";
   } catch (error) {
@@ -586,6 +601,7 @@ function sectionEndpoint(section) {
   if (section === "projects") return "/api/v1/admin/projects";
   if (section === "users") return "/api/v1/admin/users";
   if (section === "files") return "/api/v1/admin/files/storage";
+  if (section === "backups") return "/api/v1/admin/backups";
   if (section === "audit") return "/api/v1/admin/audit?page=0";
   if (section === "games") return "/api/v1/admin/games?page=0&size=20";
   if (section === "schedule") {
