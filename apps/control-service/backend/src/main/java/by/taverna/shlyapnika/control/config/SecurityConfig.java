@@ -34,11 +34,12 @@ public class SecurityConfig {
                 "/api/v1/auth/password-reset/confirm",
                 "/api/v1/public/**"))
         .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
-        .headers(headers -> headers
-            .contentSecurityPolicy(csp -> csp.policyDirectives("default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'"))
-            .referrerPolicy(Customizer.withDefaults())
-            .permissionsPolicyHeader(policy -> policy.policy("camera=(), microphone=(), geolocation=()"))
-            .httpStrictTransportSecurity(hsts -> hsts.includeSubDomains(true).preload(true)))
+        .headers(headers -> {
+          headers.contentSecurityPolicy(csp -> csp.policyDirectives("default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'"));
+          headers.referrerPolicy(Customizer.withDefaults());
+          headers.permissionsPolicy(policy -> policy.policy("camera=(), microphone=(), geolocation=()"));
+          headers.httpStrictTransportSecurity(hsts -> hsts.includeSubDomains(true).preload(true));
+        })
         .authorizeHttpRequests(auth -> auth
             .requestMatchers("/actuator/health/**", "/health", "/ready", "/api/v1/public/**", "/v3/api-docs/**", "/swagger-ui/**").permitAll()
             .requestMatchers(

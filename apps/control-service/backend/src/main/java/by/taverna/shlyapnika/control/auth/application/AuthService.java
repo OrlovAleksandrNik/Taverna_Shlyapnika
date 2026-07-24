@@ -176,7 +176,8 @@ public class AuthService {
     account.enableTwoFactor();
     backupCodes.deleteByUserId(account.getId());
     List<String> plainCodes = generateBackupCodes();
-    plainCodes.forEach(plain -> backupCodes.save(new TwoFactorBackupCode(account.getId(), passwordEncoder.encode(plain))));
+    UUID accountId = account.getId();
+    plainCodes.forEach(plain -> backupCodes.save(new TwoFactorBackupCode(accountId, passwordEncoder.encode(plain))));
     audit.record(account.getPublicId(), "auth.2fa_enabled", "UserAccount", account.getPublicId(), "backup codes hashed", ipAddress);
     return plainCodes;
   }

@@ -50,4 +50,11 @@ Implemented frontend actions:
 - backups: create metadata-only backup manifest and call restore-blocked contract.
 - settings/tech: read feature flags and isolated integration status from backend when authenticated.
 
-Known local blocker in this workspace: `java` and `mvn` are not available in PATH, so backend build/tests require JDK 21 plus Maven or the Maven wrapper with Java installed.
+Local backend checks use JDK 21 and the bundled Maven Wrapper:
+
+```powershell
+cd apps/control-service/backend
+.\mvnw.cmd test
+```
+
+In the current Codex shell, set `JAVA_HOME=C:\Program Files\Eclipse Adoptium\jdk-21.0.11.10-hotspot` before running Maven if the process was opened before JDK installation.
