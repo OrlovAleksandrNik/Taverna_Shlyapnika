@@ -18,6 +18,9 @@ public final class AuthDtos {
   public record InviteRequest(@NotBlank @Email String email, @NotBlank String displayName, @NotNull UserRole role) {
   }
 
+  public record RoleUpdateRequest(Set<UserRole> roles) {
+  }
+
   public record InvitationResponse(String id, String oneTimeToken, Instant expiresAt) {
   }
 

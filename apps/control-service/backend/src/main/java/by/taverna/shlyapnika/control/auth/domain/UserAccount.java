@@ -140,4 +140,20 @@ public class UserAccount {
     status = UserStatus.BLOCKED;
     updatedAt = Instant.now();
   }
+
+  public void unblock() {
+    status = UserStatus.ACTIVE;
+    updatedAt = Instant.now();
+  }
+
+  public void deactivate() {
+    status = UserStatus.DEACTIVATED;
+    updatedAt = Instant.now();
+  }
+
+  public void softDelete() {
+    status = UserStatus.DELETED;
+    deletedAt = Instant.now();
+    updatedAt = Instant.now();
+  }
 }

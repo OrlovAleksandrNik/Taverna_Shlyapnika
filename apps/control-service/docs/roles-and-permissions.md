@@ -25,4 +25,10 @@ Permissions проверяются backend через `@PreAuthorize`, а не �
 - `backups.read`, `backups.create`, `backups.restore`
 - `audit.read`, `settings.manage`
 
+Implemented guard rules:
+
+- the last OWNER cannot lose the OWNER role;
+- the last OWNER cannot be blocked, deactivated or soft-deleted;
+- `assign_roles`, `block`, `deactivate` and `soft_delete` write audit events.
+
 Последнего OWNER нельзя удалять: это правило должно применяться в user-management mutations.

@@ -5,6 +5,13 @@
 - VoiceMod: `../../voicemod-panel-d-work`, Node.js ESM + static HTML/CSS/JS.
 - ScreenStage: `../../ScreenStage-redesign`, .NET 8 WPF + LibVLCSharp.
 
+Access assignments:
+
+- `ProjectAssignment` links `projectCode` and `assigneePublicId`;
+- assignment endpoints require `projects.configure`;
+- revoke access deletes only the assignment, not the project folder;
+- every assignment change is written to audit log.
+
 В кабинете они представлены как `ManagedProject` с mock status.
 
 Текущая политика:

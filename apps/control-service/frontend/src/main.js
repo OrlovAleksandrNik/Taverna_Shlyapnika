@@ -183,6 +183,7 @@ function projectsTemplate() {
           <p>${stack}</p>
           <code>${path}</code>
           <span>${status}</span>
+          <label>Назначить мастеру<input type="text" value="usr_mock_master" aria-label="Public ID мастера" /></label>
           <button title="Создать запись mock-launch без запуска программы">Mock launch</button>
         </article>
       `).join("")}
@@ -203,6 +204,12 @@ function usersTemplate() {
       ["OWNER", "Полный доступ, последнего удалить нельзя", "required"],
       ["SUPERADMIN", "Администрирование системы", "required"],
       ["MASTER", "Свои игры, расписание, программы", "optional"]
+    ])}
+    ${tableTemplate("Операции аккаунтов", ["Операция", "Permission", "Audit", "Защита"], [
+      ["Назначить роли", "users.assign_roles", "yes", "последний OWNER защищён"],
+      ["Блокировать", "users.block", "yes", "последний OWNER защищён"],
+      ["Деактивировать", "users.update", "yes", "soft state"],
+      ["Удалить", "users.update", "yes", "soft delete"]
     ])}
   `;
 }
