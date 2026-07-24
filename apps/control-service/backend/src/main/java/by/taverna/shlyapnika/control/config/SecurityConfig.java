@@ -27,7 +27,12 @@ public class SecurityConfig {
         .cors(Customizer.withDefaults())
         .csrf(csrf -> csrf
             .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-            .ignoringRequestMatchers("/api/v1/auth/login", "/api/v1/auth/invitations/accept", "/api/v1/public/**"))
+            .ignoringRequestMatchers(
+                "/api/v1/auth/login",
+                "/api/v1/auth/invitations/accept",
+                "/api/v1/auth/password-reset",
+                "/api/v1/auth/password-reset/confirm",
+                "/api/v1/public/**"))
         .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
         .headers(headers -> headers
             .contentSecurityPolicy(csp -> csp.policyDirectives("default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'"))
@@ -36,7 +41,12 @@ public class SecurityConfig {
             .httpStrictTransportSecurity(hsts -> hsts.includeSubDomains(true).preload(true)))
         .authorizeHttpRequests(auth -> auth
             .requestMatchers("/actuator/health/**", "/health", "/ready", "/api/v1/public/**", "/v3/api-docs/**", "/swagger-ui/**").permitAll()
-            .requestMatchers("/api/v1/auth/login", "/api/v1/auth/invitations/accept", "/api/v1/auth/csrf").permitAll()
+            .requestMatchers(
+                "/api/v1/auth/login",
+                "/api/v1/auth/invitations/accept",
+                "/api/v1/auth/password-reset",
+                "/api/v1/auth/password-reset/confirm",
+                "/api/v1/auth/csrf").permitAll()
             .anyRequest().authenticated())
         .logout(logout -> logout.logoutUrl("/api/v1/auth/logout").deleteCookies("CONTROLSESSION"))
         .build();

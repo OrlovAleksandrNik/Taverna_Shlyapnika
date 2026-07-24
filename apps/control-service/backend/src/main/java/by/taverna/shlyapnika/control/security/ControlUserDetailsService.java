@@ -44,6 +44,12 @@ public class ControlUserDetailsService implements UserDetailsService {
     public boolean isAccountNonLocked() { return user.getStatus() != UserStatus.BLOCKED; }
 
     @Override
+    public boolean isAccountNonExpired() { return user.getStatus() != UserStatus.DELETED; }
+
+    @Override
+    public boolean isCredentialsNonExpired() { return true; }
+
+    @Override
     public boolean isEnabled() { return user.getStatus() == UserStatus.ACTIVE || user.getStatus() == UserStatus.INVITED; }
   }
 }

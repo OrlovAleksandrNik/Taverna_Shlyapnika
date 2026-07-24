@@ -99,8 +99,35 @@ public class UserAccount {
     updatedAt = Instant.now();
   }
 
+  public void changePassword(String passwordHash) {
+    this.passwordHash = passwordHash;
+    updatedAt = Instant.now();
+  }
+
+  public void changeEmail(String nextEmail) {
+    this.email = nextEmail.toLowerCase();
+    this.emailVerifiedAt = null;
+    updatedAt = Instant.now();
+  }
+
   public void verifyEmail() {
     emailVerifiedAt = Instant.now();
+    updatedAt = Instant.now();
+  }
+
+  public void configureTwoFactorSecret(String encryptedSecret) {
+    this.twoFactorSecretEncrypted = encryptedSecret;
+    updatedAt = Instant.now();
+  }
+
+  public void enableTwoFactor() {
+    this.twoFactorEnabled = true;
+    updatedAt = Instant.now();
+  }
+
+  public void disableTwoFactor() {
+    this.twoFactorEnabled = false;
+    this.twoFactorSecretEncrypted = null;
     updatedAt = Instant.now();
   }
 

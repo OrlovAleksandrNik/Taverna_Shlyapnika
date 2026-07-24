@@ -6,6 +6,9 @@
 - isolated backend/frontend skeleton;
 - роли и granular permissions;
 - invitation-based account flow;
+- password reset and email verification hashed token flows;
+- TOTP setup, encrypted TOTP secret and hashed backup codes;
+- account session metadata and revoke-all contract;
 - games CRUD with optimistic locking field and soft delete;
 - schedule read contract;
 - dashboard mock data;
@@ -18,9 +21,9 @@
 
 Следующие production-hardening задачи:
 
-- полноценный TOTP с QR, encrypted secret и hashed backup codes;
-- password reset/email verification mail flows;
-- persistent active-device management;
+- QR rendering on frontend for TOTP setup;
+- production mail provider;
+- persistent active-device invalidation with Spring Session;
 - real table pagination/filter persistence;
 - Testcontainers PostgreSQL integration suite;
 - e2e через Playwright после установки frontend dev dependencies;

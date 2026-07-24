@@ -28,9 +28,13 @@ const sections = {
   backups: ["Резервные копии", "Создание и проверка"],
   audit: ["Журнал действий", "Критические операции"],
   users: ["Пользователи и роли", "Приглашения и permissions"],
+  security: ["Безопасность", "2FA, сессии, восстановление"],
   settings: ["Настройки", "Флаги интеграций"],
   tech: ["Состояние", "Backend health"]
 };
+
+roles.OWNER.splice(roles.OWNER.indexOf("settings"), 0, "security");
+roles.DEVELOPER.splice(roles.DEVELOPER.indexOf("settings"), 0, "security");
 
 const state = {
   role: "OWNER",
@@ -149,6 +153,7 @@ function sectionTemplate(section) {
   if (section === "overview") return overviewTemplate();
   if (section === "projects") return projectsTemplate();
   if (section === "users") return usersTemplate();
+  if (section === "security") return securityTemplate();
   if (section === "stories") return storiesTemplate();
   if (section === "tech") return techTemplate();
   if (section === "audit") return tableTemplate("Последние действия", ["Кто", "Операция", "Объект", "Когда"], mock.audit);
@@ -198,6 +203,24 @@ function usersTemplate() {
       ["OWNER", "Полный доступ, последнего удалить нельзя", "required"],
       ["SUPERADMIN", "Администрирование системы", "required"],
       ["MASTER", "Свои игры, расписание, программы", "optional"]
+    ])}
+  `;
+}
+
+function securityTemplate() {
+  return `
+    <div class="metric-grid">
+      <article class="metric"><span>2FA OWNER/SUPERADMIN</span><strong>required</strong><small>TOTP + hashed backup codes</small></article>
+      <article class="metric"><span>Сессии</span><strong>HttpOnly</strong><small>CONTROLSESSION, SameSite Strict</small></article>
+      <article class="metric"><span>Reset tokens</span><strong>hashed</strong><small>одинаковый ответ без user enumeration</small></article>
+    </div>
+    <form class="form-panel">
+      <label>Email для reset<input type="email" value="master@example.test" /></label>
+      <button type="button" title="Отправить mock password reset email">Запросить восстановление</button>
+    </form>
+    ${tableTemplate("Активные устройства", ["Устройство", "IP", "Создано", "Статус"], [
+      ["Windows Edge", "127.0.0.1", "сегодня", "active"],
+      ["Tablet Safari", "10.0.0.14", "вчера", "revoked"]
     ])}
   `;
 }

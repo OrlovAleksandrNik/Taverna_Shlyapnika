@@ -49,6 +49,25 @@ CREATE TABLE control_sessions (
   expires_at TIMESTAMPTZ NOT NULL
 );
 
+CREATE TABLE control_security_tokens (
+  id UUID PRIMARY KEY,
+  user_id UUID REFERENCES control_users(id) ON DELETE CASCADE,
+  token_hash VARCHAR(255) NOT NULL UNIQUE,
+  token_type VARCHAR(48) NOT NULL,
+  target_value VARCHAR(320),
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL
+);
+
+CREATE TABLE control_two_factor_backup_codes (
+  id UUID PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES control_users(id) ON DELETE CASCADE,
+  code_hash VARCHAR(255) NOT NULL,
+  used_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL
+);
+
 CREATE TABLE control_login_history (
   id UUID PRIMARY KEY,
   user_id UUID REFERENCES control_users(id) ON DELETE SET NULL,
@@ -135,6 +154,7 @@ CREATE TABLE control_settings (
 );
 
 CREATE INDEX idx_control_users_status ON control_users(status);
+CREATE INDEX idx_control_security_tokens_type ON control_security_tokens(token_type, expires_at);
 CREATE INDEX idx_control_games_status_starts ON control_games(status, starts_at);
 CREATE INDEX idx_control_audit_created ON control_audit_log(created_at);
 CREATE INDEX idx_control_login_history_email_created ON control_login_history(email, created_at);
