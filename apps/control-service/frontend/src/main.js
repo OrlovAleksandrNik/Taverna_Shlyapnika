@@ -364,12 +364,30 @@ function techTemplate() {
 function gamesTemplate(section) {
   const fallback = section === "games" ? mock.games : mock.games.map((row) => [row[0], row[1], row[2], row[3]]);
   const rows = toRows(state.remote[section], ["title", "startsAt", "masterPublicId", "status"], fallback);
-  return tableTemplate(sections[section][1], ["Игра", "Дата", "Мастер", "Статус"], rows.map(([title, startsAt, master, status]) => [
+  const table = tableTemplate(sections[section][1], ["Игра", "Дата", "Мастер", "Статус"], rows.map(([title, startsAt, master, status]) => [
     title,
     formatDateTime(startsAt),
     master || "unassigned",
     status
   ]));
+  if (section === "schedule") return table;
+  return `
+    <form class="form-panel game-form">
+      <label>Название<input name="title" type="text" value="Новая игра" /></label>
+      <label>Система<input name="gameSystem" type="text" value="D&D 5e" /></label>
+      <label>Уровень<input name="experienceLevel" type="text" value="newcomer-friendly" /></label>
+      <label>Старт<input name="startsAt" type="datetime-local" value="${defaultGameStart()}" /></label>
+      <label>Мин. игроков<input name="minPlayers" type="number" min="1" value="3" /></label>
+      <label>Макс. игроков<input name="maxPlayers" type="number" min="1" value="5" /></label>
+      <label>Длительность<input name="durationMinutes" type="number" min="30" step="30" value="180" /></label>
+      <label>Цена<input name="price" type="number" min="0" step="0.01" value="45.00" /></label>
+      <label>Master public ID<input name="masterPublicId" type="text" value="usr_mock_master" /></label>
+      <label>Описание<textarea name="description" rows="4">Камерная игра для тестового расписания Taverna Control.</textarea></label>
+      <label>Staff notes<textarea name="staffNotes" rows="3">Создано из isolated frontend preview.</textarea></label>
+      <button type="button" data-action="create-game" title="Создать игру в isolated control backend">Создать игру</button>
+    </form>
+    ${table}
+  `;
 }
 
 function genericTemplate(section) {
@@ -448,6 +466,13 @@ function formatDateTime(value) {
   }).format(new Date(value));
 }
 
+function defaultGameStart() {
+  const start = new Date();
+  start.setDate(start.getDate() + 7);
+  start.setHours(19, 0, 0, 0);
+  return start.toISOString().slice(0, 16);
+}
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -465,6 +490,22 @@ function sessionLabel() {
 
 function formJson(form) {
   return Object.fromEntries(new FormData(form).entries());
+}
+
+function gamePayload(body) {
+  return {
+    title: body.title,
+    description: body.description,
+    gameSystem: body.gameSystem,
+    experienceLevel: body.experienceLevel,
+    startsAt: new Date(body.startsAt).toISOString(),
+    durationMinutes: Number(body.durationMinutes),
+    minPlayers: Number(body.minPlayers),
+    maxPlayers: Number(body.maxPlayers),
+    price: Number(body.price),
+    masterPublicId: body.masterPublicId,
+    staffNotes: body.staffNotes
+  };
 }
 
 function xsrfToken() {
@@ -523,6 +564,10 @@ async function runAction(action, form, sourceElement = null) {
       const record = await apiPost(`/api/v1/admin/data/${section}`, { title, payload }, true);
       state.actionStatus = `Record saved: ${record.publicId || record.title}`;
       await loadSectionData(section);
+    } else if (action === "create-game") {
+      const game = await apiPost("/api/v1/admin/games", gamePayload(body), true);
+      state.actionStatus = `Game created: ${game.title || game.id}`;
+      await loadSectionData("games");
     } else if (action === "project-launch") {
       const projectCode = sourceElement?.dataset.project;
       const result = await apiPost(`/api/v1/admin/projects/${projectCode}/launch`, {}, true);

@@ -345,6 +345,15 @@ th {
   padding: 16px;
 }
 
+.game-form {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.game-form label:has(textarea),
+.game-form button {
+  grid-column: span 2;
+}
+
 .actions {
   display: flex;
   gap: 10px;
@@ -374,7 +383,8 @@ th {
   }
 
   .metric-grid,
-  .project-grid {
+  .project-grid,
+  .game-form {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -398,8 +408,14 @@ th {
   }
 
   .metric-grid,
-  .project-grid {
+  .project-grid,
+  .game-form {
     grid-template-columns: 1fr;
+  }
+
+  .game-form label:has(textarea),
+  .game-form button {
+    grid-column: auto;
   }
 
   .table-head,
