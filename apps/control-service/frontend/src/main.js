@@ -57,8 +57,8 @@ const mock = {
     ["Заявки", "12", "4 требуют ответа"],
     ["Активные мастера", "5", "1 ждёт подтверждения"],
     ["Черновики", "9", "3 давно не менялись"],
-    ["Новые фото", "18", "mock gallery"],
-    ["Ошибки интеграций", "0", "интеграции выключены"]
+    ["Новые фото", "18", "галерея"],
+    ["Ошибки интеграций", "0", "монолит активен"]
   ],
   games: [
     ["Тайна янтарного ключа", "26.07 19:00", "Станислав", "published"],
@@ -108,7 +108,7 @@ function render() {
       <main class="workspace">
         <header class="topbar">
           <div>
-            <p class="eyebrow">Изолированный микросервис</p>
+            <p class="eyebrow">Единый монолит таверны</p>
             <h1>${sections[state.section][0]}</h1>
             <p class="session-line">${escapeHtml(sessionLabel())}</p>
           </div>
@@ -296,13 +296,13 @@ function securityTemplate() {
       <label>Пароль<input name="password" type="password" autocomplete="current-password" placeholder="CONTROL_BOOTSTRAP_OWNER_PASSWORD" /></label>
       <label>2FA code<input name="twoFactorCode" type="text" inputmode="numeric" placeholder="если включено" /></label>
       <div class="actions">
-        <button type="button" data-action="login" title="Войти в isolated control backend">Войти</button>
+        <button type="button" data-action="login" title="Войти в кабинет мастера">Войти</button>
         <button type="button" data-action="me" title="Проверить текущую session cookie">Проверить сессию</button>
       </div>
     </form>
     <div class="metric-grid">
       <article class="metric"><span>2FA OWNER/SUPERADMIN</span><strong>required</strong><small>TOTP + hashed backup codes</small></article>
-      <article class="metric"><span>Сессии</span><strong>HttpOnly</strong><small>CONTROLSESSION, SameSite Strict</small></article>
+      <article class="metric"><span>Сессии</span><strong>HttpOnly</strong><small>Кабинет мастера, SameSite Strict</small></article>
       <article class="metric"><span>Reset tokens</span><strong>hashed</strong><small>одинаковый ответ без user enumeration</small></article>
     </div>
     <form class="form-panel">
@@ -397,7 +397,7 @@ function settingsTemplate() {
   const rows = Object.entries(flags).map(([key, value]) => [key, String(value), value ? "enabled" : "disabled"]);
   const stored = toRows(state.remote.settings?.storedSettings, ["key", "value", "sensitive", "encrypted"], [
     ["mock.theme", "tavern", "false", "false"],
-    ["mock.integration.mode", "isolated", "false", "false"]
+    ["integration.mode", "monolith", "false", "false"]
   ]);
   return `
     ${tableTemplate("Feature flags", ["Key", "Value", "Status"], rows)}
@@ -407,7 +407,7 @@ function settingsTemplate() {
 
 function techTemplate() {
   const integration = state.remote.tech || {
-    mode: "isolated",
+    mode: "monolith",
     mainSiteIntegrationEnabled: false,
     telegramIntegrationEnabled: false,
     desktopAgentEnabled: false,
@@ -473,8 +473,8 @@ function gamesTemplate(section) {
       <label>Цена<input name="price" type="number" min="0" step="0.01" value="45.00" /></label>
       <label>Master public ID<input name="masterPublicId" type="text" value="usr_mock_master" /></label>
       <label>Описание<textarea name="description" rows="4">Камерная игра для тестового расписания Taverna Control.</textarea></label>
-      <label>Staff notes<textarea name="staffNotes" rows="3">Создано из isolated frontend preview.</textarea></label>
-      <button type="button" data-action="create-game" title="Создать игру в isolated control backend">Создать игру</button>
+      <label>Staff notes<textarea name="staffNotes" rows="3">Создано из кабинета мастера в монолите.</textarea></label>
+      <button type="button" data-action="create-game" title="Создать игру в основном backend">Создать игру</button>
     </form>
     ${table}
   `;
@@ -500,7 +500,7 @@ function genericTemplate(section) {
       <input name="section" type="hidden" value="${escapeHtml(section)}" />
       <label>Название<input name="title" type="text" value="Новая запись ${escapeHtml(sections[section][0])}" /></label>
       <label>Payload<textarea name="payload" rows="4">{ "source": "control-ui", "draft": true }</textarea></label>
-      <button type="button" data-action="create-record" title="Создать запись в isolated control backend">Создать запись</button>
+      <button type="button" data-action="create-record" title="Создать запись в основном backend">Создать запись</button>
     </form>
     ${tableTemplate(sections[section][1], ["ID", "Название", "Статус", "Обновлено", "Действия"], rows.map(([id, title, status, updatedAt, actions]) => [
       id,
