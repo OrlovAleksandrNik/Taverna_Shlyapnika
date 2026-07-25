@@ -5,8 +5,8 @@ nixPkgs = ["jdk21", "maven", "nodejs_22"]
 cmds = [
   "cd apps/backend-java && mvn -B -DskipTests package",
   "corepack enable",
-  "pnpm install --frozen-lockfile --filter taverna-control-frontend...",
-  "pnpm --filter taverna-control-frontend build:monolith",
+  "pnpm install --frozen-lockfile --filter taverna-master-cabinet...",
+  "pnpm --filter taverna-master-cabinet build:monolith",
   "mkdir -p .railway/static-site",
   "mkdir -p .railway/static-site/assets",
   "cp assets/hero-tavern.png .railway/static-site/assets/",
@@ -14,7 +14,7 @@ cmds = [
   "cp -R data masters .railway/static-site/",
   "cp favicon.ico .railway/static-site/",
   "cp *.html robots.txt sitemap.xml styles.css script.js .railway/static-site/",
-  "cp -R apps/control-service/frontend/dist .railway/static-site/master-cabinet"
+  "cp -R apps/master-cabinet/dist .railway/static-site/master-cabinet"
 ]
 
 [variables]

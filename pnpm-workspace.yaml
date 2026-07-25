@@ -1,6 +1,6 @@
 packages:
   - .
-  - apps/control-service/frontend
+  - apps/master-cabinet
 
 allowBuilds:
   '@prisma/client': true

@@ -61,7 +61,7 @@ importers:
         specifier: ^5.7.2
         version: 5.9.3
 
-  apps/control-service/frontend:
+  apps/master-cabinet:
     devDependencies:
       '@playwright/test':
         specifier: ^1.48.2

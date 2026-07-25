@@ -97,7 +97,7 @@ Java backend отдает:
 
 ## Railway: кабинет мастера в монолите
 
-Кабинет мастера больше не разворачивается отдельным Railway service. Корневой `Dockerfile` собирает `apps/control-service/frontend` и копирует результат в `/app/static-site/master-cabinet`.
+Кабинет мастера больше не разворачивается отдельным Railway service. Корневой `Dockerfile` собирает `apps/master-cabinet` и копирует результат в `/app/static-site/master-cabinet`.
 
 Рабочий адрес после deploy основного сайта:
 
