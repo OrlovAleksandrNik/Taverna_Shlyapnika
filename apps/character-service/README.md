@@ -45,14 +45,18 @@ Create a separate Railway service from this repository and set its root director
 apps/character-service
 ```
 
-The service has its own `railway.json` and `Dockerfile`. Attach a Railway PostgreSQL database to the service; Railway's
-standard `DATABASE_URL` variable is enough. `CHARACTER_DATABASE_URL` and `CHARACTER_DATABASE_JDBC_URL` can be used as
-explicit overrides.
+The service has its own `railway.json` and `Dockerfile` when the Railway service root directory is set to
+`apps/character-service`. If the service is connected from the monorepo root, set `RAILWAY_DOCKERFILE_PATH` to
+`apps/character-service/Dockerfile.railway`.
+
+Attach a Railway PostgreSQL database to the service; Railway's standard `DATABASE_URL` variable is enough.
+`CHARACTER_DATABASE_URL` and `CHARACTER_DATABASE_JDBC_URL` can be used as explicit overrides.
 
 Recommended Railway variables:
 
 ```text
 SPRING_PROFILES_ACTIVE=prod
+RAILWAY_DOCKERFILE_PATH=apps/character-service/Dockerfile.railway
 CHARACTER_CORS_ALLOWED_ORIGINS=https://your-site.example
 CHARACTER_API_TOKEN=<secret>
 CHARACTER_SWAGGER_UI_ENABLED=false
