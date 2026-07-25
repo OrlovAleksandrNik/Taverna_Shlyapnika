@@ -21,7 +21,8 @@ public class InternalApiTokenFilter extends OncePerRequestFilter {
   @Override
   protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
       throws ServletException, IOException {
-    if (!request.getRequestURI().startsWith("/api/internal/")) {
+    var uri = request.getRequestURI();
+    if (!uri.startsWith("/api/internal/") && !uri.startsWith("/api/v1/admin/")) {
       filterChain.doFilter(request, response);
       return;
     }

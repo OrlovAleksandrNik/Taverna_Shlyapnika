@@ -22,6 +22,8 @@ public class SecurityConfig {
         .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .authorizeHttpRequests(auth -> auth
             .requestMatchers("/api/internal/**").authenticated()
+            .requestMatchers(HttpMethod.GET, "/api/v1/admin/**").permitAll()
+            .requestMatchers("/api/v1/admin/**").authenticated()
             .requestMatchers(HttpMethod.GET, "/api/**", "/health", "/ready", "/actuator/health", "/actuator/info", "/uploads/**").permitAll()
             .requestMatchers(HttpMethod.POST, "/api/game-signups", "/api/service-requests").permitAll()
             .anyRequest().permitAll()

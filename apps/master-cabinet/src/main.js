@@ -46,6 +46,7 @@ const state = {
   twoFactorSetup: null,
   tablePrefs: loadTablePrefs(),
   actionStatus: "Ready",
+  adminToken: sessionStorage.getItem("control-admin-token") || "",
   remote: {}
 };
 
@@ -113,6 +114,7 @@ function render() {
             <p class="session-line">${escapeHtml(sessionLabel())}</p>
           </div>
           <div class="status-line" aria-live="polite">
+            <label class="admin-token">Ключ кабинета<input id="adminTokenInput" type="password" autocomplete="off" value="${escapeHtml(state.adminToken)}" /></label>
             <span><span class="dot ${state.backend === "online" ? "ok" : ""}"></span>Backend: ${state.backend}</span>
             <span class="source-badge ${dataSource}">Data: ${dataSource}</span>
           </div>
@@ -160,6 +162,14 @@ function render() {
   });
   document.querySelectorAll("[data-action]").forEach((button) => {
     button.addEventListener("click", () => runAction(button.dataset.action, button.closest("form"), button));
+  });
+  document.querySelector("#adminTokenInput")?.addEventListener("input", (event) => {
+    state.adminToken = event.target.value.trim();
+    if (state.adminToken) {
+      sessionStorage.setItem("control-admin-token", state.adminToken);
+    } else {
+      sessionStorage.removeItem("control-admin-token");
+    }
   });
   const draft = document.querySelector("#draft");
   if (draft) {
@@ -788,6 +798,7 @@ async function apiPost(path, body, csrf = false) {
     "Content-Type": "application/json"
   };
   if (csrf) headers["X-XSRF-TOKEN"] = await ensureCsrf();
+  if (state.adminToken) headers["x-internal-token"] = state.adminToken;
   const response = await fetch(`${API_BASE}${path}`, {
     method: "POST",
     credentials: "include",
@@ -809,7 +820,8 @@ async function apiDelete(path) {
     credentials: "include",
     headers: {
       Accept: "application/json",
-      "X-XSRF-TOKEN": await ensureCsrf()
+      "X-XSRF-TOKEN": await ensureCsrf(),
+      ...(state.adminToken ? { "x-internal-token": state.adminToken } : {})
     }
   });
   if (!response.ok) {
@@ -910,7 +922,7 @@ async function runAction(action, form, sourceElement = null) {
 
 function actionErrorMessage(action, error) {
   if (!error.status) return `${action}: backend is not reachable on ${API_BASE}`;
-  if (error.status === 401 || error.status === 403) return `${action}: backend answered ${error.status}; login or permission required`;
+  if (error.status === 401 || error.status === 403) return `${action}: backend answered ${error.status}; нужен ключ кабинета`;
   return `${action}: backend answered ${error.status}`;
 }
 

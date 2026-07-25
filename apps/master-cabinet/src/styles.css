@@ -183,6 +183,19 @@ nav {
   white-space: nowrap;
 }
 
+.admin-token {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--paper-2);
+  font-size: 12px;
+}
+
+.admin-token input {
+  width: 150px;
+  min-height: 32px;
+}
+
 .status-line > span {
   display: inline-flex;
   gap: 8px;

@@ -30,6 +30,18 @@ class InternalApiTokenFilterTest {
   }
 
   @Test
+  void authenticatesAdminMutationRequestWithValidToken() throws ServletException, IOException {
+    var request = new MockHttpServletRequest("POST", "/api/v1/admin/games");
+    request.addHeader("x-internal-token", "secret-token");
+    var response = new MockHttpServletResponse();
+
+    new InternalApiTokenFilter("secret-token").doFilter(request, response, new MockFilterChain());
+
+    assertThat(SecurityContextHolder.getContext().getAuthentication()).isNotNull();
+    assertThat(SecurityContextHolder.getContext().getAuthentication().isAuthenticated()).isTrue();
+  }
+
+  @Test
   void doesNotAuthenticateInternalRequestWithWrongToken() throws ServletException, IOException {
     var request = new MockHttpServletRequest("POST", "/api/internal/archive-past-games");
     request.addHeader("x-internal-token", "wrong");
