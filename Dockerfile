@@ -4,6 +4,15 @@ COPY apps/backend-java/pom.xml ./pom.xml
 COPY apps/backend-java/src ./src
 RUN mvn -B -DskipTests package
 
+FROM node:22-bookworm-slim AS control-frontend-build
+WORKDIR /workspace
+RUN corepack enable
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/control-service/frontend/package.json apps/control-service/frontend/package.json
+RUN pnpm install --frozen-lockfile --filter taverna-control-frontend...
+COPY apps/control-service/frontend apps/control-service/frontend
+RUN pnpm --filter taverna-control-frontend build:monolith
+
 FROM eclipse-temurin:21-jre-jammy
 WORKDIR /app
 # Railway root deployment: one Java service serves both API and the static site.
@@ -23,6 +32,8 @@ COPY favicon.ico /app/static-site/favicon.ico
 COPY *.html /app/static-site/
 COPY robots.txt sitemap.xml /app/static-site/
 COPY styles.css script.js /app/static-site/
+# Кабинет мастера теперь публикуется тем же монолитом по маршруту /master-cabinet/.
+COPY --from=control-frontend-build /workspace/apps/control-service/frontend/dist /app/static-site/master-cabinet
 RUN apt-get update \
   && apt-get install -y --no-install-recommends curl \
   && rm -rf /var/lib/apt/lists/* \

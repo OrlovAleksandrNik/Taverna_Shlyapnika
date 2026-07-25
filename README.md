@@ -12,7 +12,7 @@
 - Администраторы через бота управляют рейтингом игроков: добавляют участников, сыгранные игры, очки и вдохновение.
 - Backend на Express сохраняет заявки на игры и услуги, проверяет согласие на обработку персональных данных и отдаёт публичное API.
 - Prisma хранит схему, миграции и связи между мастерами, играми, заявками, согласием, аудитом и рейтингом.
-- `apps/control-service` — отдельный изолированный административный микросервис Taverna Control, подготовленный к отдельному Railway deploy без подключения к сайту.
+- Кабинет мастера собирается из `apps/control-service/frontend` и публикуется тем же монолитом по маршруту `/master-cabinet/`.
 
 ## Технологии
 
@@ -94,7 +94,7 @@ pnpm test             # сейчас алиас на pnpm check
 ├── apps/
 │   ├── backend-java/    # основной Java backend сайта
 │   ├── telegram-bot-java/
-│   └── control-service/ # отдельный Taverna Control microservice
+│   └── control-service/ # frontend кабинета мастера и старый isolated-код для постепенного переноса
 ├── masters/             # страницы мастеров
 ├── prisma/              # схема и миграции PostgreSQL
 ├── scripts/             # локальный запуск и сервисные сценарии
@@ -119,11 +119,11 @@ PostgreSQL создаётся миграциями Prisma. Основные мо
 
 Backend API подробно описан в `docs/backend.md`.
 
-## Taverna Control
+## Кабинет мастера
 
-Изолированный кабинет администратора находится в `apps/control-service`. Он разворачивается как отдельные Railway services `control-backend` и `control-frontend` с отдельной PostgreSQL DB и выключенными интеграциями с сайтом.
+Кабинет мастера теперь входит в основной монолит. Frontend находится в `apps/control-service/frontend`, собирается командой `pnpm --filter taverna-control-frontend build:monolith` и публикуется вместе с сайтом по адресу `/master-cabinet/`.
 
-Railway-гид: `docs/control-service-railway.md`.
+Старый backend из `apps/control-service/backend` пока оставлен как исходник для поэтапного переноса сценариев в основной backend, но новая рабочая схема не требует отдельного Railway-сервиса кабинета.
 
 ## Telegram-бот
 

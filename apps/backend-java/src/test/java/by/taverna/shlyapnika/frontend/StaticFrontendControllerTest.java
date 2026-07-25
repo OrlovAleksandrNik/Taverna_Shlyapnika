@@ -39,6 +39,19 @@ class StaticFrontendControllerTest {
   }
 
   @Test
+  void returnsMasterCabinetSpaEntryWhenFrontendServingIsEnabled() throws Exception {
+    var cabinetDir = Files.createDirectories(staticDir.resolve("master-cabinet"));
+    Files.writeString(cabinetDir.resolve("index.html"), "<!doctype html><title>Кабинет мастера</title>", StandardCharsets.UTF_8);
+    var controller = new StaticFrontendController(properties(true, staticDir));
+
+    var response = controller.masterCabinet();
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(response.getBody()).isNotNull();
+    assertThat(response.getBody().exists()).isTrue();
+  }
+
+  @Test
   void returnsNotFoundWhenFrontendServingIsDisabled() {
     var controller = new StaticFrontendController(properties(false, staticDir));
 

@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 4191",
     "build": "vite build",
+    "build:monolith": "vite build --base=./",
     "preview": "vite preview --host 0.0.0.0 --port 4191",
     "test": "node scripts/frontend-smoke-test.mjs && node scripts/role-navigation-test.mjs && node scripts/action-contract-test.mjs",
     "test:e2e": "playwright test",

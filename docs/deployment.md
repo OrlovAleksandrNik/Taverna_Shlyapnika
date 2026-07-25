@@ -1,4 +1,4 @@
-# Развертывание
+﻿# Развертывание
 
 ## Локальная разработка
 
@@ -95,22 +95,19 @@ Java backend отдает:
 
 Для polling не включайте несколько реплик одного и того же бота, иначе Telegram может вернуть `409 Conflict`.
 
-## Railway: Taverna Control
+## Railway: кабинет мастера в монолите
 
-Административный кабинет `apps/control-service` добавлен как отдельный микросервис и не подключается к публичному сайту.
+Кабинет мастера больше не разворачивается отдельным Railway service. Корневой `Dockerfile` собирает `apps/control-service/frontend` и копирует результат в `/app/static-site/master-cabinet`.
 
-Безопасная схема:
+Рабочий адрес после deploy основного сайта:
 
-- использовать отдельный Railway service `control-frontend` с root directory `apps/control-service`;
-- этот service работает как combined deploy: Spring Boot API + static admin UI;
-- использовать отдельный PostgreSQL service `Postgres-jr3Q` только для Control;
-- не использовать `DATABASE_URL` основного сайта;
-- оставить `CONTROL_MAIN_SITE_INTEGRATION_ENABLED=false`, `CONTROL_TELEGRAM_INTEGRATION_ENABLED=false`, `CONTROL_DESKTOP_AGENT_ENABLED=false`.
+```text
+https://<site-domain>/master-cabinet/
+```
 
-Combined deploy выбран из-за лимита Railway Free plan на количество ресурсов. При расширении тарифа его можно разделить на `control-backend` и `control-frontend` без изменения публичного сайта.
+Frontend кабинета использует same-origin API. Это значит, что в монолитном режиме `CONTROL_API_BASE` должен быть пустым или не заданным, а новые административные endpoint'ы постепенно добавляются в основной Java backend.
 
-Подробный гид: `docs/control-service-railway.md`.
-
+Старый `apps/control-service/backend` пока не удалён физически: он служит исходником для переноса сценариев авторизации, ролей, аудита, расписания, заявок, галереи и рейтинга в основной backend. Отдельный Railway-гид `docs/control-service-railway.md` считается архивной справкой и не описывает новую рабочую схему.
 ## HTTPS и Telegram
 
 Для polling нужен только исходящий доступ к Telegram API.
