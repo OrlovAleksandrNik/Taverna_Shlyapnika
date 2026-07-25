@@ -59,6 +59,36 @@ services:
     depends_on:
       - backend-java
 
+  character-postgres:
+    profiles:
+      - character
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: taverna_characters
+      POSTGRES_USER: character
+      POSTGRES_PASSWORD: character
+    ports:
+      - "5435:5432"
+    volumes:
+      - character_postgres_data:/var/lib/postgresql/data
+
+  character-service:
+    profiles:
+      - character
+    build:
+      context: ./apps/character-service
+    environment:
+      PORT: 4192
+      CHARACTER_DATABASE_URL: jdbc:postgresql://character-postgres:5432/taverna_characters
+      CHARACTER_DATABASE_USERNAME: character
+      CHARACTER_DATABASE_PASSWORD: character
+      CHARACTER_CORS_ALLOWED_ORIGINS: http://localhost:4177,http://localhost:4191,http://localhost:4192
+    ports:
+      - "4192:4192"
+    depends_on:
+      - character-postgres
+
 volumes:
   postgres_data:
+  character_postgres_data:
   uploads:

@@ -1,0 +1,12 @@
+package by.taverna.shlyapnika.characters.character;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface CharacterSheetRepository extends JpaRepository<CharacterSheet, UUID> {
+  List<CharacterSheet> findTop50ByOwnerAccountIdAndDeletedAtIsNullOrderByUpdatedAtDesc(String ownerAccountId);
+
+  Optional<CharacterSheet> findByPublicIdAndDeletedAtIsNull(String publicId);
+}

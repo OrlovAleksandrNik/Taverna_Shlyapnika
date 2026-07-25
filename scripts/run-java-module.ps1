@@ -1,6 +1,6 @@
 param(
   [Parameter(Mandatory = $true, Position = 0)]
-  [ValidateSet("backend", "bot")]
+  [ValidateSet("backend", "bot", "character")]
   [string]$Module,
 
   [Parameter(ValueFromRemainingArguments = $true)]
@@ -65,13 +65,23 @@ $env:PATH = "$env:JAVA_HOME\bin;$env:PATH"
 $modulePath = switch ($Module) {
   "backend" { Join-Path $buildRoot "apps\backend-java" }
   "bot" { Join-Path $buildRoot "apps\telegram-bot-java" }
+  "character" { Join-Path $buildRoot "apps\character-service" }
 }
 
 Push-Location $modulePath
 $exitCode = 0
 try {
   Write-Host "Running Java $Module module with Maven arguments: $($MavenArgs -join ' ')"
-  & ".\mvnw.cmd" @MavenArgs
+  $moduleMvnw = Join-Path $modulePath "mvnw.cmd"
+  if (Test-Path $moduleMvnw) {
+    & $moduleMvnw @MavenArgs
+  } else {
+    $sharedMaven = Join-Path $buildRoot "apps\backend-java\.mvn\apache-maven-3.9.9\bin\mvn.cmd"
+    if (-not (Test-Path $sharedMaven)) {
+      throw "Maven was not found. Run scripts\bootstrap-java.ps1 first."
+    }
+    & $sharedMaven @MavenArgs
+  }
   $exitCode = $LASTEXITCODE
 } finally {
   Pop-Location

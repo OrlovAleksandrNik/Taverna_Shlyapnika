@@ -21,6 +21,7 @@ apps/control-service/backend/target/
 apps/telegram-bot-java/target/
 apps/telegram-bot-java/.mvn/apache-maven-*/
 apps/telegram-bot-java/.mvn/apache-maven-*.zip
+apps/character-service/target/
 
 # Runtime data
 assets/source/
