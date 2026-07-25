@@ -327,6 +327,12 @@ td {
   white-space: nowrap;
 }
 
+td.empty-cell {
+  color: rgba(244, 235, 211, 0.58);
+  font-style: italic;
+  text-align: center;
+}
+
 th {
   color: var(--paper-2);
   font-size: 12px;

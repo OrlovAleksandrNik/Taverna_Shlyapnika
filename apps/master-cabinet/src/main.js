@@ -206,7 +206,7 @@ function overviewTemplate() {
   const games = snapshot?.upcomingGames?.map((game) => [
     game.title,
     formatDateTime(game.startsAt),
-    game.master,
+    game.masterName || game.masterPublicId,
     game.status
   ]) || mock.games;
   const actions = snapshot?.recentActions?.map((action) => [
@@ -436,43 +436,39 @@ function techTemplate() {
 }
 
 function gamesTemplate(section) {
-  const fallback = section === "games" ? mock.games : mock.games.map((row) => [row[0], row[1], row[2], row[3]]);
   const records = recordsFromPayload(state.remote[section]);
-  const rows = records.length ? records.map((game) => [
+  const rows = records.map((game) => [
     game.title,
     formatDateTime(game.startsAt),
-    game.masterPublicId || "unassigned",
+    game.masterName || game.masterPublicId || "unassigned",
     game.status,
     actionButtons([
       ["publish-game", "Опубликовать", game.id],
       ["cancel-game", "Отменить", game.id],
       ["delete-game", "Удалить", game.id]
     ])
-  ]) : fallback.map(([title, startsAt, master, status]) => [
-    title,
-    formatDateTime(startsAt),
-    master || "unassigned",
-    status,
-    actionButtons([
-      ["publish-game", "Опубликовать", ""],
-      ["cancel-game", "Отменить", ""],
-      ["delete-game", "Удалить", ""]
-    ])
   ]);
   const table = tableTemplate(sections[section][1], ["Игра", "Дата", "Мастер", "Статус", "Действия"], rows);
   if (section === "schedule") return table;
+  const masters = recordsFromPayload(state.remote.masters);
+  const masterControl = masters.length
+    ? `<label>Мастер<select name="masterPublicId">${masters.map((master) => `<option value="${escapeHtml(master.publicId)}">${escapeHtml(master.title)}</option>`).join("")}</select></label>`
+    : `<label>Мастер<input name="masterPublicId" type="text" placeholder="ID мастера из базы" /></label>`;
   return `
     <form class="form-panel game-form">
       <label>Название<input name="title" type="text" value="Новая игра" /></label>
       <label>Система<input name="gameSystem" type="text" value="D&D 5e" /></label>
       <label>Уровень<input name="experienceLevel" type="text" value="newcomer-friendly" /></label>
+      <label>Возраст<input name="ageRating" type="text" value="12+" /></label>
       <label>Старт<input name="startsAt" type="datetime-local" value="${defaultGameStart()}" /></label>
       <label>Мин. игроков<input name="minPlayers" type="number" min="1" value="3" /></label>
       <label>Макс. игроков<input name="maxPlayers" type="number" min="1" value="5" /></label>
       <label>Длительность<input name="durationMinutes" type="number" min="30" step="30" value="180" /></label>
       <label>Цена<input name="price" type="number" min="0" step="0.01" value="45.00" /></label>
-      <label>Master public ID<input name="masterPublicId" type="text" value="usr_mock_master" /></label>
-      <label>Описание<textarea name="description" rows="4">Камерная игра для тестового расписания Taverna Control.</textarea></label>
+      <label>Валюта<input name="currency" type="text" value="BYN" /></label>
+      ${masterControl}
+      <label>Ссылка записи<input name="contactUrl" type="text" value="https://t.me/Taverna_Shlyapnika" /></label>
+      <label>Описание<textarea name="description" rows="4">Камерная игра для афиши Таверны Шляпника.</textarea></label>
       <label>Staff notes<textarea name="staffNotes" rows="3">Создано из кабинета мастера в монолите.</textarea></label>
       <button type="button" data-action="create-game" title="Создать игру в основном backend">Создать игру</button>
     </form>
@@ -530,6 +526,9 @@ function tableTemplate(title, headers, rows) {
   const maxPage = Math.max(1, Math.ceil(sorted.length / pageSize));
   const page = Math.min(Math.max(Number(prefs.page || 1), 1), maxPage);
   const pagedRows = sorted.slice((page - 1) * pageSize, page * pageSize);
+  const bodyRows = pagedRows.length
+    ? pagedRows.map((row, index) => `<tr><td><input type="checkbox" aria-label="Выбрать строку ${index + 1}" /></td>${row.map((cell) => `<td>${cellTemplate(cell)}</td>`).join("")}</tr>`).join("")
+    : `<tr><td colspan="${headers.length + 1}" class="empty-cell">Данных пока нет</td></tr>`;
   return `
     <section class="table-block ${prefs.columns === "compact" ? "compact" : ""}" data-table-key="${escapeHtml(key)}">
       <div class="table-head">
@@ -554,7 +553,7 @@ function tableTemplate(title, headers, rows) {
       <div class="table-scroll">
         <table>
           <thead><tr><th><input type="checkbox" aria-label="Выбрать все строки" /></th>${headers.map((head) => `<th>${escapeHtml(head)}</th>`).join("")}</tr></thead>
-          <tbody>${pagedRows.map((row, index) => `<tr><td><input type="checkbox" aria-label="Выбрать строку ${index + 1}" /></td>${row.map((cell) => `<td>${cellTemplate(cell)}</td>`).join("")}</tr>`).join("")}</tbody>
+          <tbody>${bodyRows}</tbody>
         </table>
       </div>
       <div class="table-foot">
@@ -754,12 +753,15 @@ function gamePayload(body) {
     description: body.description,
     gameSystem: body.gameSystem,
     experienceLevel: body.experienceLevel,
+    ageRating: body.ageRating,
     startsAt: new Date(body.startsAt).toISOString(),
     durationMinutes: Number(body.durationMinutes),
     minPlayers: Number(body.minPlayers),
     maxPlayers: Number(body.maxPlayers),
     price: Number(body.price),
+    currency: body.currency,
     masterPublicId: body.masterPublicId,
+    contactUrl: body.contactUrl,
     staffNotes: body.staffNotes
   };
 }
@@ -772,7 +774,11 @@ function xsrfToken() {
 }
 
 async function ensureCsrf() {
-  await apiGet("/api/v1/auth/csrf");
+  try {
+    await apiGet("/api/v1/auth/csrf");
+  } catch {
+    return "";
+  }
   return decodeURIComponent(xsrfToken() || "");
 }
 
@@ -996,3 +1002,4 @@ async function loadSectionData(section) {
 render();
 checkBackend();
 loadSectionData(state.section);
+loadSectionData("masters");

@@ -1,5 +1,8 @@
 package by.taverna.shlyapnika.control.api;
 
+import by.taverna.shlyapnika.audit.AuditService;
+import by.taverna.shlyapnika.common.Ids;
+import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -7,17 +10,24 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 public class MonolithControlController {
   private final JdbcTemplate jdbcTemplate;
+  private final AuditService auditService;
 
-  public MonolithControlController(JdbcTemplate jdbcTemplate) {
+  public MonolithControlController(JdbcTemplate jdbcTemplate, AuditService auditService) {
     this.jdbcTemplate = jdbcTemplate;
+    this.auditService = auditService;
   }
 
   @GetMapping("/api/v1/admin/dashboard")
@@ -66,6 +76,60 @@ public class MonolithControlController {
       @RequestParam(defaultValue = "20") int size
   ) {
     return new ItemsResponse<>(gameRows(false, page, size), page, size);
+  }
+
+  @PostMapping("/api/v1/admin/games")
+  @ResponseStatus(HttpStatus.CREATED)
+  public GameRowDto createGame(@RequestBody AdminGameRequest request) {
+    var master = findMaster(request.masterPublicId());
+    var id = Ids.newId("gm");
+    var startsAt = Instant.parse(required(request.startsAt(), "startsAt"));
+    var durationMinutes = positiveOrDefault(request.durationMinutes(), 180);
+    var endsAt = startsAt.plusSeconds(durationMinutes.longValue() * 60);
+    var status = "draft";
+    jdbcTemplate.update("""
+        insert into "Game" (
+          "id", "masterId", "title", "description", "gameSystem", "experienceLevel", "ageRating",
+          "dateTimeStart", "durationMinutes", "dateTimeEnd", "minPlayers", "maxPlayers",
+          "price", "currency", "imageUrl", "contactUrl", "status", "createdAt", "updatedAt"
+        )
+        values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, null, ?, ?::"GameStatus", current_timestamp, current_timestamp)
+        """,
+        id,
+        master.id(),
+        textOrDefault(request.title(), "Новая игра"),
+        textOrDefault(request.description(), "Описание будет добавлено мастером."),
+        textOrDefault(request.gameSystem(), "D&D 5e"),
+        textOrDefault(request.experienceLevel(), "любой уровень"),
+        textOrDefault(request.ageRating(), "12+"),
+        Timestamp.from(startsAt),
+        durationMinutes,
+        Timestamp.from(endsAt),
+        positiveOrDefault(request.minPlayers(), 1),
+        positiveOrDefault(request.maxPlayers(), 5),
+        request.price() == null ? BigDecimal.ZERO : request.price(),
+        textOrDefault(request.currency(), "BYN"),
+        textOrDefault(request.contactUrl(), master.contactUrl()),
+        status
+    );
+    auditService.write("master-cabinet", "game.created_from_cabinet", "Game", id, "{\"status\":\"draft\"}");
+    return new GameRowDto(id, textOrDefault(request.title(), "Новая игра"), startsAt, master.id(), master.displayName(), textOrDefault(request.gameSystem(), "D&D 5e"), status);
+  }
+
+  @PostMapping("/api/v1/admin/games/{id}/publish")
+  public GameRowDto publishGame(@PathVariable String id) {
+    return setGameStatus(id, "published", "game.published_from_cabinet");
+  }
+
+  @PostMapping("/api/v1/admin/games/{id}/cancel")
+  public GameRowDto cancelGame(@PathVariable String id) {
+    return setGameStatus(id, "cancelled", "game.cancelled_from_cabinet");
+  }
+
+  @DeleteMapping("/api/v1/admin/games/{id}")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  public void archiveGame(@PathVariable String id) {
+    setGameStatus(id, "archived", "game.archived_from_cabinet");
   }
 
   @GetMapping("/api/v1/admin/schedule")
@@ -264,6 +328,71 @@ public class MonolithControlController {
     return value == null ? 0 : value;
   }
 
+  private GameRowDto setGameStatus(String id, String status, String action) {
+    jdbcTemplate.update("""
+        update "Game"
+        set "status" = ?::"GameStatus",
+            "publishedAt" = case when ? = 'published' and "publishedAt" is null then current_timestamp else "publishedAt" end,
+            "cancelledAt" = case when ? = 'cancelled' then current_timestamp else "cancelledAt" end,
+            "completedAt" = case when ? in ('completed', 'archived') then current_timestamp else "completedAt" end,
+            "updatedAt" = current_timestamp
+        where "id" = ?
+        """, status, status, status, status, id);
+    auditService.write("master-cabinet", action, "Game", id, "{\"status\":\"" + status + "\"}");
+    return gameById(id);
+  }
+
+  private GameRowDto gameById(String id) {
+    return jdbcTemplate.queryForObject("""
+        select g."id", g."title", g."dateTimeStart", g."status",
+               g."gameSystem", m."id" as "masterId", m."displayName" as "masterName"
+        from "Game" g
+        join "Master" m on m."id" = g."masterId"
+        where g."id" = ?
+        """, (rs, rowNum) -> new GameRowDto(
+            rs.getString("id"),
+            rs.getString("title"),
+            instant(rs, "dateTimeStart"),
+            rs.getString("masterId"),
+            rs.getString("masterName"),
+            rs.getString("gameSystem"),
+            rs.getString("status")
+        ), id);
+  }
+
+  private MasterOptionDto findMaster(String masterId) {
+    var requestedId = masterId == null || masterId.isBlank() ? null : masterId.trim();
+    var rows = requestedId == null
+        ? jdbcTemplate.query("""
+            select "id", "displayName", "contactUrl"
+            from "Master"
+            where "status" = 'active'
+            order by "displayName" asc
+            limit 1
+            """, (rs, rowNum) -> new MasterOptionDto(rs.getString("id"), rs.getString("displayName"), rs.getString("contactUrl")))
+        : jdbcTemplate.query("""
+            select "id", "displayName", "contactUrl"
+            from "Master"
+            where "id" = ?
+            limit 1
+            """, (rs, rowNum) -> new MasterOptionDto(rs.getString("id"), rs.getString("displayName"), rs.getString("contactUrl")), requestedId);
+    if (rows.isEmpty()) throw new IllegalArgumentException("Мастер для игры не найден.");
+    return rows.get(0);
+  }
+
+  private static String required(String value, String field) {
+    if (value == null || value.isBlank()) throw new IllegalArgumentException("Поле " + field + " обязательно.");
+    return value.trim();
+  }
+
+  private static String textOrDefault(String value, String fallback) {
+    return value == null || value.isBlank() ? fallback : value.trim();
+  }
+
+  private static Integer positiveOrDefault(Integer value, int fallback) {
+    return value == null || value < 1 ? fallback : value;
+  }
+
   private static Instant instant(ResultSet rs, String column) throws SQLException {
     Timestamp timestamp = rs.getTimestamp(column);
     return timestamp == null ? null : timestamp.toInstant();
@@ -303,5 +432,26 @@ public class MonolithControlController {
   }
 
   public record ActionDto(String actorPublicId, String action, String entityType, Instant createdAt) {
+  }
+
+  public record MasterOptionDto(String id, String displayName, String contactUrl) {
+  }
+
+  public record AdminGameRequest(
+      String title,
+      String description,
+      String gameSystem,
+      String experienceLevel,
+      String ageRating,
+      String startsAt,
+      Integer durationMinutes,
+      Integer minPlayers,
+      Integer maxPlayers,
+      BigDecimal price,
+      String currency,
+      String masterPublicId,
+      String contactUrl,
+      String staffNotes
+  ) {
   }
 }
