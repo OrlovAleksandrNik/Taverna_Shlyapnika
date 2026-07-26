@@ -219,21 +219,20 @@ function projectsTemplate() {
 }
 
 function usersTemplate() {
-  const accountRows = toRows(state.remote.users, ["publicId", "email", "roles", "status"], []);
+  const accounts = recordsFromPayload(state.remote.users);
+  const accountRows = accounts.map((account) => [
+    account.publicId,
+    account.email || "telegram не указан",
+    Array.isArray(account.roles) ? account.roles.join(", ") : account.roles,
+    account.status,
+    actionButtons([
+      ["activate-master", "Активировать", account.publicId, "users"],
+      ["block-master", "Заблокировать", account.publicId, "users"]
+    ])
+  ]);
   return `
-    <p class="note">Приглашения и смена ролей будут перенесены после основного кабинета мастера. Сейчас раздел показывает реальные профили мастеров из монолита.</p>
-    ${tableTemplate("Роли", ["Роль", "Смысл", "2FA"], [
-      ["OWNER", "Полный доступ, последнего удалить нельзя", "required"],
-      ["SUPERADMIN", "Администрирование системы", "required"],
-      ["MASTER", "Свои игры, расписание, программы", "optional"]
-    ])}
-    ${tableTemplate("Операции аккаунтов", ["Операция", "Permission", "Audit", "Защита"], [
-      ["Назначить роли", "users.assign_roles", "yes", "последний OWNER защищён"],
-      ["Блокировать", "users.block", "yes", "последний OWNER защищён"],
-      ["Деактивировать", "users.update", "yes", "soft state"],
-      ["Удалить", "users.update", "yes", "soft delete"]
-    ])}
-    ${tableTemplate("Accounts", ["ID", "Email", "Roles", "Status"], accountRows)}
+    <p class="note">Раздел показывает реальные Telegram-профили мастеров из таблицы Master. Полная система ролей и приглашений будет перенесена отдельным защищённым шагом.</p>
+    ${tableTemplate("Профили мастеров", ["ID", "Telegram", "Роль", "Статус", "Действия"], accountRows)}
   `;
 }
 
@@ -862,11 +861,11 @@ async function runAction(action, form, sourceElement = null) {
     } else if (action === "activate-master") {
       const master = await apiPost(`/api/v1/admin/masters/${sourceElement?.dataset.id}/activate`, {}, true);
       state.actionStatus = `Master activated: ${master.title || master.publicId}`;
-      await loadSectionData("masters");
+      await loadSectionData(sourceElement?.dataset.sectionKey || "masters");
     } else if (action === "block-master") {
       const master = await apiPost(`/api/v1/admin/masters/${sourceElement?.dataset.id}/block`, {}, true);
       state.actionStatus = `Master blocked: ${master.title || master.publicId}`;
-      await loadSectionData("masters");
+      await loadSectionData(sourceElement?.dataset.sectionKey || "masters");
     } else {
       state.actionStatus = `${action}: действие ещё не перенесено в монолит`;
     }
