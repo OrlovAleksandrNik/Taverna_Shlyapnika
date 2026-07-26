@@ -53,4 +53,15 @@ class WebConfigTest {
         .andExpect(status().isOk())
         .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "null"));
   }
+
+  @Test
+  void allowsDeletePreflightForMasterCabinetActions() throws Exception {
+    mvc.perform(options("/api/v1/admin/gallery/posts/gallery-test")
+            .header(HttpHeaders.ORIGIN, "http://localhost:4177")
+            .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "DELETE")
+            .header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, "x-internal-token"))
+        .andExpect(status().isOk())
+        .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://localhost:4177"))
+        .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS, "GET,POST,PATCH,DELETE,OPTIONS"));
+  }
 }
