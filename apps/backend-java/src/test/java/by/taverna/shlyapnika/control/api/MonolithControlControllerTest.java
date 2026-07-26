@@ -13,6 +13,7 @@ import static org.mockito.Mockito.when;
 
 import by.taverna.shlyapnika.audit.AuditService;
 import java.math.BigDecimal;
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -84,6 +85,35 @@ class MonolithControlControllerTest {
         .andExpect(jsonPath("$.storedSettings[5].key").value("internalApiToken"))
         .andExpect(jsonPath("$.storedSettings[5].value").value("configured"))
         .andExpect(jsonPath("$.storedSettings[5].sensitive").value(true));
+  }
+
+  @Test
+  @SuppressWarnings({"unchecked", "rawtypes"})
+  void filtersScheduleByRequestedRange() throws Exception {
+    var from = Instant.parse("2026-07-20T00:00:00Z");
+    var to = Instant.parse("2026-07-27T00:00:00Z");
+    when(jdbcTemplate.query(
+        contains("where g.\"dateTimeStart\" >= ?"),
+        any(RowMapper.class),
+        eq(Timestamp.from(from)),
+        eq(Timestamp.from(to)),
+        eq(100)
+    )).thenReturn(List.of(new MonolithControlController.GameRowDto(
+        "gm_1",
+        "Игра недели",
+        Instant.parse("2026-07-22T18:00:00Z"),
+        "mst_1",
+        "Александр",
+        "D&D 5e",
+        "published"
+    )));
+
+    mvc.perform(get("/api/v1/admin/schedule")
+            .param("from", from.toString())
+            .param("to", to.toString()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.content[0].id").value("gm_1"))
+        .andExpect(jsonPath("$.content[0].title").value("Игра недели"));
   }
 
   @Test

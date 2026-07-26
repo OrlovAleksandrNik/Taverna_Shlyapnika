@@ -182,7 +182,9 @@ public class MonolithControlController {
       @RequestParam(required = false) String from,
       @RequestParam(required = false) String to
   ) {
-    return new ItemsResponse<>(gameRows(true, 0, 100), 0, 100);
+    var fromInstant = trimToNull(from) == null ? Instant.now() : Instant.parse(from);
+    var toInstant = trimToNull(to) == null ? fromInstant.plusSeconds(45L * 24 * 60 * 60) : Instant.parse(to);
+    return new ItemsResponse<>(gameRowsBetween(fromInstant, toInstant, 100), 0, 100);
   }
 
   @GetMapping("/api/v1/admin/gallery/posts")
@@ -407,6 +409,27 @@ public class MonolithControlController {
             rs.getString("gameSystem"),
             rs.getString("status")
         ), limit);
+  }
+
+  private List<GameRowDto> gameRowsBetween(Instant from, Instant to, int limit) {
+    return jdbcTemplate.query("""
+        select g."id", g."title", g."dateTimeStart", g."status",
+               g."gameSystem", m."id" as "masterId", m."displayName" as "masterName"
+        from "Game" g
+        join "Master" m on m."id" = g."masterId"
+        where g."dateTimeStart" >= ?
+          and g."dateTimeStart" <= ?
+        order by g."dateTimeStart" asc
+        limit ?
+        """, (rs, rowNum) -> new GameRowDto(
+            rs.getString("id"),
+            rs.getString("title"),
+            instant(rs, "dateTimeStart"),
+            rs.getString("masterId"),
+            rs.getString("masterName"),
+            rs.getString("gameSystem"),
+            rs.getString("status")
+        ), Timestamp.from(from), Timestamp.from(to), limit);
   }
 
   private List<ControlRecordDto> serviceRequests(int limit, int offset) {
