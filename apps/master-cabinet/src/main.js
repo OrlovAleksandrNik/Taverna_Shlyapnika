@@ -154,6 +154,7 @@ function sectionTemplate(section) {
   if (section === "overview") return overviewTemplate();
   if (section === "games" || section === "schedule") return gamesTemplate(section);
   if (section === "applications" || section === "services") return serviceRequestsTemplate(section);
+  if (section === "masters") return mastersTemplate(section);
   if (section === "projects") return projectsTemplate();
   if (section === "users") return usersTemplate();
   if (section === "players" || section === "rating") return ratingTemplate(section);
@@ -402,6 +403,24 @@ function serviceRequestsTemplate(section) {
   return `
     <p class="note">Заявки приходят из формы сайта и сохраняются в ServiceRequest. Контакты клиентов не показываются в таблице кабинета.</p>
     ${tableTemplate(sections[section][1], ["ID", "Услуга", "Статус", "Обновлено", "Действия"], rows)}
+  `;
+}
+
+function mastersTemplate(section) {
+  const records = recordsFromPayload(state.remote[section]);
+  const rows = records.map((record) => [
+    record.publicId,
+    record.title,
+    record.status,
+    record.updatedAt ? formatDateTime(record.updatedAt) : "",
+    actionButtons([
+      ["activate-master", "Активировать", record.publicId, section],
+      ["block-master", "Заблокировать", record.publicId, section]
+    ])
+  ]);
+  return `
+    <p class="note">Профили мастеров читаются из основной таблицы Master. Блокировка отключает мастера от активных сценариев без удаления истории.</p>
+    ${tableTemplate(sections[section][1], ["ID", "Мастер", "Статус", "Обновлено", "Действия"], rows)}
   `;
 }
 
@@ -840,6 +859,14 @@ async function runAction(action, form, sourceElement = null) {
       const request = await apiPost(`/api/v1/admin/service-requests/${sourceElement?.dataset.id}/close`, {}, true);
       state.actionStatus = `Service request closed: ${request.publicId}`;
       await loadSectionData(sourceElement?.dataset.sectionKey || "applications");
+    } else if (action === "activate-master") {
+      const master = await apiPost(`/api/v1/admin/masters/${sourceElement?.dataset.id}/activate`, {}, true);
+      state.actionStatus = `Master activated: ${master.title || master.publicId}`;
+      await loadSectionData("masters");
+    } else if (action === "block-master") {
+      const master = await apiPost(`/api/v1/admin/masters/${sourceElement?.dataset.id}/block`, {}, true);
+      state.actionStatus = `Master blocked: ${master.title || master.publicId}`;
+      await loadSectionData("masters");
     } else {
       state.actionStatus = `${action}: действие ещё не перенесено в монолит`;
     }

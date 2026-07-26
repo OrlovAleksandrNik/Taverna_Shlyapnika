@@ -167,6 +167,16 @@ public class MonolithControlController {
     return setServiceRequestStatus(id, "closed", "service_request.closed_from_cabinet");
   }
 
+  @PostMapping("/api/v1/admin/masters/{id}/activate")
+  public ControlRecordDto activateMaster(@PathVariable String id) {
+    return setMasterStatus(id, "active", "master.activated_from_cabinet");
+  }
+
+  @PostMapping("/api/v1/admin/masters/{id}/block")
+  public ControlRecordDto blockMaster(@PathVariable String id) {
+    return setMasterStatus(id, "blocked", "master.blocked_from_cabinet");
+  }
+
   @GetMapping("/api/v1/admin/schedule")
   public ItemsResponse<GameRowDto> schedule(
       @RequestParam(required = false) String from,
@@ -444,6 +454,30 @@ public class MonolithControlController {
             rs.getString("status"),
             instant(rs, "updatedAt")
         ), limit, offset);
+  }
+
+  private ControlRecordDto setMasterStatus(String id, String status, String action) {
+    jdbcTemplate.update("""
+        update "Master"
+        set "status" = ?::"MasterStatus",
+            "updatedAt" = current_timestamp
+        where "id" = ?
+        """, status, id);
+    auditService.write("master-cabinet", action, "Master", id, "{\"status\":\"" + status + "\"}");
+    return masterById(id);
+  }
+
+  private ControlRecordDto masterById(String id) {
+    return jdbcTemplate.queryForObject("""
+        select "id", "displayName", "status", "updatedAt"
+        from "Master"
+        where "id" = ?
+        """, (rs, rowNum) -> new ControlRecordDto(
+            rs.getString("id"),
+            rs.getString("displayName"),
+            rs.getString("status"),
+            instant(rs, "updatedAt")
+        ), id);
   }
 
   private List<ControlRecordDto> ratingPlayers(int limit, int offset) {

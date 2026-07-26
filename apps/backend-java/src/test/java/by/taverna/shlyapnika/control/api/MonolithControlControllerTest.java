@@ -210,4 +210,31 @@ class MonolithControlControllerTest {
     );
   }
 
+  @Test
+  @SuppressWarnings({"unchecked", "rawtypes"})
+  void blocksMasterFromMasterCabinet() throws Exception {
+    when(jdbcTemplate.update(contains("update \"Master\""), eq("blocked"), eq("mst_test")))
+        .thenReturn(1);
+    when(jdbcTemplate.queryForObject(contains("from \"Master\""), any(RowMapper.class), eq("mst_test")))
+        .thenReturn(new MonolithControlController.ControlRecordDto(
+            "mst_test",
+            "Александр",
+            "blocked",
+            Instant.parse("2026-07-19T12:00:00Z")
+        ));
+
+    mvc.perform(post("/api/v1/admin/masters/mst_test/block"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.publicId").value("mst_test"))
+        .andExpect(jsonPath("$.status").value("blocked"));
+
+    verify(auditService).write(
+        eq("master-cabinet"),
+        eq("master.blocked_from_cabinet"),
+        eq("Master"),
+        eq("mst_test"),
+        contains("\"status\":\"blocked\"")
+    );
+  }
+
 }

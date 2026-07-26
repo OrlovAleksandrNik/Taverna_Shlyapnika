@@ -18,7 +18,9 @@ const contracts = [
   ["apiPost(`/api/v1/admin/gallery/posts/${sourceElement?.dataset.id}/hide`, {}, true)", "gallery hide endpoint with CSRF"],
   ["apiDelete(`/api/v1/admin/gallery/posts/${sourceElement?.dataset.id}`)", "gallery delete endpoint with CSRF"],
   ["apiPost(`/api/v1/admin/service-requests/${sourceElement?.dataset.id}/contact`, {}, true)", "service request contact endpoint with CSRF"],
-  ["apiPost(`/api/v1/admin/service-requests/${sourceElement?.dataset.id}/close`, {}, true)", "service request close endpoint with CSRF"]
+  ["apiPost(`/api/v1/admin/service-requests/${sourceElement?.dataset.id}/close`, {}, true)", "service request close endpoint with CSRF"],
+  ["apiPost(`/api/v1/admin/masters/${sourceElement?.dataset.id}/activate`, {}, true)", "master activate endpoint with CSRF"],
+  ["apiPost(`/api/v1/admin/masters/${sourceElement?.dataset.id}/block`, {}, true)", "master block endpoint with CSRF"]
 ];
 
 for (const [needle, label] of contracts) {
