@@ -90,8 +90,8 @@ function render() {
           </div>
           <div class="status-line" aria-live="polite">
             <label class="admin-token">Ключ кабинета<input id="adminTokenInput" type="password" autocomplete="off" value="${escapeHtml(state.adminToken)}" /></label>
-            <span><span class="dot ${state.backend === "online" ? "ok" : ""}"></span>Backend: ${state.backend}</span>
-            <span class="source-badge ${dataSource}">Data: ${dataSource}</span>
+            <span><span class="dot ${state.backend === "online" ? "ok" : ""}"></span>Backend: <span data-backend-output>${state.backend}</span></span>
+            <span class="source-badge ${dataSource}" data-source-output>Data: ${dataSource}</span>
           </div>
         </header>
         <section class="content">
@@ -902,7 +902,14 @@ function updateBackendStatus() {
   const statusLine = document.querySelector(".status-line");
   if (statusLine) {
     const dataSource = sectionDataSource(state.section);
-    statusLine.innerHTML = `<span><span class="dot ${state.backend === "online" ? "ok" : ""}"></span>Backend: ${state.backend}</span><span class="source-badge ${dataSource}">Data: ${dataSource}</span>`;
+    statusLine.querySelector(".dot")?.classList.toggle("ok", state.backend === "online");
+    const backendOutput = statusLine.querySelector("[data-backend-output]");
+    if (backendOutput) backendOutput.textContent = state.backend;
+    const sourceOutput = statusLine.querySelector("[data-source-output]");
+    if (sourceOutput) {
+      sourceOutput.className = `source-badge ${dataSource}`;
+      sourceOutput.textContent = `Data: ${dataSource}`;
+    }
   }
 }
 

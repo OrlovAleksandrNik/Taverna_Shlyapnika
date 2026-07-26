@@ -6,7 +6,7 @@ const html = readFileSync(resolve(root, "index.html"), "utf8");
 const js = readFileSync(resolve(root, "src/main.js"), "utf8");
 const css = readFileSync(resolve(root, "src/styles.css"), "utf8");
 
-const requiredText = ["Taverna Control", "Программы мастера", "Desktop Agent", "Feature flags", "publicRegistration", "Ключ кабинета", "Upload policy", "Колонки", "Export", "API_BASE", "Data:", "data-action=\"create-game\"", "publish-game", "delete-game", "control-table-prefs", "control-runtime-config.js", "vendor/qrcode-bundle.js", "X-XSRF-TOKEN"];
+const requiredText = ["Taverna Control", "Программы мастера", "Desktop Agent", "Feature flags", "publicRegistration", "Ключ кабинета", "Upload policy", "Колонки", "Export", "API_BASE", "Data:", "data-backend-output", "data-source-output", "data-action=\"create-game\"", "publish-game", "delete-game", "control-table-prefs", "control-runtime-config.js", "vendor/qrcode-bundle.js", "X-XSRF-TOKEN"];
 const missing = requiredText.filter((text) => !html.includes(text) && !js.includes(text) && !css.includes(text));
 
 if (missing.length) {
@@ -23,6 +23,10 @@ if (!js.includes("localStorage.setItem(\"control-table-prefs\"")) {
 
 if (!js.includes("window.QRCode.toCanvas")) {
   throw new Error("Scannable QR renderer smoke check failed.");
+}
+
+if (js.includes("statusLine.innerHTML")) {
+  throw new Error("Backend status updates must not replace the admin token input.");
 }
 
 if (css.includes("letter-spacing: -")) {
