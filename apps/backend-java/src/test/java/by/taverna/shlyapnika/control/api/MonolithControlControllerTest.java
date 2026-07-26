@@ -75,6 +75,18 @@ class MonolithControlControllerTest {
   }
 
   @Test
+  void returnsSafeRuntimeSettingsForMasterCabinet() throws Exception {
+    mvc.perform(get("/api/v1/admin/settings"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.featureFlags.autoPublishGames").value(true))
+        .andExpect(jsonPath("$.storedSettings[0].key").value("timezone"))
+        .andExpect(jsonPath("$.storedSettings[0].value").value("Europe/Minsk"))
+        .andExpect(jsonPath("$.storedSettings[5].key").value("internalApiToken"))
+        .andExpect(jsonPath("$.storedSettings[5].value").value("configured"))
+        .andExpect(jsonPath("$.storedSettings[5].sensitive").value(true));
+  }
+
+  @Test
   @SuppressWarnings({"unchecked", "rawtypes"})
   void returnsRatingPlayersForMasterCabinet() throws Exception {
     when(jdbcTemplate.query(contains("from \"RatingPlayer\""), any(RowMapper.class), eq(50), eq(0)))

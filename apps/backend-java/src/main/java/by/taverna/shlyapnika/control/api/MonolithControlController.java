@@ -349,13 +349,18 @@ public class MonolithControlController {
     return Map.of(
         "featureFlags", Map.of(
             "publicRegistration", false,
-            "mainSiteIntegration", true,
-            "telegramIntegration", true,
-            "desktopAgent", false
+            "mainSiteIntegration", properties.serveFrontend(),
+            "telegramIntegration", properties.telegram() != null && properties.telegram().botToken() != null && !properties.telegram().botToken().isBlank(),
+            "desktopAgent", false,
+            "autoPublishGames", properties.autoPublish()
         ),
         "storedSettings", List.of(
-            new ControlRecordDto("monolith", "Режим проекта", "active", Instant.now()),
-            new ControlRecordDto("master-cabinet", "Кабинет мастера", "active", Instant.now())
+            new SettingDto("timezone", properties.timezone(), false, false),
+            new SettingDto("siteBaseUrl", properties.siteBaseUrl(), false, false),
+            new SettingDto("publicUploadsUrl", properties.publicUploadsUrl(), false, false),
+            new SettingDto("frontendStaticDir", properties.frontendStaticDir(), false, false),
+            new SettingDto("corsOriginsCount", String.valueOf(properties.allowedOrigins().size()), false, false),
+            new SettingDto("internalApiToken", "configured", true, true)
         )
     );
   }
@@ -734,6 +739,9 @@ public class MonolithControlController {
   }
 
   public record AccountDto(String publicId, String email, List<String> roles, String status) {
+  }
+
+  public record SettingDto(String key, String value, boolean sensitive, boolean encrypted) {
   }
 
   public record StorageDto(StorageAdapterDto media, StorageAdapterDto projectArtifacts, List<String> futureAdapters) {
