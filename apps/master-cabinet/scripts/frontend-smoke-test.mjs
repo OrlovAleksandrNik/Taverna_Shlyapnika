@@ -13,10 +13,6 @@ if (missing.length) {
   throw new Error(`Missing required frontend text: ${missing.join(", ")}`);
 }
 
-if (!js.includes("localStorage.setItem(\"control-story-draft\"")) {
-  throw new Error("Autosave smoke check failed.");
-}
-
 if (!js.includes("localStorage.setItem(\"control-table-prefs\"")) {
   throw new Error("Table preference persistence smoke check failed.");
 }

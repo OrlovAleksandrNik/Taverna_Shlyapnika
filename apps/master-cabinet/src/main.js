@@ -40,7 +40,6 @@ const state = {
   role: "OWNER",
   section: "overview",
   backend: "unknown",
-  autosave: "saved",
   loadingSection: null,
   account: null,
   twoFactorSetup: null,
@@ -146,21 +145,6 @@ function render() {
       sessionStorage.removeItem("control-admin-token");
     }
   });
-  const draft = document.querySelector("#draft");
-  if (draft) {
-    let timer;
-    draft.addEventListener("input", () => {
-      state.autosave = "saving";
-      updateAutosave();
-      clearTimeout(timer);
-      timer = setTimeout(() => {
-        localStorage.setItem("control-story-draft", draft.value);
-        state.autosave = "saved";
-        updateAutosave();
-      }, 500);
-    });
-    draft.value = localStorage.getItem("control-story-draft") || "";
-  }
   bindTableControls();
   renderQrCanvases();
   updateBackendStatus();
@@ -281,15 +265,6 @@ function filesTemplate() {
       <article class="metric"><span>Upload policy</span><strong>strict</strong><small>MIME, extension, size, safe name</small></article>
     </div>
     ${tableTemplate("Политика файлов", ["Тип", "Правило", "Статус", "Заметка"], fileRows)}
-  `;
-}
-
-function storiesTemplate() {
-  return `
-    <div class="editor">
-      <label>Черновик истории<textarea id="draft" rows="8" placeholder="Текст сохраняется локально до подключения редактора историй"></textarea></label>
-      <span id="autosave">${state.autosave === "saved" ? "Сохранено" : "Сохраняю..."}</span>
-    </div>
   `;
 }
 
@@ -881,11 +856,6 @@ function actionErrorMessage(action, error) {
   if (!error.status) return `${action}: backend is not reachable on ${API_BASE}`;
   if (error.status === 401 || error.status === 403) return `${action}: backend answered ${error.status}; нужен ключ кабинета`;
   return `${action}: backend answered ${error.status}`;
-}
-
-function updateAutosave() {
-  const label = document.querySelector("#autosave");
-  if (label) label.textContent = state.autosave === "saved" ? "Сохранено" : "Сохраняю...";
 }
 
 async function checkBackend() {
