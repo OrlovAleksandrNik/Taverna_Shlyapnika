@@ -3219,6 +3219,28 @@ h3 {
   font-weight: 800;
 }
 
+.diary-auth-shortcuts {
+  position: fixed;
+  top: 86px;
+  right: max(16px, var(--page-pad));
+  z-index: 22;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border: 1px solid rgba(215, 168, 79, 0.24);
+  border-radius: 999px;
+  background: rgba(12, 10, 11, 0.78);
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(14px);
+}
+
+.diary-auth-shortcuts .button {
+  min-height: 38px;
+  padding: 10px 16px;
+  font-size: 0.82rem;
+}
+
 .diary-auth-panel {
   width: min(760px, calc(100vw - 28px));
 }
@@ -4026,6 +4048,19 @@ h3 {
     width: 58px;
     height: 58px;
     padding: 5px;
+  }
+
+  .diary-auth-shortcuts {
+    top: auto;
+    right: 12px;
+    bottom: 12px;
+    max-width: calc(100vw - 24px);
+  }
+
+  .diary-auth-shortcuts .button {
+    min-height: 36px;
+    padding-inline: 12px;
+    font-size: 0.76rem;
   }
 
   .secret-diary-tooltip {

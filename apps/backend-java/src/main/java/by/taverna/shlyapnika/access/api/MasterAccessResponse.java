@@ -13,6 +13,10 @@ public record MasterAccessResponse(
     return new MasterAccessResponse(true, message, requestId, status, false, null, "master");
   }
 
+  public static MasterAccessResponse approved(String requestId, String message, String displayName, String role) {
+    return new MasterAccessResponse(true, message, requestId, "approved", true, displayName, role);
+  }
+
   public static MasterAccessResponse login(boolean accessGranted, String message, String displayName, String role) {
     return new MasterAccessResponse(accessGranted, message, null, null, accessGranted, displayName, role);
   }

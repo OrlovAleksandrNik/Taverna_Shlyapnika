@@ -452,20 +452,17 @@ function diaryAccessState() {
 }
 
 function unlockDiary(displayName) {
-  const accessPanel = document.querySelector("[data-diary-access]");
   const privatePanel = document.querySelector("[data-diary-private]");
   const status = document.querySelector("[data-diary-access-status]");
-  if (accessPanel) accessPanel.hidden = true;
   if (privatePanel) privatePanel.hidden = false;
   if (status) status.textContent = displayName ? `Доступ открыт для ${displayName}.` : "";
   renderDiaryPage();
 }
 
 function lockDiary() {
-  const accessPanel = document.querySelector("[data-diary-access]");
   const privatePanel = document.querySelector("[data-diary-private]");
-  if (accessPanel) accessPanel.hidden = false;
-  if (privatePanel) privatePanel.hidden = true;
+  if (privatePanel) privatePanel.hidden = false;
+  renderDiaryPage();
 }
 
 function openDiaryLoginModal() {
@@ -496,6 +493,7 @@ function openDiaryRegisterModal() {
         <label>Имя мастера<input name="displayName" autocomplete="name" minlength="2" maxlength="80" required></label>
         <label>Telegram<input name="telegramUsername" autocomplete="username" placeholder="@username" minlength="3" maxlength="80" required></label>
         <label class="form-wide">E-mail<input name="email" type="email" autocomplete="email" maxlength="160" required></label>
+        <label class="form-wide">Код владельца<input name="accessCode" autocomplete="one-time-code" maxlength="120" placeholder="Если код есть, доступ откроется сразу"></label>
         ${consentField("master-registration")}
         <button class="button primary" type="submit">Отправить Шляпнику</button>
         <p class="form-status" data-form-status></p>
@@ -540,14 +538,48 @@ async function submitDiaryLogin(form) {
   }
 }
 
+async function submitMasterAccessRequest(form) {
+  const status = form.querySelector("[data-form-status]");
+  const button = form.querySelector("button[type='submit']");
+  const payload = Object.fromEntries(new FormData(form).entries());
+  const consent = form.querySelector("input[name='consent']");
+  if (consent instanceof HTMLInputElement) payload.consentGiven = consent.checked;
+  button.disabled = true;
+  status.textContent = "Отправляем...";
+  try {
+    const response = await fetch(`${apiRoot}api/auth/master-access-requests`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || result.message || "Не удалось отправить заявку.");
+
+    status.textContent = result.message || "Заявка сохранена.";
+    if (result.status === "approved" || result.accessGranted) {
+      localStorage.setItem(DIARY_ACCESS_STORAGE_KEY, JSON.stringify({
+        accessGranted: true,
+        displayName: payload.displayName || result.displayName || "мастера",
+        role: result.role || "master",
+        grantedAt: new Date().toISOString()
+      }));
+      closeModal();
+      unlockDiary(payload.displayName || result.displayName || "мастера");
+      return;
+    }
+    form.reset();
+  } catch (error) {
+    console.error("Master access request failed", error);
+    status.textContent = error instanceof Error ? error.message : "Не удалось отправить заявку.";
+  } finally {
+    button.disabled = false;
+  }
+}
+
 function initDiaryAccess() {
   if (!document.querySelector("[data-diary-page]")) return;
   const state = diaryAccessState();
-  if (state?.accessGranted) {
-    unlockDiary(state.displayName);
-  } else {
-    lockDiary();
-  }
+  unlockDiary(state?.accessGranted ? state.displayName : "");
   document.querySelector("[data-diary-login-open]")?.addEventListener("click", openDiaryLoginModal);
   document.querySelector("[data-diary-register-open]")?.addEventListener("click", openDiaryRegisterModal);
 }
@@ -734,7 +766,7 @@ document.addEventListener("submit", (event) => {
   }
   if (form.matches("[data-master-access-request-form]")) {
     event.preventDefault();
-    submitJson("api/auth/master-access-requests", form);
+    submitMasterAccessRequest(form);
   }
   if (form.matches("[data-diary-login-form]")) {
     event.preventDefault();

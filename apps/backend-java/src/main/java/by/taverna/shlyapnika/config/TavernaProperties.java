@@ -16,6 +16,7 @@ public record TavernaProperties(
     @NotBlank String timezone,
     String corsAllowedOrigins,
     @NotBlank String internalApiToken,
+    String masterAccessCode,
     boolean autoPublish,
     boolean serveFrontend,
     @NotBlank String frontendStaticDir,

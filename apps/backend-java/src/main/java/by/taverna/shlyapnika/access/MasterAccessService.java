@@ -7,6 +7,7 @@ import by.taverna.shlyapnika.access.domain.MasterAccessRequestEntity;
 import by.taverna.shlyapnika.access.infrastructure.MasterAccessRequestRepository;
 import by.taverna.shlyapnika.audit.AuditService;
 import by.taverna.shlyapnika.common.NotFoundException;
+import by.taverna.shlyapnika.config.TavernaProperties;
 import by.taverna.shlyapnika.consent.ConsentService;
 import by.taverna.shlyapnika.master.infrastructure.MasterRepository;
 import by.taverna.shlyapnika.notification.TelegramNotificationService;
@@ -26,19 +27,22 @@ public class MasterAccessService {
   private final ConsentService consentService;
   private final AuditService auditService;
   private final TelegramNotificationService notifications;
+  private final TavernaProperties properties;
 
   public MasterAccessService(
       MasterAccessRequestRepository requests,
       MasterRepository masters,
       ConsentService consentService,
       AuditService auditService,
-      TelegramNotificationService notifications
+      TelegramNotificationService notifications,
+      TavernaProperties properties
   ) {
     this.requests = requests;
     this.masters = masters;
     this.consentService = consentService;
     this.auditService = auditService;
     this.notifications = notifications;
+    this.properties = properties;
   }
 
   @Transactional
@@ -57,6 +61,15 @@ public class MasterAccessService {
 
     var existingPending = requests.findFirstByNormalizedTelegramUsernameAndStatusOrderByCreatedAtDesc(normalizedTelegram, "pending");
     if (existingPending.isPresent()) {
+      // Код владельца позволяет подтвердить свой мастерский доступ без ручного решения в Telegram.
+      if (accessCodeMatches(request.accessCode())) {
+        var pending = existingPending.get();
+        pending.approve(null, "approved by owner access code");
+        pending = requests.save(pending);
+        auditService.write(null, "master.access.approved_by_code", "MasterAccessRequest", pending.getId(), null);
+        notifications.notifyAdmins("Мастерский доступ подтверждён кодом владельца: " + pending.getDisplayName() + " (" + pending.getTelegramUsername() + ")");
+        return MasterAccessResponse.approved(pending.getId(), "Код принят. Мастерский доступ открыт.", pending.getDisplayName(), "master");
+      }
       return MasterAccessResponse.requested(
           existingPending.get().getId(),
           "pending",
@@ -77,6 +90,15 @@ public class MasterAccessService {
         normalizedTelegram,
         consent
     ));
+    // Новая заявка с верным кодом сразу становится мастерским доступом.
+    if (accessCodeMatches(request.accessCode())) {
+      entity.approve(null, "approved by owner access code");
+      entity = requests.save(entity);
+      auditService.write(null, "master.access.approved_by_code", "MasterAccessRequest", entity.getId(), "{\"telegram\":\"" + normalizedTelegram + "\"}");
+      notifications.notifyAdmins("Мастерский доступ подтверждён кодом владельца: " + entity.getDisplayName() + " (" + entity.getTelegramUsername() + ")");
+      log.info("master access approved by owner code requestId={} telegram={}", entity.getId(), normalizedTelegram);
+      return MasterAccessResponse.approved(entity.getId(), "Код принят. Мастерский доступ открыт.", entity.getDisplayName(), "master");
+    }
     auditService.write(null, "master.access.requested", "MasterAccessRequest", entity.getId(), "{\"telegram\":\"" + normalizedTelegram + "\"}");
     notifications.notifyAdmins(adminMessage(entity));
     log.info("master access requested requestId={} telegram={}", entity.getId(), normalizedTelegram);
@@ -176,6 +198,12 @@ public class MasterAccessService {
 
   private static boolean emailMatches(String contactUrl, String email) {
     return email != null && contactUrl != null && contactUrl.equalsIgnoreCase(email);
+  }
+
+  private boolean accessCodeMatches(String value) {
+    var configuredCode = trimToNull(properties.masterAccessCode());
+    var submittedCode = trimToNull(value);
+    return configuredCode != null && submittedCode != null && configuredCode.equals(submittedCode);
   }
 
   private static String trimToNull(String value) {

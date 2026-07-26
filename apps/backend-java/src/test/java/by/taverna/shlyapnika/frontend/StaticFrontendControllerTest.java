@@ -68,6 +68,7 @@ class StaticFrontendControllerTest {
         "Europe/Minsk",
         "http://localhost:4177",
         "test-internal-token",
+        "",
         true,
         serveFrontend,
         frontendDir.toString(),

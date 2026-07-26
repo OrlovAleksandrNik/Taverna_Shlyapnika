@@ -52,17 +52,11 @@
 
   <main id="top">
     <section class="diary-page" data-diary-page>
-      <div class="diary-access reveal" data-diary-access>
-        <p class="eyebrow">Закрытая полка</p>
-        <h1>Дневник ждёт тех, кто знает, куда стучать</h1>
-        <p>Записи Шляпника теперь открываются только подтверждённым мастерам. Если вы уже получили доступ, войдите по Telegram или e-mail. Если хотите стать мастером Таверны, отправьте заявку Шляпнику.</p>
-        <div class="diary-access-actions">
-          <button class="button primary" type="button" data-diary-login-open>Войти</button>
-          <button class="button ghost" type="button" data-diary-register-open>Зарегистрироваться</button>
-        </div>
-        <p class="diary-access-status" data-diary-access-status></p>
+      <div class="diary-auth-shortcuts" aria-label="Доступ мастера">
+        <button class="button primary" type="button" data-diary-login-open>Войти</button>
+        <button class="button ghost" type="button" data-diary-register-open>Зарегистрироваться</button>
       </div>
-      <div class="diary-shell reveal" data-diary-private hidden>
+      <div class="diary-shell reveal" data-diary-private>
         <article class="diary-entry" data-diary-entry></article>
         <nav class="diary-actions" aria-label="Навигация по записям">
           <button class="diary-page-turn" type="button" data-diary-prev aria-label="Предыдущая запись">←</button>

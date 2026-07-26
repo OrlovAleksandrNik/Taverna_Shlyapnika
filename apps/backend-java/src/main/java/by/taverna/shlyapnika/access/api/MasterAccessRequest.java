@@ -8,6 +8,7 @@ public record MasterAccessRequest(
     @NotBlank @Size(min = 2, max = 80) String displayName,
     @NotBlank @Email @Size(max = 160) String email,
     @NotBlank @Size(min = 3, max = 80) String telegramUsername,
+    @Size(max = 120) String accessCode,
     Boolean consentGiven,
     String consentVersion,
     String privacyPolicyVersion
