@@ -52,31 +52,6 @@ const state = {
 
 const genericDataSections = new Set(["applications", "services", "masters", "gallery", "stories", "notifications"]);
 
-const mock = {
-  metrics: [
-    ["Ближайшие игры", "7", "2 сегодня"],
-    ["Заявки", "12", "4 требуют ответа"],
-    ["Активные мастера", "5", "1 ждёт подтверждения"],
-    ["Черновики", "9", "3 давно не менялись"],
-    ["Новые фото", "18", "галерея"],
-    ["Ошибки интеграций", "0", "монолит активен"]
-  ],
-  games: [
-    ["Тайна янтарного ключа", "26.07 19:00", "Станислав", "published"],
-    ["Безумное чаепитие", "28.07 18:30", "Андрей", "draft"],
-    ["Архивист и луна", "31.07 20:00", "Александр", "review"]
-  ],
-  audit: [
-    ["OWNER", "users.invite", "MASTER", "сегодня 12:11"],
-    ["MANAGER", "games.publish", "Тайна янтарного ключа", "сегодня 12:40"],
-    ["DEVELOPER", "projects.mock_launch", "ScreenStage", "сегодня 13:02"]
-  ],
-  projects: [
-    ["VoiceMod Panel", "Node.js ESM + static UI", "../../voicemod-panel-d-work", "mock-ready"],
-    ["ScreenStage", ".NET 8 WPF + LibVLCSharp", "../../ScreenStage-redesign", "mock-ready"]
-  ]
-};
-
 const app = document.querySelector("#app");
 
 function render() {
@@ -126,7 +101,7 @@ function render() {
       </main>
       <aside class="notices" aria-label="Уведомления">
         <h2>Уведомления</h2>
-        <button class="notice">Backup manifest создан в mock-хранилище</button>
+        <button class="notice">Резервные копии работают в безопасном read-only режиме</button>
         <button class="notice warn">Desktop Agent выключен</button>
         <button class="notice">CSRF cookie ожидается от backend</button>
       </aside>
@@ -213,22 +188,19 @@ function overviewTemplate() {
     metric.label,
     metric.value,
     metric.tone || snapshot.source || "backend"
-  ]) || mock.metrics;
+  ]) || [];
   const games = snapshot?.upcomingGames?.map((game) => [
     game.title,
     formatDateTime(game.startsAt),
     game.masterName || game.masterPublicId,
     game.status
-  ]) || mock.games;
+  ]) || [];
   const actions = snapshot?.recentActions?.map((action) => [
     action.actor,
     action.action,
     action.entity,
     snapshot.generatedAt ? formatDateTime(snapshot.generatedAt) : "backend"
-  ]) || [
-    ["Мария", "game_result", "+12", "applied"],
-    ["Илья", "correction", "-2", "needs review"]
-  ];
+  ]) || [];
   return `
     <div class="metric-grid">
       ${metrics.map(([label, value, hint]) => `<article class="metric"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong><small>${escapeHtml(hint)}</small></article>`).join("")}
@@ -245,7 +217,7 @@ function projectsTemplate() {
     project.detectedPath || project.code,
     project.status || project.launchMode,
     project.code
-  ]) || mock.projects.map((project, index) => [...project, index === 0 ? "voicemod" : "screenstage"]);
+  ]) || [];
   return `
     <div class="project-grid">
       ${projects.map(([name, stack, path, status, code]) => `
@@ -254,8 +226,7 @@ function projectsTemplate() {
           <p>${escapeHtml(stack)}</p>
           <code>${escapeHtml(path)}</code>
           <span>${escapeHtml(status)}</span>
-          <label>Назначить мастеру<input type="text" value="usr_mock_master" aria-label="Public ID мастера" /></label>
-          <button data-action="project-launch" data-project="${escapeHtml(code)}" title="Создать запись mock-launch без запуска программы">Mock launch</button>
+          <button data-action="project-launch" data-project="${escapeHtml(code)}" title="Проверить готовность запуска проекта">Проверить запуск</button>
         </article>
       `).join("")}
     </div>
@@ -264,13 +235,10 @@ function projectsTemplate() {
 }
 
 function usersTemplate() {
-  const accountRows = toRows(state.remote.users, ["publicId", "email", "roles", "status"], [
-    ["usr_owner_mock", "owner@example.test", "OWNER", "active"],
-    ["usr_master_mock", "master@example.test", "MASTER", "invited"]
-  ]);
+  const accountRows = toRows(state.remote.users, ["publicId", "email", "roles", "status"], []);
   return `
     <form class="form-panel">
-      <label>Email<input name="email" type="email" value="master@example.test" /></label>
+      <label>Email<input name="email" type="email" placeholder="master@example.com" /></label>
       <label>Имя<input name="displayName" type="text" value="Новый мастер" /></label>
       <label>Роль<select name="role"><option>MASTER</option><option>CONTENT_MANAGER</option><option>RATING_MANAGER</option></select></label>
       <button type="button" data-action="invite-user" title="Создать одноразовое приглашение">Создать приглашение</button>
@@ -303,7 +271,7 @@ function securityTemplate() {
   const setup = state.twoFactorSetup;
   return `
     <form class="form-panel">
-      <label>Email<input name="email" type="email" value="owner@example.test" autocomplete="username" /></label>
+      <label>Email<input name="email" type="email" autocomplete="username" placeholder="owner@example.com" /></label>
       <label>Пароль<input name="password" type="password" autocomplete="current-password" placeholder="CONTROL_BOOTSTRAP_OWNER_PASSWORD" /></label>
       <label>2FA code<input name="twoFactorCode" type="text" inputmode="numeric" placeholder="если включено" /></label>
       <div class="actions">
@@ -317,8 +285,8 @@ function securityTemplate() {
       <article class="metric"><span>Reset tokens</span><strong>hashed</strong><small>одинаковый ответ без user enumeration</small></article>
     </div>
     <form class="form-panel">
-      <label>Email для reset<input name="email" type="email" value="master@example.test" /></label>
-      <button type="button" data-action="password-reset" title="Отправить mock password reset email">Запросить восстановление</button>
+      <label>Email для reset<input name="email" type="email" placeholder="master@example.com" /></label>
+      <button type="button" data-action="password-reset" title="Отправить письмо восстановления, если почта настроена">Запросить восстановление</button>
     </form>
     <form class="form-panel">
       <div class="actions">
@@ -372,17 +340,14 @@ function filesTemplate() {
 function storiesTemplate() {
   return `
     <div class="editor">
-      <label>Черновик истории<textarea id="draft" rows="8" placeholder="Текст сохраняется локально как mock автосохранение"></textarea></label>
+      <label>Черновик истории<textarea id="draft" rows="8" placeholder="Текст сохраняется локально до подключения редактора историй"></textarea></label>
       <span id="autosave">${state.autosave === "saved" ? "Сохранено" : "Сохраняю..."}</span>
     </div>
   `;
 }
 
 function backupsTemplate() {
-  const rows = toRows(state.remote.backups, ["publicId", "status", "checksum", "manifestPath"], [
-    ["bkp_mock_01", "COMPLETED", "checksum ok", "disabled"],
-    ["bkp_mock_02", "PLANNED", "not started", "disabled"]
-  ]);
+  const rows = toRows(state.remote.backups, ["publicId", "status", "checksum", "manifestPath"], []);
   return `
     <div class="actions">
       <button data-action="backup-create" title="Создать manifest backup в локальном storage">Создать backup</button>
@@ -393,7 +358,7 @@ function backupsTemplate() {
 }
 
 function auditTemplate() {
-  const rows = toRows(state.remote.audit, ["actorPublicId", "action", "entityType", "createdAt"], mock.audit)
+  const rows = toRows(state.remote.audit, ["actorPublicId", "action", "entityType", "createdAt"], [])
     .map(([actor, action, entity, createdAt]) => [actor, action, entity, formatDateTime(createdAt)]);
   return tableTemplate("Последние действия", ["Кто", "Операция", "Объект", "Когда"], rows);
 }
@@ -406,10 +371,7 @@ function settingsTemplate() {
     desktopAgent: false
   };
   const rows = Object.entries(flags).map(([key, value]) => [key, String(value), value ? "enabled" : "disabled"]);
-  const stored = toRows(state.remote.settings?.storedSettings, ["key", "value", "sensitive", "encrypted"], [
-    ["mock.theme", "tavern", "false", "false"],
-    ["integration.mode", "monolith", "false", "false"]
-  ]);
+  const stored = toRows(state.remote.settings?.storedSettings, ["key", "value", "sensitive", "encrypted"], []);
   return `
     ${tableTemplate("Feature flags", ["Key", "Value", "Status"], rows)}
     ${tableTemplate("Stored settings", ["Key", "Value", "Sensitive", "Encrypted"], stored)}
@@ -489,7 +451,7 @@ function gamesTemplate(section) {
 
 function genericTemplate(section) {
   const records = recordsFromPayload(state.remote[section]);
-  const rows = records.length ? records.map((record) => [
+  const rows = records.map((record) => [
     record.publicId,
     record.title,
     record.status,
@@ -498,10 +460,7 @@ function genericTemplate(section) {
       ["publish-record", "Publish", record.publicId, section],
       ["delete-record", "Archive", record.publicId, section]
     ])
-  ]) : [
-    [`${section}-001`, "Mock запись", "draft", "edit, publish, soft-delete", actionButtons([["publish-record", "Publish", "", section], ["delete-record", "Archive", "", section]])],
-    [`${section}-002`, "Контракт будущего API", "ready", "read-only", actionButtons([["publish-record", "Publish", "", section], ["delete-record", "Archive", "", section]])]
-  ];
+  ]);
   return `
     <form class="form-panel">
       <input name="section" type="hidden" value="${escapeHtml(section)}" />
@@ -981,7 +940,7 @@ function updateBackendStatus() {
 
 function sectionDataSource(section) {
   if (state.loadingSection === section) return "loading";
-  return state.remote[remoteKey(section)] ? "backend" : "mock";
+  return state.remote[remoteKey(section)] ? "backend" : "empty";
 }
 
 function remoteKey(section) {
