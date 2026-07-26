@@ -157,6 +157,16 @@ public class MonolithControlController {
     }
   }
 
+  @PostMapping("/api/v1/admin/service-requests/{id}/contact")
+  public ControlRecordDto contactServiceRequest(@PathVariable String id) {
+    return setServiceRequestStatus(id, "contacted", "service_request.contacted_from_cabinet");
+  }
+
+  @PostMapping("/api/v1/admin/service-requests/{id}/close")
+  public ControlRecordDto closeServiceRequest(@PathVariable String id) {
+    return setServiceRequestStatus(id, "closed", "service_request.closed_from_cabinet");
+  }
+
   @GetMapping("/api/v1/admin/schedule")
   public ItemsResponse<GameRowDto> schedule(
       @RequestParam(required = false) String from,
@@ -396,6 +406,30 @@ public class MonolithControlController {
             rs.getString("status"),
             instant(rs, "updatedAt")
         ), limit, offset);
+  }
+
+  private ControlRecordDto setServiceRequestStatus(String id, String status, String action) {
+    jdbcTemplate.update("""
+        update "ServiceRequest"
+        set "status" = ?::"ServiceRequestStatus",
+            "updatedAt" = current_timestamp
+        where "id" = ?
+        """, status, id);
+    auditService.write("master-cabinet", action, "ServiceRequest", id, "{\"status\":\"" + status + "\"}");
+    return serviceRequestById(id);
+  }
+
+  private ControlRecordDto serviceRequestById(String id) {
+    return jdbcTemplate.queryForObject("""
+        select "id", "service", "status", "updatedAt"
+        from "ServiceRequest"
+        where "id" = ?
+        """, (rs, rowNum) -> new ControlRecordDto(
+            rs.getString("id"),
+            rs.getString("service"),
+            rs.getString("status"),
+            instant(rs, "updatedAt")
+        ), id);
   }
 
   private List<ControlRecordDto> masters(int limit, int offset) {

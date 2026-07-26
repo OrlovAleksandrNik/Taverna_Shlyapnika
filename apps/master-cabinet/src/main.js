@@ -169,6 +169,7 @@ function render() {
 function sectionTemplate(section) {
   if (section === "overview") return overviewTemplate();
   if (section === "games" || section === "schedule") return gamesTemplate(section);
+  if (section === "applications" || section === "services") return serviceRequestsTemplate(section);
   if (section === "projects") return projectsTemplate();
   if (section === "users") return usersTemplate();
   if (section === "players" || section === "rating") return ratingTemplate(section);
@@ -408,6 +409,24 @@ function genericTemplate(section) {
       status,
       updatedAt
     ]))}
+  `;
+}
+
+function serviceRequestsTemplate(section) {
+  const records = recordsFromPayload(state.remote[section]);
+  const rows = records.map((record) => [
+    record.publicId,
+    record.title,
+    record.status,
+    record.updatedAt ? formatDateTime(record.updatedAt) : "",
+    actionButtons([
+      ["contact-service-request", "В работу", record.publicId, section],
+      ["close-service-request", "Закрыть", record.publicId, section]
+    ])
+  ]);
+  return `
+    <p class="note">Заявки приходят из формы сайта и сохраняются в ServiceRequest. Контакты клиентов не показываются в таблице кабинета.</p>
+    ${tableTemplate(sections[section][1], ["ID", "Услуга", "Статус", "Обновлено", "Действия"], rows)}
   `;
 }
 
@@ -838,6 +857,14 @@ async function runAction(action, form, sourceElement = null) {
       await apiDelete(`/api/v1/admin/gallery/posts/${sourceElement?.dataset.id}`);
       state.actionStatus = "Gallery post deleted";
       await loadSectionData(sourceElement?.dataset.sectionKey || "gallery");
+    } else if (action === "contact-service-request") {
+      const request = await apiPost(`/api/v1/admin/service-requests/${sourceElement?.dataset.id}/contact`, {}, true);
+      state.actionStatus = `Service request marked as contacted: ${request.publicId}`;
+      await loadSectionData(sourceElement?.dataset.sectionKey || "applications");
+    } else if (action === "close-service-request") {
+      const request = await apiPost(`/api/v1/admin/service-requests/${sourceElement?.dataset.id}/close`, {}, true);
+      state.actionStatus = `Service request closed: ${request.publicId}`;
+      await loadSectionData(sourceElement?.dataset.sectionKey || "applications");
     } else {
       state.actionStatus = `${action}: действие ещё не перенесено в монолит`;
     }

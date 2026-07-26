@@ -183,4 +183,31 @@ class MonolithControlControllerTest {
     );
   }
 
+  @Test
+  @SuppressWarnings({"unchecked", "rawtypes"})
+  void marksServiceRequestAsContactedFromMasterCabinet() throws Exception {
+    when(jdbcTemplate.update(contains("update \"ServiceRequest\""), eq("contacted"), eq("request-test")))
+        .thenReturn(1);
+    when(jdbcTemplate.queryForObject(contains("from \"ServiceRequest\""), any(RowMapper.class), eq("request-test")))
+        .thenReturn(new MonolithControlController.ControlRecordDto(
+            "request-test",
+            "Заказная игра",
+            "contacted",
+            Instant.parse("2026-07-19T12:00:00Z")
+        ));
+
+    mvc.perform(post("/api/v1/admin/service-requests/request-test/contact"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.publicId").value("request-test"))
+        .andExpect(jsonPath("$.status").value("contacted"));
+
+    verify(auditService).write(
+        eq("master-cabinet"),
+        eq("service_request.contacted_from_cabinet"),
+        eq("ServiceRequest"),
+        eq("request-test"),
+        contains("\"status\":\"contacted\"")
+    );
+  }
+
 }
