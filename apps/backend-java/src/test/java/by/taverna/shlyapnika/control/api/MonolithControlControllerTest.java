@@ -118,6 +118,30 @@ class MonolithControlControllerTest {
 
   @Test
   @SuppressWarnings({"unchecked", "rawtypes"})
+  void returnsSignupSummaryWithoutPlayerContacts() throws Exception {
+    when(jdbcTemplate.query(contains("left join \"GameSignup\""), any(RowMapper.class), eq(50), eq(0)))
+        .thenReturn(List.of(new MonolithControlController.SignupSummaryDto(
+            "gm_1",
+            "Игра недели",
+            Instant.parse("2026-07-22T18:00:00Z"),
+            "Александр",
+            3,
+            4,
+            5
+        )));
+
+    mvc.perform(get("/api/v1/admin/signups/summary"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.content[0].gameId").value("gm_1"))
+        .andExpect(jsonPath("$.content[0].confirmedSignups").value(3))
+        .andExpect(jsonPath("$.content[0].confirmedSeats").value(4))
+        .andExpect(jsonPath("$.content[0].maxPlayers").value(5))
+        .andExpect(jsonPath("$.content[0].contact").doesNotExist())
+        .andExpect(jsonPath("$.content[0].playerName").doesNotExist());
+  }
+
+  @Test
+  @SuppressWarnings({"unchecked", "rawtypes"})
   void returnsRatingPlayersForMasterCabinet() throws Exception {
     when(jdbcTemplate.query(contains("from \"RatingPlayer\""), any(RowMapper.class), eq(50), eq(0)))
         .thenReturn(List.of(new MonolithControlController.RatingPlayerRowDto(

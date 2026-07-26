@@ -22,6 +22,7 @@ function assertExcludes(role, item) {
 }
 
 assertIncludes("MASTER", "projects");
+assertIncludes("MASTER", "signups");
 assertExcludes("MASTER", "users");
 assertIncludes("CONTENT_MANAGER", "files");
 assertExcludes("CONTENT_MANAGER", "users");

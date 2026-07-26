@@ -2,10 +2,10 @@ const API_BASE = window.CONTROL_API_BASE ?? "";
 
 const roles = {
   OWNER: [
-    "overview", "schedule", "games", "applications", "services", "masters", "players", "rating",
+    "overview", "schedule", "games", "signups", "applications", "services", "masters", "players", "rating",
     "gallery", "stories", "files", "projects", "notifications", "backups", "audit", "users", "settings", "tech"
   ],
-  MASTER: ["overview", "schedule", "games", "gallery", "stories", "projects", "notifications", "tech"],
+  MASTER: ["overview", "schedule", "games", "signups", "gallery", "stories", "projects", "notifications", "tech"],
   CONTENT_MANAGER: ["overview", "gallery", "stories", "files", "notifications", "tech"],
   RATING_MANAGER: ["overview", "players", "rating", "audit", "tech"],
   DEVELOPER: ["overview", "projects", "audit", "settings", "tech"]
@@ -15,6 +15,7 @@ const sections = {
   overview: ["Обзор", "Пульс кабинета"],
   schedule: ["Расписание", "Календарь и переносы"],
   games: ["Игры", "Редактор, публикация, статусы"],
+  signups: ["Записи", "Заполненность столов"],
   applications: ["Заявки", "Входящие обращения"],
   services: ["Услуги", "Пакеты и стоимость"],
   masters: ["Мастера", "Профили и назначения"],
@@ -153,6 +154,7 @@ function render() {
 function sectionTemplate(section) {
   if (section === "overview") return overviewTemplate();
   if (section === "games" || section === "schedule") return gamesTemplate(section);
+  if (section === "signups") return signupsTemplate(section);
   if (section === "applications" || section === "services") return serviceRequestsTemplate(section);
   if (section === "masters") return mastersTemplate(section);
   if (section === "projects") return projectsTemplate();
@@ -365,6 +367,22 @@ function gamesTemplate(section) {
       <button type="button" data-action="create-game" title="Создать игру в основном backend">Создать игру</button>
     </form>
     ${table}
+  `;
+}
+
+function signupsTemplate(section) {
+  const records = recordsFromPayload(state.remote[section]);
+  const rows = records.map((record) => [
+    record.gameTitle,
+    formatDateTime(record.startsAt),
+    record.masterName,
+    record.confirmedSignups,
+    `${record.confirmedSeats} / ${record.maxPlayers}`,
+    record.maxPlayers > record.confirmedSeats ? "есть места" : "полный стол"
+  ]);
+  return `
+    <p class="note">Сводка показывает только количество подтверждённых записей и занятых мест. Имена и контакты игроков не выводятся в публично читаемый endpoint.</p>
+    ${tableTemplate(sections[section][1], ["Игра", "Дата", "Мастер", "Заявки", "Места", "Статус"], rows)}
   `;
 }
 
@@ -943,6 +961,7 @@ function sectionEndpoint(section) {
   if (section === "tech") return "/api/v1/admin/integration/status";
   if (section === "audit") return "/api/v1/admin/audit?page=0";
   if (section === "games") return "/api/v1/admin/games?page=0&size=20";
+  if (section === "signups") return "/api/v1/admin/signups/summary?page=0&size=50";
   if (section === "players" || section === "rating") return "/api/v1/admin/rating/players?page=0&size=50";
   if (section === "gallery") return "/api/v1/admin/gallery/posts?page=0&size=50";
   if (section === "stories") return "/api/v1/admin/gallery/posts?type=story&page=0&size=50";

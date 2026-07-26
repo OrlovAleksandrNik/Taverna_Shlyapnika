@@ -187,6 +187,39 @@ public class MonolithControlController {
     return new ItemsResponse<>(gameRowsBetween(fromInstant, toInstant, 100), 0, 100);
   }
 
+  @GetMapping("/api/v1/admin/signups/summary")
+  public ItemsResponse<SignupSummaryDto> signupSummary(
+      @RequestParam(defaultValue = "0") int page,
+      @RequestParam(defaultValue = "50") int size
+  ) {
+    var safePage = Math.max(page, 0);
+    var safeSize = Math.min(Math.max(size, 1), 100);
+    var offset = safePage * safeSize;
+    var items = jdbcTemplate.query("""
+        select g."id" as "gameId", g."title" as "gameTitle", g."dateTimeStart", g."maxPlayers",
+               m."displayName" as "masterName",
+               count(s."id") filter (where s."status" = 'confirmed')::int as "confirmedSignups",
+               coalesce(sum(s."seats") filter (where s."status" = 'confirmed'), 0)::int as "confirmedSeats"
+        from "Game" g
+        join "Master" m on m."id" = g."masterId"
+        left join "GameSignup" s on s."gameId" = g."id"
+        where g."dateTimeStart" >= current_timestamp
+          and g."status" not in ('cancelled', 'archived', 'completed')
+        group by g."id", g."title", g."dateTimeStart", g."maxPlayers", m."displayName"
+        order by g."dateTimeStart" asc
+        limit ? offset ?
+        """, (rs, rowNum) -> new SignupSummaryDto(
+            rs.getString("gameId"),
+            rs.getString("gameTitle"),
+            instant(rs, "dateTimeStart"),
+            rs.getString("masterName"),
+            rs.getInt("confirmedSignups"),
+            rs.getInt("confirmedSeats"),
+            rs.getInt("maxPlayers")
+        ), safeSize, offset);
+    return new ItemsResponse<>(items, safePage, safeSize);
+  }
+
   @GetMapping("/api/v1/admin/gallery/posts")
   public ItemsResponse<GalleryPostRowDto> galleryPostRows(
       @RequestParam(required = false) String type,
@@ -721,6 +754,17 @@ public class MonolithControlController {
   }
 
   public record ControlRecordDto(String publicId, String title, String status, Instant updatedAt) {
+  }
+
+  public record SignupSummaryDto(
+      String gameId,
+      String gameTitle,
+      Instant startsAt,
+      String masterName,
+      int confirmedSignups,
+      int confirmedSeats,
+      int maxPlayers
+  ) {
   }
 
   public record RatingPlayerRowDto(
