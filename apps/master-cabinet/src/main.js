@@ -337,7 +337,7 @@ function gamesTemplate(section) {
     actionButtons([
       ["publish-game", "Опубликовать", game.id],
       ["cancel-game", "Отменить", game.id],
-      ["delete-game", "Удалить", game.id]
+      ["delete-game", "В архив", game.id]
     ])
   ]);
   const table = tableTemplate(sections[section][1], ["Игра", "Дата", "Мастер", "Статус", "Действия"], rows);
@@ -836,7 +836,7 @@ async function runAction(action, form, sourceElement = null) {
       await loadSectionData("games");
     } else if (action === "delete-game") {
       await apiDelete(`/api/v1/admin/games/${sourceElement?.dataset.id}`);
-      state.actionStatus = "Game archived";
+      state.actionStatus = "Game moved to archive";
       await loadSectionData("games");
     } else if (action === "publish-gallery-post") {
       const post = await apiPost(`/api/v1/admin/gallery/posts/${sourceElement?.dataset.id}/publish`, {}, true);
