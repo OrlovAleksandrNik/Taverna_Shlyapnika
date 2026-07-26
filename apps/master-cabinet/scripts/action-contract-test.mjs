@@ -13,7 +13,10 @@ const contracts = [
   ['apiPost("/api/v1/admin/games", gamePayload(body), true)', "game creation endpoint with CSRF"],
   ["apiPost(`/api/v1/admin/games/${sourceElement?.dataset.id}/publish`, {}, true)", "game publish endpoint with CSRF"],
   ["apiPost(`/api/v1/admin/games/${sourceElement?.dataset.id}/cancel`, {}, true)", "game cancel endpoint with CSRF"],
-  ["apiDelete(`/api/v1/admin/games/${sourceElement?.dataset.id}`)", "game delete endpoint with CSRF"]
+  ["apiDelete(`/api/v1/admin/games/${sourceElement?.dataset.id}`)", "game delete endpoint with CSRF"],
+  ["apiPost(`/api/v1/admin/gallery/posts/${sourceElement?.dataset.id}/publish`, {}, true)", "gallery publish endpoint with CSRF"],
+  ["apiPost(`/api/v1/admin/gallery/posts/${sourceElement?.dataset.id}/hide`, {}, true)", "gallery hide endpoint with CSRF"],
+  ["apiDelete(`/api/v1/admin/gallery/posts/${sourceElement?.dataset.id}`)", "gallery delete endpoint with CSRF"]
 ];
 
 for (const [needle, label] of contracts) {

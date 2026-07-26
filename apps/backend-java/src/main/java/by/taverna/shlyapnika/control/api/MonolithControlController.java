@@ -135,6 +135,28 @@ public class MonolithControlController {
     setGameStatus(id, "archived", "game.archived_from_cabinet");
   }
 
+  @PostMapping("/api/v1/admin/gallery/posts/{publicId}/publish")
+  public GalleryPostRowDto publishGalleryPost(@PathVariable String publicId) {
+    return setGalleryPostState(publicId, "published", true, "gallery.post_published_from_cabinet");
+  }
+
+  @PostMapping("/api/v1/admin/gallery/posts/{publicId}/hide")
+  public GalleryPostRowDto hideGalleryPost(@PathVariable String publicId) {
+    return setGalleryPostState(publicId, "hidden", false, "gallery.post_hidden_from_cabinet");
+  }
+
+  @DeleteMapping("/api/v1/admin/gallery/posts/{publicId}")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  public void deleteGalleryPost(@PathVariable String publicId) {
+    var deleted = jdbcTemplate.update("""
+        delete from "GalleryPost"
+        where "publicId" = ?
+        """, publicId);
+    if (deleted > 0) {
+      auditService.write("master-cabinet", "gallery.post_deleted_from_cabinet", "GalleryPost", publicId, null);
+    }
+  }
+
   @GetMapping("/api/v1/admin/schedule")
   public ItemsResponse<GameRowDto> schedule(
       @RequestParam(required = false) String from,
@@ -482,6 +504,48 @@ public class MonolithControlController {
             rs.getString("gameSystem"),
             rs.getString("status")
         ), id);
+  }
+
+  private GalleryPostRowDto setGalleryPostState(String publicId, String status, boolean visible, String action) {
+    jdbcTemplate.update("""
+        update "GalleryPost"
+        set "status" = ?::"GalleryPostStatus",
+            "isVisible" = ?,
+            "publishedAt" = case when ? = 'published' and "publishedAt" is null then current_timestamp else "publishedAt" end,
+            "updatedAt" = current_timestamp
+        where "publicId" = ?
+        """, status, visible, status, publicId);
+    auditService.write("master-cabinet", action, "GalleryPost", publicId,
+        "{\"status\":\"" + status + "\",\"visible\":" + visible + "}");
+    return galleryPostByPublicId(publicId);
+  }
+
+  private GalleryPostRowDto galleryPostByPublicId(String publicId) {
+    return jdbcTemplate.queryForObject("""
+        select p."publicId", p."type"::text as "type", p."title", p."category"::text as "category",
+               p."status"::text as "status", p."isVisible", p."eventDate", p."publishedAt",
+               p."createdAt", p."updatedAt", m."displayName" as "authorName",
+               count(media."id")::int as "mediaCount"
+        from "GalleryPost" p
+        left join "Master" m on m."id" = p."authorMasterId"
+        left join "GalleryMedia" media on media."galleryPostId" = p."id"
+        where p."publicId" = ?
+        group by p."publicId", p."type", p."title", p."category", p."status", p."isVisible",
+                 p."eventDate", p."publishedAt", p."createdAt", p."updatedAt", m."displayName"
+        """, (rs, rowNum) -> new GalleryPostRowDto(
+            rs.getString("publicId"),
+            rs.getString("type"),
+            rs.getString("title"),
+            rs.getString("category"),
+            rs.getString("status"),
+            rs.getBoolean("isVisible"),
+            rs.getInt("mediaCount"),
+            rs.getString("authorName"),
+            instant(rs, "eventDate"),
+            instant(rs, "publishedAt"),
+            instant(rs, "createdAt"),
+            instant(rs, "updatedAt")
+        ), publicId);
   }
 
   private MasterOptionDto findMaster(String masterId) {

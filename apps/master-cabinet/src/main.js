@@ -451,11 +451,16 @@ function galleryTemplate(section) {
     post.authorName || "не указан",
     formatDate(post.eventDate || post.publishedAt || post.createdAt),
     post.visible ? post.status : `${post.status} / hidden`,
-    formatDateTime(post.updatedAt)
+    formatDateTime(post.updatedAt),
+    actionButtons([
+      ["publish-gallery-post", "Опубликовать", post.publicId, section],
+      ["hide-gallery-post", "Скрыть", post.publicId, section],
+      ["delete-gallery-post", "Удалить", post.publicId, section]
+    ])
   ]);
   return `
-    <p class="note">Публикации приходят из основной таблицы GalleryPost. Создание, удаление и управление медиа уже доступны Telegram-боту; UI-редактор кабинета будет подключён отдельным шагом.</p>
-    ${tableTemplate(sections[section][1], ["ID", "Тип", "Название", "Категория", "Фото", "Автор", "Дата", "Статус", "Обновлено"], rows)}
+    <p class="note">Публикации приходят из основной таблицы GalleryPost. Кабинет может публиковать, скрывать и удалять записи без отдельного сервиса.</p>
+    ${tableTemplate(sections[section][1], ["ID", "Тип", "Название", "Категория", "Фото", "Автор", "Дата", "Статус", "Обновлено", "Действия"], rows)}
   `;
 }
 
@@ -821,6 +826,18 @@ async function runAction(action, form, sourceElement = null) {
       await apiDelete(`/api/v1/admin/games/${sourceElement?.dataset.id}`);
       state.actionStatus = "Game archived";
       await loadSectionData("games");
+    } else if (action === "publish-gallery-post") {
+      const post = await apiPost(`/api/v1/admin/gallery/posts/${sourceElement?.dataset.id}/publish`, {}, true);
+      state.actionStatus = `Gallery post published: ${post.title || post.publicId}`;
+      await loadSectionData(sourceElement?.dataset.sectionKey || "gallery");
+    } else if (action === "hide-gallery-post") {
+      const post = await apiPost(`/api/v1/admin/gallery/posts/${sourceElement?.dataset.id}/hide`, {}, true);
+      state.actionStatus = `Gallery post hidden: ${post.title || post.publicId}`;
+      await loadSectionData(sourceElement?.dataset.sectionKey || "gallery");
+    } else if (action === "delete-gallery-post") {
+      await apiDelete(`/api/v1/admin/gallery/posts/${sourceElement?.dataset.id}`);
+      state.actionStatus = "Gallery post deleted";
+      await loadSectionData(sourceElement?.dataset.sectionKey || "gallery");
     } else {
       state.actionStatus = `${action}: действие ещё не перенесено в монолит`;
     }

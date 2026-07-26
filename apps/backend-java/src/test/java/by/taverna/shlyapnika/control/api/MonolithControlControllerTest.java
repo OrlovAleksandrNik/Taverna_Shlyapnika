@@ -1,11 +1,14 @@
 package by.taverna.shlyapnika.control.api;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import by.taverna.shlyapnika.audit.AuditService;
@@ -125,6 +128,59 @@ class MonolithControlControllerTest {
         .andExpect(jsonPath("$.content[0].title").value("Прощание Либе"))
         .andExpect(jsonPath("$.content[0].mediaCount").value(2))
         .andExpect(jsonPath("$.content[0].authorName").value("Александр"));
+  }
+
+  @Test
+  @SuppressWarnings({"unchecked", "rawtypes"})
+  void publishesGalleryPostFromMasterCabinet() throws Exception {
+    when(jdbcTemplate.update(contains("update \"GalleryPost\""), eq("published"), eq(true), eq("published"), eq("gallery-test")))
+        .thenReturn(1);
+    when(jdbcTemplate.queryForObject(contains("where p.\"publicId\" = ?"), any(RowMapper.class), eq("gallery-test")))
+        .thenReturn(new MonolithControlController.GalleryPostRowDto(
+            "gallery-test",
+            "photo",
+            "Вечер за столом",
+            "games",
+            "published",
+            true,
+            1,
+            "Александр",
+            null,
+            Instant.parse("2026-07-19T12:00:00Z"),
+            Instant.parse("2026-07-19T12:00:00Z"),
+            Instant.parse("2026-07-19T12:00:00Z")
+        ));
+
+    mvc.perform(post("/api/v1/admin/gallery/posts/gallery-test/publish"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.publicId").value("gallery-test"))
+        .andExpect(jsonPath("$.status").value("published"))
+        .andExpect(jsonPath("$.visible").value(true));
+
+    verify(auditService).write(
+        eq("master-cabinet"),
+        eq("gallery.post_published_from_cabinet"),
+        eq("GalleryPost"),
+        eq("gallery-test"),
+        contains("\"status\":\"published\"")
+    );
+  }
+
+  @Test
+  void deletesGalleryPostFromMasterCabinet() throws Exception {
+    when(jdbcTemplate.update(contains("delete from \"GalleryPost\""), eq("gallery-test")))
+        .thenReturn(1);
+
+    mvc.perform(delete("/api/v1/admin/gallery/posts/gallery-test"))
+        .andExpect(status().isNoContent());
+
+    verify(auditService).write(
+        eq("master-cabinet"),
+        eq("gallery.post_deleted_from_cabinet"),
+        eq("GalleryPost"),
+        eq("gallery-test"),
+        eq(null)
+    );
   }
 
 }
