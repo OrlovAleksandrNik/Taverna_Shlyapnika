@@ -99,4 +99,32 @@ class MonolithControlControllerTest {
         .andExpect(jsonPath("$.content[0].inspirationCount").value(2));
   }
 
+  @Test
+  @SuppressWarnings({"unchecked", "rawtypes"})
+  void returnsGalleryPostsForMasterCabinet() throws Exception {
+    when(jdbcTemplate.query(contains("from \"GalleryPost\""), any(RowMapper.class), eq(null), eq(null), eq(50), eq(0)))
+        .thenReturn(List.of(new MonolithControlController.GalleryPostRowDto(
+            "gallery-test",
+            "story",
+            "Прощание Либе",
+            "games",
+            "published",
+            true,
+            2,
+            "Александр",
+            Instant.parse("2026-07-18T18:00:00Z"),
+            Instant.parse("2026-07-19T12:00:00Z"),
+            Instant.parse("2026-07-19T12:00:00Z"),
+            Instant.parse("2026-07-19T12:00:00Z")
+        )));
+
+    mvc.perform(get("/api/v1/admin/gallery/posts"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.content[0].publicId").value("gallery-test"))
+        .andExpect(jsonPath("$.content[0].type").value("story"))
+        .andExpect(jsonPath("$.content[0].title").value("Прощание Либе"))
+        .andExpect(jsonPath("$.content[0].mediaCount").value(2))
+        .andExpect(jsonPath("$.content[0].authorName").value("Александр"));
+  }
+
 }

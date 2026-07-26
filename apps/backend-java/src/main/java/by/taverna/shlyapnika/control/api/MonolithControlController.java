@@ -143,6 +143,45 @@ public class MonolithControlController {
     return new ItemsResponse<>(gameRows(true, 0, 100), 0, 100);
   }
 
+  @GetMapping("/api/v1/admin/gallery/posts")
+  public ItemsResponse<GalleryPostRowDto> galleryPostRows(
+      @RequestParam(required = false) String type,
+      @RequestParam(defaultValue = "0") int page,
+      @RequestParam(defaultValue = "50") int size
+  ) {
+    var safePage = Math.max(page, 0);
+    var safeSize = Math.min(Math.max(size, 1), 100);
+    var offset = safePage * safeSize;
+    var items = jdbcTemplate.query("""
+        select p."publicId", p."type"::text as "type", p."title", p."category"::text as "category",
+               p."status"::text as "status", p."isVisible", p."eventDate", p."publishedAt",
+               p."createdAt", p."updatedAt", m."displayName" as "authorName",
+               count(media."id")::int as "mediaCount"
+        from "GalleryPost" p
+        left join "Master" m on m."id" = p."authorMasterId"
+        left join "GalleryMedia" media on media."galleryPostId" = p."id"
+        where (?::text is null or p."type" = cast(? as "GalleryPostType"))
+        group by p."publicId", p."type", p."title", p."category", p."status", p."isVisible",
+                 p."eventDate", p."publishedAt", p."createdAt", p."updatedAt", m."displayName"
+        order by p."createdAt" desc
+        limit ? offset ?
+        """, (rs, rowNum) -> new GalleryPostRowDto(
+            rs.getString("publicId"),
+            rs.getString("type"),
+            rs.getString("title"),
+            rs.getString("category"),
+            rs.getString("status"),
+            rs.getBoolean("isVisible"),
+            rs.getInt("mediaCount"),
+            rs.getString("authorName"),
+            instant(rs, "eventDate"),
+            instant(rs, "publishedAt"),
+            instant(rs, "createdAt"),
+            instant(rs, "updatedAt")
+        ), trimToNull(type), trimToNull(type), safeSize, offset);
+    return new ItemsResponse<>(items, safePage, safeSize);
+  }
+
   @GetMapping("/api/v1/admin/data/{section}")
   public ItemsResponse<ControlRecordDto> data(
       @PathVariable String section,
@@ -474,6 +513,10 @@ public class MonolithControlController {
     return value == null || value.isBlank() ? fallback : value.trim();
   }
 
+  private static String trimToNull(String value) {
+    return value == null || value.isBlank() ? null : value.trim();
+  }
+
   private static Integer positiveOrDefault(Integer value, int fallback) {
     return value == null || value < 1 ? fallback : value;
   }
@@ -532,6 +575,22 @@ public class MonolithControlController {
       BigDecimal averagePointsPerGame,
       Instant lastGameAt,
       Instant lastStatsAt,
+      Instant updatedAt
+  ) {
+  }
+
+  public record GalleryPostRowDto(
+      String publicId,
+      String type,
+      String title,
+      String category,
+      String status,
+      boolean visible,
+      int mediaCount,
+      String authorName,
+      Instant eventDate,
+      Instant publishedAt,
+      Instant createdAt,
       Instant updatedAt
   ) {
   }

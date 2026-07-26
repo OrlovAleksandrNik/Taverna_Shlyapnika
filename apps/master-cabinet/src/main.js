@@ -50,7 +50,7 @@ const state = {
   remote: {}
 };
 
-const genericDataSections = new Set(["applications", "services", "masters", "gallery", "stories", "notifications"]);
+const genericDataSections = new Set(["applications", "services", "masters", "notifications"]);
 
 const app = document.querySelector("#app");
 
@@ -172,9 +172,9 @@ function sectionTemplate(section) {
   if (section === "projects") return projectsTemplate();
   if (section === "users") return usersTemplate();
   if (section === "players" || section === "rating") return ratingTemplate(section);
+  if (section === "gallery" || section === "stories") return galleryTemplate(section);
   if (section === "security") return securityTemplate();
   if (section === "files") return filesTemplate();
-  if (section === "stories") return storiesTemplate();
   if (section === "settings") return settingsTemplate();
   if (section === "tech") return techTemplate();
   if (section === "audit") return auditTemplate();
@@ -440,6 +440,25 @@ function ratingTemplate(section) {
   `;
 }
 
+function galleryTemplate(section) {
+  const posts = recordsFromPayload(state.remote[section]);
+  const rows = posts.map((post) => [
+    post.publicId,
+    galleryTypeLabel(post.type),
+    post.title,
+    galleryCategoryLabel(post.category),
+    post.mediaCount,
+    post.authorName || "не указан",
+    formatDate(post.eventDate || post.publishedAt || post.createdAt),
+    post.visible ? post.status : `${post.status} / hidden`,
+    formatDateTime(post.updatedAt)
+  ]);
+  return `
+    <p class="note">Публикации приходят из основной таблицы GalleryPost. Создание, удаление и управление медиа уже доступны Telegram-боту; UI-редактор кабинета будет подключён отдельным шагом.</p>
+    ${tableTemplate(sections[section][1], ["ID", "Тип", "Название", "Категория", "Фото", "Автор", "Дата", "Статус", "Обновлено"], rows)}
+  `;
+}
+
 function tableTemplate(title, headers, rows) {
   const key = tableKey(title);
   const prefs = state.tablePrefs[key] || {};
@@ -653,6 +672,34 @@ function formatDateTime(value) {
   }).format(new Date(value));
 }
 
+function formatDate(value) {
+  if (!value || typeof value !== "string" || Number.isNaN(Date.parse(value))) return value || "";
+  return new Intl.DateTimeFormat("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric"
+  }).format(new Date(value));
+}
+
+function galleryTypeLabel(type) {
+  return {
+    photo: "Фото",
+    story: "История",
+    character_sheet: "Герой"
+  }[type] || type || "";
+}
+
+function galleryCategoryLabel(category) {
+  return {
+    games: "Игры",
+    events: "События",
+    heroes: "Герои",
+    tavern: "Таверна",
+    miniatures: "Миниатюры",
+    other: "Другое"
+  }[category] || category || "";
+}
+
 function defaultGameStart() {
   const start = new Date();
   start.setDate(start.getDate() + 7);
@@ -850,6 +897,8 @@ function sectionEndpoint(section) {
   if (section === "audit") return "/api/v1/admin/audit?page=0";
   if (section === "games") return "/api/v1/admin/games?page=0&size=20";
   if (section === "players" || section === "rating") return "/api/v1/admin/rating/players?page=0&size=50";
+  if (section === "gallery") return "/api/v1/admin/gallery/posts?page=0&size=50";
+  if (section === "stories") return "/api/v1/admin/gallery/posts?type=story&page=0&size=50";
   if (section === "schedule") {
     const from = new Date();
     const to = new Date(from);
