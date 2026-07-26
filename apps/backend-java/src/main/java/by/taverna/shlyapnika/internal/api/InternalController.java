@@ -15,6 +15,7 @@ import by.taverna.shlyapnika.internal.api.InternalRatingResponses.InternalRating
 import by.taverna.shlyapnika.internal.api.InternalRatingResponses.InternalRatingPlayersResponse;
 import by.taverna.shlyapnika.schedule.api.GameResponses.GameResponse;
 import by.taverna.shlyapnika.schedule.api.GameResponses.GamesListResponse;
+import by.taverna.shlyapnika.access.MasterAccessService;
 import jakarta.validation.Valid;
 import java.io.IOException;
 import java.util.Map;
@@ -35,9 +36,11 @@ import org.springframework.web.multipart.MultipartFile;
 @RestController
 public class InternalController {
   private final InternalService service;
+  private final MasterAccessService masterAccessService;
 
-  public InternalController(InternalService service) {
+  public InternalController(InternalService service, MasterAccessService masterAccessService) {
     this.service = service;
+    this.masterAccessService = masterAccessService;
   }
 
   @GetMapping("/api/internal/masters/by-telegram/{telegramUserId}")
@@ -54,6 +57,23 @@ public class InternalController {
   @PostMapping("/api/internal/masters/by-telegram/{telegramUserId}/admin")
   public InternalMasterResponse grantAdminByTelegram(@PathVariable Long telegramUserId, @RequestParam(required = false) String telegramUsername) {
     return service.grantAdminByTelegram(telegramUserId, telegramUsername);
+  }
+
+  @PostMapping("/api/internal/master-access-requests/{requestId}/approve")
+  public Map<String, Object> approveMasterAccessRequest(@PathVariable String requestId, @Valid @RequestBody MasterAccessDecisionRequest request) {
+    var approved = masterAccessService.approve(requestId, request.adminTelegramId(), request.comment());
+    return Map.of("ok", true, "requestId", approved.getId(), "status", approved.getStatus());
+  }
+
+  @GetMapping("/api/internal/master-access-requests")
+  public Map<String, Object> listMasterAccessRequests(@RequestParam(defaultValue = "pending") String status) {
+    return Map.of("requests", masterAccessService.list(status));
+  }
+
+  @PostMapping("/api/internal/master-access-requests/{requestId}/reject")
+  public Map<String, Object> rejectMasterAccessRequest(@PathVariable String requestId, @Valid @RequestBody MasterAccessDecisionRequest request) {
+    var rejected = masterAccessService.reject(requestId, request.adminTelegramId(), request.comment());
+    return Map.of("ok", true, "requestId", rejected.getId(), "status", rejected.getStatus());
   }
 
   @GetMapping("/api/internal/bot-sessions/{telegramUserId}")

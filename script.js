@@ -20,6 +20,7 @@ const siteSettings = {
 };
 const CONSENT_VERSION = "1.0";
 const PRIVACY_POLICY_VERSION = "1.0";
+const DIARY_ACCESS_STORAGE_KEY = "tavernaDiaryAccess";
 const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 let games = [];
 let ratingPlayers = [];
@@ -52,6 +53,14 @@ function escapeHtml(value) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
+}
+
+function safeJsonParse(value) {
+  try {
+    return value ? JSON.parse(value) : null;
+  } catch {
+    return null;
+  }
 }
 
 function privacyPolicyUrl() {
@@ -438,6 +447,111 @@ modal?.addEventListener("click", (event) => {
   if (event.target === modal) closeModal();
 });
 
+function diaryAccessState() {
+  return safeJsonParse(localStorage.getItem(DIARY_ACCESS_STORAGE_KEY));
+}
+
+function unlockDiary(displayName) {
+  const accessPanel = document.querySelector("[data-diary-access]");
+  const privatePanel = document.querySelector("[data-diary-private]");
+  const status = document.querySelector("[data-diary-access-status]");
+  if (accessPanel) accessPanel.hidden = true;
+  if (privatePanel) privatePanel.hidden = false;
+  if (status) status.textContent = displayName ? `Доступ открыт для ${displayName}.` : "";
+  renderDiaryPage();
+}
+
+function lockDiary() {
+  const accessPanel = document.querySelector("[data-diary-access]");
+  const privatePanel = document.querySelector("[data-diary-private]");
+  if (accessPanel) accessPanel.hidden = false;
+  if (privatePanel) privatePanel.hidden = true;
+}
+
+function openDiaryLoginModal() {
+  openModal(`
+    <button class="modal-close" type="button" data-modal-close aria-label="Закрыть">×</button>
+    <div class="diary-auth-modal">
+      <p class="eyebrow">Вход мастера</p>
+      <h2>Откройте дневник</h2>
+      <p>Укажите Telegram или e-mail, который уже подтверждён Шляпником.</p>
+      <form class="request-form diary-auth-form" data-diary-login-form>
+        <label>Telegram<input name="telegramUsername" autocomplete="username" placeholder="@MisterHatter"></label>
+        <label>E-mail<input name="email" type="email" autocomplete="email" placeholder="master@example.com"></label>
+        <button class="button primary" type="submit">Войти</button>
+        <p class="form-status" data-form-status></p>
+      </form>
+    </div>
+  `, "diary-auth-panel");
+}
+
+function openDiaryRegisterModal() {
+  openModal(`
+    <button class="modal-close" type="button" data-modal-close aria-label="Закрыть">×</button>
+    <div class="diary-auth-modal">
+      <p class="eyebrow">Заявка мастера</p>
+      <h2>Зарегистрироваться</h2>
+      <p>Заявка попадёт Шляпнику в Telegram. Доступ появится только после подтверждения владельцем Таверны.</p>
+      <form class="request-form diary-auth-form" data-master-access-request-form>
+        <label>Имя мастера<input name="displayName" autocomplete="name" minlength="2" maxlength="80" required></label>
+        <label>Telegram<input name="telegramUsername" autocomplete="username" placeholder="@username" minlength="3" maxlength="80" required></label>
+        <label class="form-wide">E-mail<input name="email" type="email" autocomplete="email" maxlength="160" required></label>
+        ${consentField("master-registration")}
+        <button class="button primary" type="submit">Отправить Шляпнику</button>
+        <p class="form-status" data-form-status></p>
+      </form>
+    </div>
+  `, "diary-auth-panel");
+}
+
+async function submitDiaryLogin(form) {
+  const status = form.querySelector("[data-form-status]");
+  const button = form.querySelector("button[type='submit']");
+  const payload = Object.fromEntries(new FormData(form).entries());
+  if (!String(payload.telegramUsername || "").trim() && !String(payload.email || "").trim()) {
+    status.textContent = "Укажите Telegram или e-mail.";
+    form.querySelector("input")?.focus();
+    return;
+  }
+  button.disabled = true;
+  status.textContent = "Проверяем доступ...";
+  try {
+    const response = await fetch(`${apiRoot}api/auth/master-login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || !result.accessGranted) throw new Error(result.message || result.error || "Доступ пока не подтверждён.");
+    localStorage.setItem(DIARY_ACCESS_STORAGE_KEY, JSON.stringify({
+      accessGranted: true,
+      displayName: result.displayName || "мастера",
+      role: result.role || "master",
+      grantedAt: new Date().toISOString()
+    }));
+    status.textContent = result.message || "Дневник открыт.";
+    closeModal();
+    unlockDiary(result.displayName || "мастера");
+  } catch (error) {
+    console.error("Diary login failed", error);
+    status.textContent = error instanceof Error ? error.message : "Не удалось войти.";
+  } finally {
+    button.disabled = false;
+  }
+}
+
+function initDiaryAccess() {
+  if (!document.querySelector("[data-diary-page]")) return;
+  const state = diaryAccessState();
+  if (state?.accessGranted) {
+    unlockDiary(state.displayName);
+  } else {
+    lockDiary();
+  }
+  document.querySelector("[data-diary-login-open]")?.addEventListener("click", openDiaryLoginModal);
+  document.querySelector("[data-diary-register-open]")?.addEventListener("click", openDiaryRegisterModal);
+}
+
 document.addEventListener("click", (event) => {
   const target = event.target;
   if (!(target instanceof HTMLElement)) return;
@@ -617,6 +731,14 @@ document.addEventListener("submit", (event) => {
   if (form.matches("[data-service-request-form]")) {
     event.preventDefault();
     submitJson("api/service-requests", form);
+  }
+  if (form.matches("[data-master-access-request-form]")) {
+    event.preventDefault();
+    submitJson("api/auth/master-access-requests", form);
+  }
+  if (form.matches("[data-diary-login-form]")) {
+    event.preventDefault();
+    submitDiaryLogin(form);
   }
 });
 
@@ -1350,7 +1472,7 @@ renderMastersList();
 renderMasterPage();
 renderContactBlock();
 renderGalleryPage();
-renderDiaryPage();
+initDiaryAccess();
 renderFooter();
 initReveal();
 

@@ -279,6 +279,34 @@ public class BackendApiClient {
     return postRating(masterId, "/rating/players", body, BackendRatingResponses.PlayerResponse.class, "create rating player");
   }
 
+  public JsonNode listMasterAccessRequests(String status) {
+    try {
+      var request = baseRequest("/api/internal/master-access-requests?status=" + encode(status == null ? "pending" : status)).GET().build();
+      var response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+      ensureSuccess(response, "list master access requests");
+      return mapper.readTree(response.body()).path("requests");
+    } catch (Exception error) {
+      log.warn("Backend master access requests lookup failed", error);
+      throw new IllegalStateException("Не удалось загрузить заявки мастеров. Попробуйте немного позже.");
+    }
+  }
+
+  public void decideMasterAccessRequest(String requestId, long adminTelegramId, boolean approve) {
+    try {
+      var path = "/api/internal/master-access-requests/" + encode(requestId) + (approve ? "/approve" : "/reject");
+      var body = java.util.Map.of("adminTelegramId", adminTelegramId);
+      var request = baseRequest(path)
+          .header("Content-Type", "application/json")
+          .POST(HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(body), StandardCharsets.UTF_8))
+          .build();
+      var response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+      ensureSuccess(response, approve ? "approve master access request" : "reject master access request");
+    } catch (Exception error) {
+      log.warn("Backend master access decision failed requestId={}", requestId, error);
+      throw new IllegalStateException("Не удалось изменить заявку мастера. Попробуйте немного позже.");
+    }
+  }
+
   public BackendRatingResponses.MutationResponse addRatingGameResult(String masterId, BackendRatingRequests.GameResult body) {
     return postRating(masterId, "/rating/game-results", body, BackendRatingResponses.MutationResponse.class, "add rating game result");
   }
