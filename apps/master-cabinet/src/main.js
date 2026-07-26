@@ -215,18 +215,16 @@ function projectsTemplate() {
     project.name || project.code,
     project.stack || project.kind,
     project.detectedPath || project.code,
-    project.status || project.launchMode,
-    project.code
+    project.status || project.launchMode
   ]) || [];
   return `
     <div class="project-grid">
-      ${projects.map(([name, stack, path, status, code]) => `
+      ${projects.map(([name, stack, path, status]) => `
         <article class="project">
           <h3>${escapeHtml(name)}</h3>
           <p>${escapeHtml(stack)}</p>
           <code>${escapeHtml(path)}</code>
           <span>${escapeHtml(status)}</span>
-          <button data-action="project-launch" data-project="${escapeHtml(code)}" title="Проверить готовность запуска проекта">Проверить запуск</button>
         </article>
       `).join("")}
     </div>
@@ -237,12 +235,7 @@ function projectsTemplate() {
 function usersTemplate() {
   const accountRows = toRows(state.remote.users, ["publicId", "email", "roles", "status"], []);
   return `
-    <form class="form-panel">
-      <label>Email<input name="email" type="email" placeholder="master@example.com" /></label>
-      <label>Имя<input name="displayName" type="text" value="Новый мастер" /></label>
-      <label>Роль<select name="role"><option>MASTER</option><option>CONTENT_MANAGER</option><option>RATING_MANAGER</option></select></label>
-      <button type="button" data-action="invite-user" title="Создать одноразовое приглашение">Создать приглашение</button>
-    </form>
+    <p class="note">Приглашения и смена ролей будут перенесены после основного кабинета мастера. Сейчас раздел показывает реальные профили мастеров из монолита.</p>
     ${tableTemplate("Роли", ["Роль", "Смысл", "2FA"], [
       ["OWNER", "Полный доступ, последнего удалить нельзя", "required"],
       ["SUPERADMIN", "Администрирование системы", "required"],
@@ -259,60 +252,13 @@ function usersTemplate() {
 }
 
 function securityTemplate() {
-  const sessionRows = toRows(state.remote.securitySessions, ["userAgent", "ipAddress", "createdAt", "revokedAt"], [
-    ["Windows Edge", "127.0.0.1", "сегодня", "active"],
-    ["Tablet Safari", "10.0.0.14", "вчера", "revoked"]
-  ]).map(([userAgent, ipAddress, createdAt, revokedAt]) => [
-    userAgent,
-    ipAddress,
-    formatDateTime(createdAt),
-    revokedAt ? `revoked ${formatDateTime(revokedAt)}` : "active"
-  ]);
-  const setup = state.twoFactorSetup;
   return `
-    <form class="form-panel">
-      <label>Email<input name="email" type="email" autocomplete="username" placeholder="owner@example.com" /></label>
-      <label>Пароль<input name="password" type="password" autocomplete="current-password" placeholder="CONTROL_BOOTSTRAP_OWNER_PASSWORD" /></label>
-      <label>2FA code<input name="twoFactorCode" type="text" inputmode="numeric" placeholder="если включено" /></label>
-      <div class="actions">
-        <button type="button" data-action="login" title="Войти в кабинет мастера">Войти</button>
-        <button type="button" data-action="me" title="Проверить текущую session cookie">Проверить сессию</button>
-      </div>
-    </form>
     <div class="metric-grid">
-      <article class="metric"><span>2FA OWNER/SUPERADMIN</span><strong>required</strong><small>TOTP + hashed backup codes</small></article>
-      <article class="metric"><span>Сессии</span><strong>HttpOnly</strong><small>Кабинет мастера, SameSite Strict</small></article>
-      <article class="metric"><span>Reset tokens</span><strong>hashed</strong><small>одинаковый ответ без user enumeration</small></article>
+      <article class="metric"><span>Ключ кабинета</span><strong>required</strong><small>x-internal-token для важных действий</small></article>
+      <article class="metric"><span>Секреты</span><strong>runtime</strong><small>не хранятся в статике</small></article>
+      <article class="metric"><span>Сессии</span><strong>planned</strong><small>будут перенесены в монолит отдельным шагом</small></article>
     </div>
-    <form class="form-panel">
-      <label>Email для reset<input name="email" type="email" placeholder="master@example.com" /></label>
-      <button type="button" data-action="password-reset" title="Отправить письмо восстановления, если почта настроена">Запросить восстановление</button>
-    </form>
-    <form class="form-panel">
-      <div class="actions">
-        <button type="button" data-action="2fa-setup" title="Получить TOTP secret и QR">Создать 2FA QR</button>
-        <button type="button" data-action="sessions-refresh" title="Загрузить активные backend-сессии">Обновить сессии</button>
-        <button class="danger" type="button" data-action="sessions-revoke" title="Отозвать все backend-сессии">Отозвать все сессии</button>
-      </div>
-      ${setup ? `
-        <div class="totp-setup">
-          <canvas class="totp-qr" width="164" height="164" data-qr="${escapeHtml(setup.otpauthUrl)}" aria-label="TOTP QR"></canvas>
-          <label>Secret<input readonly value="${escapeHtml(setup.secret)}" /></label>
-        </div>
-      ` : ""}
-    </form>
-    <form class="form-panel">
-      <label>Код из приложения<input name="code" type="text" inputmode="numeric" placeholder="123456" /></label>
-      <div class="actions">
-        <button type="button" data-action="2fa-confirm" title="Включить TOTP и получить backup codes">Подтвердить 2FA</button>
-      </div>
-    </form>
-    <form class="form-panel">
-      <label>Пароль<input name="password" type="password" autocomplete="current-password" /></label>
-      <label>2FA или backup code<input name="code" type="text" /></label>
-      <button class="danger" type="button" data-action="2fa-disable" title="Отключить TOTP">Отключить 2FA</button>
-    </form>
-    ${tableTemplate("Активные устройства", ["Устройство", "IP", "Создано", "Статус"], sessionRows)}
+    <p class="note">Полная авторизация кабинета, 2FA и управление сессиями остались в архивном control-service и будут переноситься после основных мастерских сценариев.</p>
   `;
 }
 
@@ -349,10 +295,7 @@ function storiesTemplate() {
 function backupsTemplate() {
   const rows = toRows(state.remote.backups, ["publicId", "status", "checksum", "manifestPath"], []);
   return `
-    <div class="actions">
-      <button data-action="backup-create" title="Создать manifest backup в локальном storage">Создать backup</button>
-      <button class="danger" data-action="backup-restore" title="Восстановление требует отдельного подтверждения">Восстановление выключено</button>
-    </div>
+    <p class="note">Автоматические backup-операции ещё не подключены к монолиту. Здесь отображается только текущая готовность резервного сценария.</p>
     ${tableTemplate("Backup jobs", ["ID", "Статус", "Проверка", "Manifest"], rows)}
   `;
 }
@@ -455,25 +398,15 @@ function genericTemplate(section) {
     record.publicId,
     record.title,
     record.status,
-    record.updatedAt ? formatDateTime(record.updatedAt) : "read-only",
-    actionButtons([
-      ["publish-record", "Publish", record.publicId, section],
-      ["delete-record", "Archive", record.publicId, section]
-    ])
+    record.updatedAt ? formatDateTime(record.updatedAt) : "read-only"
   ]);
   return `
-    <form class="form-panel">
-      <input name="section" type="hidden" value="${escapeHtml(section)}" />
-      <label>Название<input name="title" type="text" value="Новая запись ${escapeHtml(sections[section][0])}" /></label>
-      <label>Payload<textarea name="payload" rows="4">{ "source": "control-ui", "draft": true }</textarea></label>
-      <button type="button" data-action="create-record" title="Создать запись в основном backend">Создать запись</button>
-    </form>
-    ${tableTemplate(sections[section][1], ["ID", "Название", "Статус", "Обновлено", "Действия"], rows.map(([id, title, status, updatedAt, actions]) => [
+    <p class="note">Редактирование этого раздела будет подключено к профильному API монолита. Сейчас кабинет показывает только реальные записи.</p>
+    ${tableTemplate(sections[section][1], ["ID", "Название", "Статус", "Обновлено"], rows.map(([id, title, status, updatedAt]) => [
       id,
       title,
       status,
-      updatedAt,
-      actions
+      updatedAt
     ]))}
   `;
 }
@@ -825,43 +758,7 @@ async function runAction(action, form, sourceElement = null) {
   state.actionStatus = `${action}: sending...`;
   render();
   try {
-    if (action === "login") {
-      state.account = await apiPost("/api/v1/auth/login", body);
-      state.actionStatus = `Logged in as ${state.account.email}`;
-    } else if (action === "me") {
-      state.account = await apiGet("/api/v1/auth/me");
-      state.actionStatus = `Session active for ${state.account.email}`;
-    } else if (action === "password-reset") {
-      const result = await apiPost("/api/v1/auth/password-reset", body);
-      state.actionStatus = result.devOnlyToken ? `Reset token issued: ${result.devOnlyToken}` : "Password reset response accepted";
-    } else if (action === "2fa-setup") {
-      state.twoFactorSetup = await apiPost("/api/v1/account/2fa/setup", {}, true);
-      state.actionStatus = "2FA setup QR generated";
-    } else if (action === "2fa-confirm") {
-      const result = await apiPost("/api/v1/account/2fa/confirm", body, true);
-      state.actionStatus = `2FA enabled. Backup codes: ${(result.backupCodes || []).join(", ")}`;
-      state.twoFactorSetup = null;
-    } else if (action === "2fa-disable") {
-      await apiPost("/api/v1/account/2fa/disable", body, true);
-      state.actionStatus = "2FA disabled";
-    } else if (action === "sessions-refresh") {
-      state.remote.securitySessions = await apiGet("/api/v1/account/sessions");
-      state.actionStatus = "Sessions refreshed";
-    } else if (action === "sessions-revoke") {
-      await apiPost("/api/v1/account/sessions/revoke-all", {}, true);
-      state.account = null;
-      state.remote.securitySessions = [];
-      state.actionStatus = "All sessions revoked";
-    } else if (action === "invite-user") {
-      const invitation = await apiPost("/api/v1/admin/users/invitations", body, true);
-      state.actionStatus = `Invitation created: ${invitation.oneTimeToken || invitation.id}`;
-      await loadSectionData("users");
-    } else if (action === "create-record") {
-      const { section, title, payload } = body;
-      const record = await apiPost(`/api/v1/admin/data/${section}`, { title, payload }, true);
-      state.actionStatus = `Record saved: ${record.publicId || record.title}`;
-      await loadSectionData(section);
-    } else if (action === "create-game") {
+    if (action === "create-game") {
       const game = await apiPost("/api/v1/admin/games", gamePayload(body), true);
       state.actionStatus = `Game created: ${game.title || game.id}`;
       await loadSectionData("games");
@@ -877,28 +774,8 @@ async function runAction(action, form, sourceElement = null) {
       await apiDelete(`/api/v1/admin/games/${sourceElement?.dataset.id}`);
       state.actionStatus = "Game archived";
       await loadSectionData("games");
-    } else if (action === "publish-record") {
-      const section = sourceElement?.dataset.sectionKey;
-      const record = await apiPost(`/api/v1/admin/data/${section}/${sourceElement?.dataset.id}/publish`, {}, true);
-      state.actionStatus = `Record published: ${record.publicId || record.title}`;
-      await loadSectionData(section);
-    } else if (action === "delete-record") {
-      const section = sourceElement?.dataset.sectionKey;
-      await apiDelete(`/api/v1/admin/data/${section}/${sourceElement?.dataset.id}`);
-      state.actionStatus = "Record archived";
-      await loadSectionData(section);
-    } else if (action === "project-launch") {
-      const projectCode = sourceElement?.dataset.project;
-      const result = await apiPost(`/api/v1/admin/projects/${projectCode}/launch`, {}, true);
-      state.actionStatus = `${result.code}: ${result.status}`;
-      await loadSectionData("projects");
-    } else if (action === "backup-create") {
-      const backup = await apiPost("/api/v1/admin/backups", {}, true);
-      state.actionStatus = `Backup created: ${backup.publicId || backup.status}`;
-      await loadSectionData("backups");
-    } else if (action === "backup-restore") {
-      const result = await apiPost("/api/v1/admin/backups/restore", {}, true);
-      state.actionStatus = result.reason || "Restore is disabled";
+    } else {
+      state.actionStatus = `${action}: действие ещё не перенесено в монолит`;
     }
     state.backend = "online";
   } catch (error) {
@@ -967,7 +844,7 @@ function sectionEndpoint(section) {
   if (section === "users") return "/api/v1/admin/users";
   if (section === "files") return "/api/v1/admin/files/storage";
   if (section === "backups") return "/api/v1/admin/backups";
-  if (section === "security") return "/api/v1/account/sessions";
+  if (section === "security") return null;
   if (section === "settings") return "/api/v1/admin/settings";
   if (section === "tech") return "/api/v1/admin/integration/status";
   if (section === "audit") return "/api/v1/admin/audit?page=0";
