@@ -56,6 +56,7 @@ class HealthControllerTest {
         "http://localhost:4177",
         "test-internal-token",
         "",
+        "",
         true,
         false,
         "static-site",

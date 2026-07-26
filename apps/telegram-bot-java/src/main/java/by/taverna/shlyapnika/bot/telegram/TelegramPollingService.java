@@ -166,6 +166,9 @@ public class TelegramPollingService {
       case "/gallery", "Галерея" -> showGalleryMenu(chatId, userId);
       case "/rating", "Рейтинг" -> showRatingMenu(chatId, userId);
       case "/access", "Доступ" -> showMasterAccessRequests(chatId, userId);
+      case "Заявки", "Заявки мастеров" -> showMasterAccessRequests(chatId, userId);
+      case "Принять", "Подтвердить" -> decideLatestMasterAccessRequest(chatId, userId, true);
+      case "Отклонить" -> decideLatestMasterAccessRequest(chatId, userId, false);
       default -> handleStatefulText(chatId, userId, telegramUsername, text, rawText, message.path("entities"));
     }
   }
@@ -1017,6 +1020,7 @@ public class TelegramPollingService {
               "Имя: " + request.path("displayName").asText(""),
               "Telegram: " + request.path("telegramUsername").asText(""),
               "E-mail: " + request.path("email").asText(""),
+              "Роль: " + accessRoleLabel(request.path("requestedRole").asText("master")),
               "Статус: " + request.path("status").asText("pending")
           ),
           accessDecisionKeyboard(requestId)
@@ -1028,6 +1032,30 @@ public class TelegramPollingService {
     if (requireAccessAdmin(chatId, userId) == null) return;
     backend.decideMasterAccessRequest(requestId, userId, approve);
     telegram.sendMessage(chatId, approve ? "Мастерский доступ подтверждён." : "Заявка мастера отклонена.", accessMenuKeyboard());
+  }
+
+  private void decideLatestMasterAccessRequest(long chatId, long userId, boolean approve) {
+    if (requireAccessAdmin(chatId, userId) == null) return;
+    var requests = backend.listMasterAccessRequests("pending");
+    if (!requests.isArray() || requests.isEmpty()) {
+      telegram.sendMessage(chatId, "Ожидающих заявок мастеров нет.", accessMenuKeyboard());
+      return;
+    }
+    if (requests.size() > 1) {
+      telegram.sendMessage(chatId, "Есть несколько заявок. Выберите нужную через кнопки под заявкой.", accessMenuKeyboard());
+      showMasterAccessRequests(chatId, userId);
+      return;
+    }
+    var requestId = requests.get(0).path("id").asText("");
+    if (requestId.isBlank()) {
+      telegram.sendMessage(chatId, "Не удалось определить заявку. Откройте список заявок ещё раз.", accessMenuKeyboard());
+      return;
+    }
+    decideMasterAccessRequest(chatId, userId, requestId, approve);
+  }
+
+  private String accessRoleLabel(String role) {
+    return "admin".equals(role) ? "администратор" : "мастер";
   }
 
   private void showRatingPlayers(long chatId, long userId) {
@@ -1467,7 +1495,7 @@ public class TelegramPollingService {
 
   private Object accessDecisionKeyboard(String requestId) {
     return keyboard(List.of(
-        row(button("Подтвердить", "access_approve:" + requestId), button("Отклонить", "access_reject:" + requestId)),
+        row(button("Принять", "access_approve:" + requestId), button("Отклонить", "access_reject:" + requestId)),
         row(button("К списку заявок", "access_requests"))
     ));
   }

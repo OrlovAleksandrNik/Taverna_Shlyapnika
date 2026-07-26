@@ -5,18 +5,18 @@
 }
 
 :root {
-  --bg: #0c211a;
-  --panel: #171717;
-  --panel-2: #221d1b;
+  --bg: #07111c;
+  --panel: #0d1927;
+  --panel-2: #132437;
   --paper: #ead7ad;
-  --paper-2: #c7ad78;
-  --brass: #d7a84f;
-  --copper: #b7653c;
-  --text: #fff8e9;
-  --muted: #d6c9ad;
+  --paper-2: #b8d9ff;
+  --brass: #75d6ff;
+  --copper: #d89556;
+  --text: #eef8ff;
+  --muted: #9db8ce;
   --danger: #b84242;
-  --ok: #68b684;
-  --line: rgba(215, 168, 79, 0.24);
+  --ok: #61d49d;
+  --line: rgba(117, 214, 255, 0.24);
   --radius: 8px;
   font-family: Inter, "Segoe UI", system-ui, sans-serif;
 }
@@ -31,8 +31,9 @@ body {
   margin: 0;
   color: var(--text);
   background:
-    linear-gradient(180deg, rgba(12, 33, 26, 0.74), #10100f 66%),
-    url("../hero-tavern.png") center / cover fixed;
+    radial-gradient(circle at 68% 24%, rgba(82, 174, 255, 0.22), transparent 34%),
+    linear-gradient(180deg, rgba(5, 12, 20, 0.34), #05080d 78%),
+    url("../hatter-cabinet-bg.jpg") center / cover fixed;
 }
 
 button,
@@ -66,9 +67,10 @@ button:focus-visible {
 
 .sidebar,
 .notices {
-  background: rgba(12, 16, 14, 0.86);
+  background: linear-gradient(180deg, rgba(8, 18, 30, 0.92), rgba(7, 12, 19, 0.88));
   border-right: 1px solid var(--line);
   padding: 18px;
+  box-shadow: inset -1px 0 0 rgba(117, 214, 255, 0.08);
 }
 
 .notices {
@@ -87,6 +89,7 @@ button:focus-visible {
   width: 46px;
   height: 46px;
   border-radius: var(--radius);
+  box-shadow: 0 0 22px rgba(117, 214, 255, 0.34);
 }
 
 .brand b,
@@ -139,13 +142,14 @@ nav {
 }
 
 .nav-item.active {
-  color: #1a120f;
-  background: linear-gradient(135deg, var(--brass), #f0d08a);
+  color: #03111d;
+  background: linear-gradient(135deg, #75d6ff, #e8b66e);
+  box-shadow: 0 0 20px rgba(117, 214, 255, 0.24);
 }
 
 .workspace {
   min-width: 0;
-  background: rgba(10, 21, 17, 0.72);
+  background: linear-gradient(180deg, rgba(6, 14, 23, 0.82), rgba(8, 14, 22, 0.76));
 }
 
 .topbar {

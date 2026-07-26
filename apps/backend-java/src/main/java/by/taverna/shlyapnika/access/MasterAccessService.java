@@ -49,6 +49,8 @@ public class MasterAccessService {
   public MasterAccessResponse requestMasterAccess(MasterAccessRequest request) {
     var normalizedTelegram = normalizeTelegramUsername(request.telegramUsername());
     if (normalizedTelegram == null) throw new IllegalArgumentException("Укажите Telegram username, например @MisterHatter.");
+    var codeRole = roleByAccessCode(request.accessCode());
+    var requestedRole = codeRole == null ? "master" : codeRole;
 
     var existingApproved = requests.findFirstByNormalizedTelegramUsernameAndStatusOrderByCreatedAtDesc(normalizedTelegram, "approved");
     if (existingApproved.isPresent()) {
@@ -62,13 +64,13 @@ public class MasterAccessService {
     var existingPending = requests.findFirstByNormalizedTelegramUsernameAndStatusOrderByCreatedAtDesc(normalizedTelegram, "pending");
     if (existingPending.isPresent()) {
       // Код владельца позволяет подтвердить свой мастерский доступ без ручного решения в Telegram.
-      if (accessCodeMatches(request.accessCode())) {
+      if (codeRole != null) {
         var pending = existingPending.get();
-        pending.approve(null, "approved by owner access code");
+        pending.approveAs(codeRole, null, "approved by owner access code");
         pending = requests.save(pending);
         auditService.write(null, "master.access.approved_by_code", "MasterAccessRequest", pending.getId(), null);
         notifications.notifyAdmins("Мастерский доступ подтверждён кодом владельца: " + pending.getDisplayName() + " (" + pending.getTelegramUsername() + ")");
-        return MasterAccessResponse.approved(pending.getId(), "Код принят. Мастерский доступ открыт.", pending.getDisplayName(), "master");
+        return MasterAccessResponse.approved(pending.getId(), accessCodeMessage(codeRole), pending.getDisplayName(), codeRole);
       }
       return MasterAccessResponse.requested(
           existingPending.get().getId(),
@@ -88,16 +90,17 @@ public class MasterAccessService {
         request.email(),
         request.telegramUsername(),
         normalizedTelegram,
+        requestedRole,
         consent
     ));
     // Новая заявка с верным кодом сразу становится мастерским доступом.
-    if (accessCodeMatches(request.accessCode())) {
-      entity.approve(null, "approved by owner access code");
+    if (codeRole != null) {
+      entity.approveAs(codeRole, null, "approved by owner access code");
       entity = requests.save(entity);
       auditService.write(null, "master.access.approved_by_code", "MasterAccessRequest", entity.getId(), "{\"telegram\":\"" + normalizedTelegram + "\"}");
       notifications.notifyAdmins("Мастерский доступ подтверждён кодом владельца: " + entity.getDisplayName() + " (" + entity.getTelegramUsername() + ")");
       log.info("master access approved by owner code requestId={} telegram={}", entity.getId(), normalizedTelegram);
-      return MasterAccessResponse.approved(entity.getId(), "Код принят. Мастерский доступ открыт.", entity.getDisplayName(), "master");
+      return MasterAccessResponse.approved(entity.getId(), accessCodeMessage(codeRole), entity.getDisplayName(), codeRole);
     }
     auditService.write(null, "master.access.requested", "MasterAccessRequest", entity.getId(), "{\"telegram\":\"" + normalizedTelegram + "\"}");
     notifications.notifyAdmins(adminMessage(entity));
@@ -117,6 +120,7 @@ public class MasterAccessService {
             request.getDisplayName(),
             request.getEmail(),
             request.getTelegramUsername(),
+            request.getRequestedRole(),
             request.getStatus(),
             request.getCreatedAt()
         ))
@@ -143,7 +147,7 @@ public class MasterAccessService {
         ? requests.findFirstByEmailIgnoreCaseAndStatusOrderByCreatedAtDesc(email, "approved")
         : requests.findFirstByNormalizedTelegramUsernameAndStatusOrderByCreatedAtDesc(normalizedTelegram, "approved");
     if (approvedRequest.isPresent()) {
-      return MasterAccessResponse.login(true, "Доступ подтверждён. Дневник открыт.", approvedRequest.get().getDisplayName(), "master");
+      return MasterAccessResponse.login(true, "Доступ подтверждён. Дневник открыт.", approvedRequest.get().getDisplayName(), approvedRequest.get().getRequestedRole());
     }
 
     return MasterAccessResponse.login(false, "Мастерский доступ пока не подтверждён.", null, "master");
@@ -200,10 +204,20 @@ public class MasterAccessService {
     return email != null && contactUrl != null && contactUrl.equalsIgnoreCase(email);
   }
 
-  private boolean accessCodeMatches(String value) {
-    var configuredCode = trimToNull(properties.masterAccessCode());
+  private String roleByAccessCode(String value) {
     var submittedCode = trimToNull(value);
-    return configuredCode != null && submittedCode != null && configuredCode.equals(submittedCode);
+    if (submittedCode == null) return null;
+    var hatterCode = trimToNull(properties.hatterAccessCode());
+    if (hatterCode != null && hatterCode.equals(submittedCode)) return "admin";
+    var masterCode = trimToNull(properties.masterAccessCode());
+    if (masterCode != null && masterCode.equals(submittedCode)) return "master";
+    return null;
+  }
+
+  private static String accessCodeMessage(String role) {
+    return "admin".equals(role)
+        ? "Код Шляпника принят. Административный доступ открыт."
+        : "Код принят. Мастерский доступ открыт.";
   }
 
   private static String trimToNull(String value) {
@@ -215,6 +229,7 @@ public class MasterAccessService {
       String displayName,
       String email,
       String telegramUsername,
+      String requestedRole,
       String status,
       Instant createdAt
   ) {

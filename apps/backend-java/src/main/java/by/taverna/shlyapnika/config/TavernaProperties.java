@@ -17,6 +17,7 @@ public record TavernaProperties(
     String corsAllowedOrigins,
     @NotBlank String internalApiToken,
     String masterAccessCode,
+    String hatterAccessCode,
     boolean autoPublish,
     boolean serveFrontend,
     @NotBlank String frontendStaticDir,

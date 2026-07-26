@@ -493,7 +493,7 @@ function openDiaryRegisterModal() {
         <label>Имя мастера<input name="displayName" autocomplete="name" minlength="2" maxlength="80" required></label>
         <label>Telegram<input name="telegramUsername" autocomplete="username" placeholder="@username" minlength="3" maxlength="80" required></label>
         <label class="form-wide">E-mail<input name="email" type="email" autocomplete="email" maxlength="160" required></label>
-        <label class="form-wide">Код владельца<input name="accessCode" autocomplete="one-time-code" maxlength="120" placeholder="Если код есть, доступ откроется сразу"></label>
+        <label class="form-wide">Код Шляпника<input name="accessCode" autocomplete="one-time-code" maxlength="120" placeholder="Код мастера или администратора откроет доступ сразу"></label>
         ${consentField("master-registration")}
         <button class="button primary" type="submit">Отправить Шляпнику</button>
         <p class="form-status" data-form-status></p>

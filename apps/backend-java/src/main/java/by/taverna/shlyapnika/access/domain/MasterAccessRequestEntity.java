@@ -72,6 +72,7 @@ public class MasterAccessRequestEntity {
       String email,
       String telegramUsername,
       String normalizedTelegramUsername,
+      String requestedRole,
       ConsentSnapshot consent
   ) {
     var request = new MasterAccessRequestEntity();
@@ -79,6 +80,7 @@ public class MasterAccessRequestEntity {
     request.email = email.trim();
     request.telegramUsername = telegramUsername.trim();
     request.normalizedTelegramUsername = normalizedTelegramUsername;
+    request.requestedRole = normalizeRole(requestedRole);
     request.consentGiven = true;
     request.consentVersion = consent.consentVersion();
     request.privacyPolicyVersion = consent.privacyPolicyVersion();
@@ -88,6 +90,11 @@ public class MasterAccessRequestEntity {
   }
 
   public void approve(Long adminTelegramId, String comment) {
+    approveAs(requestedRole, adminTelegramId, comment);
+  }
+
+  public void approveAs(String requestedRole, Long adminTelegramId, String comment) {
+    this.requestedRole = normalizeRole(requestedRole);
     status = "approved";
     decidedAt = Instant.now();
     decidedByTelegramId = adminTelegramId;
@@ -118,6 +125,10 @@ public class MasterAccessRequestEntity {
     return value == null || value.isBlank() ? null : value.trim();
   }
 
+  private static String normalizeRole(String value) {
+    return "admin".equalsIgnoreCase(blankToNull(value)) ? "admin" : "master";
+  }
+
   public String getId() {
     return id;
   }
@@ -140,6 +151,10 @@ public class MasterAccessRequestEntity {
 
   public String getStatus() {
     return status;
+  }
+
+  public String getRequestedRole() {
+    return requestedRole;
   }
 
   public Instant getCreatedAt() {

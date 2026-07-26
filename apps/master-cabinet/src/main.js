@@ -63,8 +63,8 @@ function render() {
         <div class="brand">
           <img src="/hatter-mark.png" alt="" />
           <div>
-            <b>Taverna Control</b>
-            <span>Кабинет Мастера</span>
+            <b>Личный кабинет Шляпника</b>
+            <span>Административная стойка таверны</span>
           </div>
         </div>
         <label class="role-switch">
@@ -84,12 +84,12 @@ function render() {
       <main class="workspace">
         <header class="topbar">
           <div>
-            <p class="eyebrow">Единый монолит таверны</p>
+            <p class="eyebrow">Личный кабинет Шляпника</p>
             <h1>${sections[state.section][0]}</h1>
             <p class="session-line">${escapeHtml(sessionLabel())}</p>
           </div>
           <div class="status-line" aria-live="polite">
-            <label class="admin-token">Ключ кабинета<input id="adminTokenInput" type="password" autocomplete="off" value="${escapeHtml(state.adminToken)}" /></label>
+            <label class="admin-token">Код Шляпника<input id="adminTokenInput" type="password" autocomplete="off" value="${escapeHtml(state.adminToken)}" /></label>
             <span><span class="dot ${state.backend === "online" ? "ok" : ""}"></span>Backend: <span data-backend-output>${state.backend}</span></span>
             <span class="source-badge ${dataSource}" data-source-output>Data: ${dataSource}</span>
           </div>
@@ -99,8 +99,8 @@ function render() {
           ${sectionTemplate(state.section)}
         </section>
       </main>
-      <aside class="notices" aria-label="Уведомления">
-        <h2>Уведомления</h2>
+      <aside class="notices" aria-label="Записки Шляпника">
+        <h2>Записки</h2>
         <button class="notice">Резервные копии работают в безопасном read-only режиме</button>
         <button class="notice warn">Desktop Agent выключен</button>
         <button class="notice">CSRF cookie ожидается от backend</button>
@@ -241,7 +241,7 @@ function usersTemplate() {
 function securityTemplate() {
   return `
     <div class="metric-grid">
-      <article class="metric"><span>Ключ кабинета</span><strong>required</strong><small>x-internal-token для важных действий</small></article>
+      <article class="metric"><span>Код Шляпника</span><strong>required</strong><small>x-internal-token для важных действий</small></article>
       <article class="metric"><span>Секреты</span><strong>runtime</strong><small>не хранятся в статике</small></article>
       <article class="metric"><span>Сессии</span><strong>planned</strong><small>будут перенесены в монолит отдельным шагом</small></article>
     </div>
