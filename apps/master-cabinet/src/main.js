@@ -50,7 +50,7 @@ const state = {
   remote: {}
 };
 
-const genericDataSections = new Set(["applications", "services", "masters", "players", "rating", "gallery", "stories", "notifications"]);
+const genericDataSections = new Set(["applications", "services", "masters", "gallery", "stories", "notifications"]);
 
 const mock = {
   metrics: [
@@ -196,6 +196,7 @@ function sectionTemplate(section) {
   if (section === "games" || section === "schedule") return gamesTemplate(section);
   if (section === "projects") return projectsTemplate();
   if (section === "users") return usersTemplate();
+  if (section === "players" || section === "rating") return ratingTemplate(section);
   if (section === "security") return securityTemplate();
   if (section === "files") return filesTemplate();
   if (section === "stories") return storiesTemplate();
@@ -515,6 +516,35 @@ function genericTemplate(section) {
       updatedAt,
       actions
     ]))}
+  `;
+}
+
+function ratingTemplate(section) {
+  const players = recordsFromPayload(state.remote[section]);
+  const rows = players.map((player) => [
+    player.rank,
+    player.displayName,
+    player.nickname || "персонаж не указан",
+    player.gamesPlayed,
+    player.totalPoints,
+    player.inspirationCount,
+    player.averagePointsPerGame ?? "0.00",
+    player.visible ? "published" : "hidden"
+  ]);
+  const summary = players.length
+    ? {
+      games: players.reduce((sum, player) => sum + Number(player.gamesPlayed || 0), 0),
+      points: players.reduce((sum, player) => sum + Number(player.totalPoints || 0), 0),
+      inspiration: players.reduce((sum, player) => sum + Number(player.inspirationCount || 0), 0)
+    }
+    : { games: 0, points: 0, inspiration: 0 };
+  return `
+    <div class="metric-grid rating-summary" aria-label="Сводка рейтинга">
+      <article class="metric"><span>Игроки</span><strong>${escapeHtml(players.length)}</strong><small>в основной базе</small></article>
+      <article class="metric"><span>Игры</span><strong>${escapeHtml(summary.games)}</strong><small>учтены в рейтинге</small></article>
+      <article class="metric"><span>Очки / вдохновение</span><strong>${escapeHtml(summary.points)} / ${escapeHtml(summary.inspiration)}</strong><small>общая сводка</small></article>
+    </div>
+    ${tableTemplate(sections[section][1], ["Место", "Игрок", "Персонаж", "Игры", "Очки", "Вдохновение", "Среднее", "Статус"], rows)}
   `;
 }
 
@@ -983,6 +1013,7 @@ function sectionEndpoint(section) {
   if (section === "tech") return "/api/v1/admin/integration/status";
   if (section === "audit") return "/api/v1/admin/audit?page=0";
   if (section === "games") return "/api/v1/admin/games?page=0&size=20";
+  if (section === "players" || section === "rating") return "/api/v1/admin/rating/players?page=0&size=50";
   if (section === "schedule") {
     const from = new Date();
     const to = new Date(from);

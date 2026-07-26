@@ -199,6 +199,42 @@ public class MonolithControlController {
     return new ItemsResponse<>(items, safePage, safeSize);
   }
 
+  @GetMapping("/api/v1/admin/rating/players")
+  public ItemsResponse<RatingPlayerRowDto> ratingPlayerRows(
+      @RequestParam(defaultValue = "0") int page,
+      @RequestParam(defaultValue = "50") int size
+  ) {
+    var safePage = Math.max(page, 0);
+    var safeSize = Math.min(Math.max(size, 1), 100);
+    var offset = safePage * safeSize;
+    var items = jdbcTemplate.query("""
+        select "id", "displayName", "nickname", "isVisible", "gamesPlayed",
+               "totalPoints", "inspirationCount",
+               round(case when "gamesPlayed" > 0 then "totalPoints"::numeric / "gamesPlayed" else 0 end, 2) as "averagePointsPerGame",
+               "lastGameAt", "lastStatsAt", "updatedAt"
+        from "RatingPlayer"
+        order by "totalPoints" desc,
+                 case when "gamesPlayed" > 0 then "totalPoints"::numeric / "gamesPlayed" else 0 end desc,
+                 "gamesPlayed" desc,
+                 lower("displayName") asc
+        limit ? offset ?
+        """, (rs, rowNum) -> new RatingPlayerRowDto(
+            offset + rowNum + 1,
+            rs.getString("id"),
+            rs.getString("displayName"),
+            rs.getString("nickname"),
+            rs.getBoolean("isVisible"),
+            rs.getInt("gamesPlayed"),
+            rs.getInt("totalPoints"),
+            rs.getInt("inspirationCount"),
+            rs.getBigDecimal("averagePointsPerGame"),
+            instant(rs, "lastGameAt"),
+            instant(rs, "lastStatsAt"),
+            instant(rs, "updatedAt")
+        ), safeSize, offset);
+    return new ItemsResponse<>(items, safePage, safeSize);
+  }
+
   @GetMapping("/api/v1/admin/files/storage")
   public StorageDto filesStorage() {
     return new StorageDto(
@@ -482,6 +518,22 @@ public class MonolithControlController {
   }
 
   public record ControlRecordDto(String publicId, String title, String status, Instant updatedAt) {
+  }
+
+  public record RatingPlayerRowDto(
+      int rank,
+      String publicId,
+      String displayName,
+      String nickname,
+      boolean visible,
+      int gamesPlayed,
+      int totalPoints,
+      int inspirationCount,
+      BigDecimal averagePointsPerGame,
+      Instant lastGameAt,
+      Instant lastStatsAt,
+      Instant updatedAt
+  ) {
   }
 
   public record ActionDto(String actorPublicId, String action, String entityType, Instant createdAt) {
