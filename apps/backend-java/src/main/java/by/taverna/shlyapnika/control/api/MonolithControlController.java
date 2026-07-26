@@ -2,6 +2,7 @@ package by.taverna.shlyapnika.control.api;
 
 import by.taverna.shlyapnika.audit.AuditService;
 import by.taverna.shlyapnika.common.Ids;
+import by.taverna.shlyapnika.config.TavernaProperties;
 import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -24,10 +25,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class MonolithControlController {
   private final JdbcTemplate jdbcTemplate;
   private final AuditService auditService;
+  private final TavernaProperties properties;
 
-  public MonolithControlController(JdbcTemplate jdbcTemplate, AuditService auditService) {
+  public MonolithControlController(JdbcTemplate jdbcTemplate, AuditService auditService, TavernaProperties properties) {
     this.jdbcTemplate = jdbcTemplate;
     this.auditService = auditService;
+    this.properties = properties;
   }
 
   @GetMapping("/api/v1/admin/dashboard")
@@ -164,6 +167,52 @@ public class MonolithControlController {
   @GetMapping("/api/v1/admin/audit")
   public ItemsResponse<ActionDto> audit(@RequestParam(defaultValue = "0") int page) {
     return new ItemsResponse<>(recentActions(30), Math.max(page, 0), 30);
+  }
+
+  @GetMapping("/api/v1/admin/projects")
+  public List<ProjectDto> projects() {
+    return List.of(
+        new ProjectDto("site-monolith", "Основной сайт и API", "Java 21 Spring Boot + static frontend", "apps/backend-java", "active", "monolith"),
+        new ProjectDto("telegram-bot", "Писарь таверны", "Java Telegram Bot + internal API", "apps/telegram-bot-java", "active", "monolith"),
+        new ProjectDto("master-cabinet", "Кабинет мастера", "Vite frontend inside monolith", "apps/master-cabinet", "active", "monolith")
+    );
+  }
+
+  @GetMapping("/api/v1/admin/users")
+  public ItemsResponse<AccountDto> users(
+      @RequestParam(defaultValue = "0") int page,
+      @RequestParam(defaultValue = "20") int size
+  ) {
+    var safePage = Math.max(page, 0);
+    var safeSize = Math.min(Math.max(size, 1), 100);
+    var items = jdbcTemplate.query("""
+        select "id", "telegramUsername", "displayName", "role", "status"
+        from "Master"
+        order by "displayName" asc
+        limit ? offset ?
+        """, (rs, rowNum) -> new AccountDto(
+            rs.getString("id"),
+            publicTelegramHandle(rs.getString("telegramUsername")),
+            List.of(rs.getString("role")),
+            rs.getString("status")
+        ), safeSize, safePage * safeSize);
+    return new ItemsResponse<>(items, safePage, safeSize);
+  }
+
+  @GetMapping("/api/v1/admin/files/storage")
+  public StorageDto filesStorage() {
+    return new StorageDto(
+        new StorageAdapterDto("local", properties.fileStorageDir()),
+        new StorageAdapterDto("disabled", "project artifacts are not enabled in monolith yet"),
+        List.of("s3-compatible", "railway-volume")
+    );
+  }
+
+  @GetMapping("/api/v1/admin/backups")
+  public ItemsResponse<BackupJobDto> backups() {
+    return new ItemsResponse<>(List.of(
+        new BackupJobDto("backup-read-only", "DISABLED", "manual database backups required", "not configured")
+    ), 0, 20);
   }
 
   @GetMapping("/api/v1/admin/integration/status")
@@ -402,6 +451,10 @@ public class MonolithControlController {
     return value == null || value.isBlank() ? "system" : value;
   }
 
+  private static String publicTelegramHandle(String username) {
+    return username == null || username.isBlank() ? "" : "@" + username.replaceFirst("^@", "");
+  }
+
   public record DashboardResponse(
       String source,
       Instant generatedAt,
@@ -432,6 +485,21 @@ public class MonolithControlController {
   }
 
   public record ActionDto(String actorPublicId, String action, String entityType, Instant createdAt) {
+  }
+
+  public record ProjectDto(String code, String name, String stack, String detectedPath, String status, String launchMode) {
+  }
+
+  public record AccountDto(String publicId, String email, List<String> roles, String status) {
+  }
+
+  public record StorageDto(StorageAdapterDto media, StorageAdapterDto projectArtifacts, List<String> futureAdapters) {
+  }
+
+  public record StorageAdapterDto(String adapter, String root) {
+  }
+
+  public record BackupJobDto(String publicId, String status, String checksum, String manifestPath) {
   }
 
   public record MasterOptionDto(String id, String displayName, String contactUrl) {

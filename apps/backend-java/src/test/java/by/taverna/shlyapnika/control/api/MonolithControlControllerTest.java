@@ -11,10 +11,22 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(MonolithControlController.class)
 @AutoConfigureMockMvc(addFilters = false)
+@TestPropertySource(properties = {
+    "taverna.site-base-url=http://localhost:8080",
+    "taverna.public-uploads-url=/uploads",
+    "taverna.file-storage-dir=uploads",
+    "taverna.timezone=Europe/Minsk",
+    "taverna.cors-allowed-origins=http://localhost:4177",
+    "taverna.internal-api-token=test-internal-token",
+    "taverna.auto-publish=true",
+    "taverna.serve-frontend=false",
+    "taverna.frontend-static-dir=static-site"
+})
 class MonolithControlControllerTest {
   @Autowired
   private MockMvc mvc;
@@ -41,4 +53,14 @@ class MonolithControlControllerTest {
         .andExpect(jsonPath("$.content").isArray())
         .andExpect(jsonPath("$.content.length()").value(0));
   }
+
+  @Test
+  void returnsMonolithProjectList() throws Exception {
+    mvc.perform(get("/api/v1/admin/projects"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].code").value("site-monolith"))
+        .andExpect(jsonPath("$[1].code").value("telegram-bot"))
+        .andExpect(jsonPath("$[2].code").value("master-cabinet"));
+  }
+
 }
