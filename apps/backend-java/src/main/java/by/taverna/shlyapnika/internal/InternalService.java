@@ -1,6 +1,8 @@
 package by.taverna.shlyapnika.internal;
 
 import by.taverna.shlyapnika.audit.AuditService;
+import by.taverna.shlyapnika.access.domain.MasterAccessRequestEntity;
+import by.taverna.shlyapnika.access.infrastructure.MasterAccessRequestRepository;
 import by.taverna.shlyapnika.common.Ids;
 import by.taverna.shlyapnika.common.NotFoundException;
 import by.taverna.shlyapnika.config.TavernaProperties;
@@ -49,6 +51,7 @@ public class InternalService {
   private static final Set<String> GALLERY_STATUSES = Set.of("draft", "published", "hidden");
 
   private final MasterRepository masters;
+  private final MasterAccessRequestRepository masterAccessRequests;
   private final GameRepository games;
   private final GalleryPostRepository galleryPosts;
   private final MediaStorage mediaStorage;
@@ -61,6 +64,7 @@ public class InternalService {
 
   public InternalService(
       MasterRepository masters,
+      MasterAccessRequestRepository masterAccessRequests,
       GameRepository games,
       GalleryPostRepository galleryPosts,
       MediaStorage mediaStorage,
@@ -72,6 +76,7 @@ public class InternalService {
       ObjectMapper objectMapper
   ) {
     this.masters = masters;
+    this.masterAccessRequests = masterAccessRequests;
     this.games = games;
     this.galleryPosts = galleryPosts;
     this.mediaStorage = mediaStorage;
@@ -90,13 +95,12 @@ public class InternalService {
 
   @Transactional
   public InternalMasterResponse getMasterByTelegram(Long telegramUserId, String telegramUsername) {
-    return masters.findByTelegramUserId(telegramUserId)
-        .map(master -> {
-          updateTelegramUsername(master, telegramUsername);
-          ensureAdminRole(master);
-          return toMasterResponse(master);
-        })
-        .orElseThrow(() -> new NotFoundException("Мастер не найден."));
+    var master = masters.findByTelegramUserId(telegramUserId)
+        .orElseGet(() -> createMasterFromApprovedAccess(telegramUserId, telegramUsername));
+    updateTelegramUsername(master, telegramUsername);
+    ensureAdminRole(master);
+    master = masters.save(master);
+    return toMasterResponse(master);
   }
 
   @Transactional
@@ -484,6 +488,32 @@ public class InternalService {
     }
   }
 
+  private MasterEntity createMasterFromApprovedAccess(Long telegramUserId, String telegramUsername) {
+    var normalizedUsername = normalizeTelegramUsername(telegramUsername);
+    if (normalizedUsername != null) {
+      var approvedAccess = masterAccessRequests.findFirstByNormalizedTelegramUsernameAndStatusOrderByCreatedAtDesc(normalizedUsername, "approved");
+      if (approvedAccess.isPresent()) {
+        var access = approvedAccess.get();
+        var master = MasterEntity.create(telegramUserId, telegramUsernameForProfile(access, normalizedUsername), access.getDisplayName(), access.getEmail());
+        if ("admin".equals(access.getRequestedRole())) master.grantAdminRole();
+        return master;
+      }
+    }
+    if (shouldTelegramIdentityBeAdmin(telegramUserId, normalizedUsername)) {
+      var username = normalizedUsername == null ? "admin-" + telegramUserId : normalizedUsername;
+      var master = MasterEntity.create(telegramUserId, "@" + username, "Шляпник", "https://t.me/" + username);
+      master.grantAdminRole();
+      return master;
+    }
+    throw new NotFoundException("Мастер не найден.");
+  }
+
+  private String telegramUsernameForProfile(MasterAccessRequestEntity access, String normalizedUsername) {
+    var username = trimToNull(access.getTelegramUsername());
+    if (username != null) return username;
+    return "@" + normalizedUsername;
+  }
+
   private void updateTelegramUsername(MasterEntity master, String telegramUsername) {
     var username = trimToNull(telegramUsername);
     if (username == null || username.equals(master.getTelegramUsername())) return;
@@ -510,6 +540,40 @@ public class InternalService {
       if (usernameMatches) return true;
     }
     return masters.countAdmins() == 0 && masters.findActiveMasters().size() == 1;
+  }
+
+  private boolean shouldTelegramIdentityBeAdmin(Long telegramUserId, String normalizedUsername) {
+    var telegram = properties.telegram();
+    var adminIds = telegram == null ? null : telegram.adminIds();
+    if (telegramUserId != null && adminIds != null && !adminIds.isBlank()) {
+      var idMatches = Arrays.stream(adminIds.split(","))
+          .map(String::trim)
+          .filter(value -> !value.isBlank())
+          .anyMatch(value -> value.equals(String.valueOf(telegramUserId)));
+      if (idMatches) return true;
+    }
+    var adminUsernames = telegram == null ? null : telegram.adminUsernames();
+    if (normalizedUsername != null && adminUsernames != null && !adminUsernames.isBlank()) {
+      return Arrays.stream(adminUsernames.split(","))
+          .map(this::normalizeTelegramUsername)
+          .filter(value -> value != null && !value.isBlank())
+          .anyMatch(value -> value.equalsIgnoreCase(normalizedUsername));
+    }
+    return false;
+  }
+
+  private String normalizeTelegramUsername(String value) {
+    var trimmed = trimToNull(value);
+    if (trimmed == null) return null;
+    var normalized = trimmed
+        .replace("https://t.me/", "")
+        .replace("http://t.me/", "")
+        .replace("https://telegram.me/", "")
+        .replace("http://telegram.me/", "")
+        .replace("@", "")
+        .replace("/", "")
+        .trim();
+    return normalized.isBlank() ? null : normalized.toLowerCase();
   }
 
   private MasterEntity requireAdminMaster(String masterId) {

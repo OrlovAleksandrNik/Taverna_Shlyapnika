@@ -529,6 +529,10 @@ async function submitDiaryLogin(form) {
     }));
     status.textContent = result.message || "Дневник открыт.";
     closeModal();
+    if (result.role === "admin") {
+      window.location.href = `${rootPath}master-cabinet/`;
+      return;
+    }
     unlockDiary(result.displayName || "мастера");
   } catch (error) {
     console.error("Diary login failed", error);
@@ -564,6 +568,10 @@ async function submitMasterAccessRequest(form) {
         grantedAt: new Date().toISOString()
       }));
       closeModal();
+      if (result.role === "admin") {
+        window.location.href = `${rootPath}master-cabinet/`;
+        return;
+      }
       unlockDiary(payload.displayName || result.displayName || "мастера");
       return;
     }
