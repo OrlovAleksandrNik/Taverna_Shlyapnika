@@ -465,8 +465,83 @@ function lockDiary() {
   renderDiaryPage();
 }
 
+function masterCabinetUrl(section = "") {
+  const url = new URL(`${rootPath}master-cabinet/`, window.location.href);
+  if (section) url.hash = section;
+  return url.href;
+}
+
 function goToMasterCabinet() {
-  window.location.assign(new URL(`${rootPath}master-cabinet/`, window.location.href).href);
+  window.location.assign(new URL(`${rootPath}index.html?hatter=1`, window.location.href).href);
+}
+
+function removeMasterCabinetNavLinks() {
+  document.querySelectorAll("a[href*='master-cabinet']").forEach((link) => link.remove());
+}
+
+function initHatterWorkspace() {
+  const state = diaryAccessState();
+  if (!state?.accessGranted) return;
+
+  const dock = document.createElement("div");
+  dock.className = "hatter-workspace-dock";
+  dock.innerHTML = `
+    <span class="hatter-workspace-dock__title">Режим Шляпника</span>
+    <span class="hatter-workspace-dock__name">${escapeHtml(state.displayName || "мастер")}</span>
+    <button class="button primary" type="button" data-hatter-workspace-open>Редактировать сайт</button>
+    <button class="button ghost" type="button" data-hatter-workspace-logout>Выйти</button>
+  `;
+
+  const drawer = document.createElement("section");
+  drawer.className = "hatter-workspace-drawer";
+  drawer.hidden = true;
+  drawer.setAttribute("aria-label", "Панель редактирования сайта");
+  drawer.innerHTML = `
+    <div class="hatter-workspace-drawer__bar">
+      <div>
+        <p class="eyebrow">Личный кабинет Шляпника</p>
+        <strong>Редактирование сайта</strong>
+      </div>
+      <div class="hatter-workspace-drawer__actions">
+        <button type="button" data-hatter-workspace-section="games">Игры</button>
+        <button type="button" data-hatter-workspace-section="gallery">Галерея</button>
+        <button type="button" data-hatter-workspace-section="service-requests">Заявки</button>
+        <button type="button" data-hatter-workspace-close aria-label="Закрыть панель">×</button>
+      </div>
+    </div>
+    <iframe data-hatter-workspace-frame src="${masterCabinetUrl()}" title="Личный кабинет Шляпника"></iframe>
+  `;
+
+  document.body.append(dock, drawer);
+
+  const frame = drawer.querySelector("[data-hatter-workspace-frame]");
+  const openDrawer = () => {
+    drawer.hidden = false;
+    document.body.classList.add("hatter-workspace-open");
+  };
+  const closeDrawer = () => {
+    drawer.hidden = true;
+    document.body.classList.remove("hatter-workspace-open");
+  };
+
+  dock.querySelector("[data-hatter-workspace-open]")?.addEventListener("click", openDrawer);
+  dock.querySelector("[data-hatter-workspace-logout]")?.addEventListener("click", () => {
+    localStorage.removeItem(DIARY_ACCESS_STORAGE_KEY);
+    window.location.assign(new URL(`${rootPath}hatter-diary.html`, window.location.href).href);
+  });
+  drawer.querySelector("[data-hatter-workspace-close]")?.addEventListener("click", closeDrawer);
+  drawer.querySelectorAll("[data-hatter-workspace-section]").forEach((button) => {
+    button.addEventListener("click", () => {
+      if (frame instanceof HTMLIFrameElement) frame.src = masterCabinetUrl(button.dataset.hatterWorkspaceSection || "");
+      openDrawer();
+    });
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !drawer.hidden) closeDrawer();
+  });
+
+  if (new URLSearchParams(window.location.search).get("hatter") === "1") openDrawer();
 }
 
 function openDiaryLoginModal() {
@@ -1502,6 +1577,7 @@ function initReveal() {
   });
 }
 
+removeMasterCabinetNavLinks();
 ensureRatingNavLinks();
 renderSchedule();
 renderRatingPage();
@@ -1510,6 +1586,7 @@ renderMasterPage();
 renderContactBlock();
 renderGalleryPage();
 initDiaryAccess();
+initHatterWorkspace();
 renderFooter();
 initReveal();
 

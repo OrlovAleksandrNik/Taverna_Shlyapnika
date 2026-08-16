@@ -362,7 +362,7 @@ public class TelegramPollingService {
       return;
     }
     log.info("Telegram main menu sent userId={} masterFound=true role={}", userId, master.role());
-    telegram.sendMessage(chatId, "Добро пожаловать обратно, " + master.displayName() + ".", mainMenu());
+    telegram.sendMessage(chatId, "Добро пожаловать обратно, " + master.displayName() + ".", mainMenu(master));
   }
 
   private void beginRegistration(long chatId, long userId) {
@@ -1477,7 +1477,7 @@ public class TelegramPollingService {
 
   private Object startKeyboard() {
     return replyKeyboard(List.of(
-        replyRow("Регистрация", "Доступ"),
+        replyRow("Регистрация"),
         replyRow("Отмена")
     ));
   }
@@ -1486,9 +1486,20 @@ public class TelegramPollingService {
     return replyKeyboard(List.of(
         replyRow("Игра", "Мои"),
         replyRow("Галерея", "Рейтинг"),
-        replyRow("Доступ"),
         replyRow("Отмена")
     ));
+  }
+
+  private Object mainMenu(BackendMasterResponse master) {
+    if (master != null && "admin".equals(master.role())) {
+      return replyKeyboard(List.of(
+          replyRow("Игра", "Мои"),
+          replyRow("Галерея", "Рейтинг"),
+          replyRow("Доступ"),
+          replyRow("Отмена")
+      ));
+    }
+    return mainMenu();
   }
 
   private Object accessMenuKeyboard() {
