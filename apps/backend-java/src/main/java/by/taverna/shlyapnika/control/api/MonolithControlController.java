@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -117,6 +118,56 @@ public class MonolithControlController {
     );
     auditService.write("master-cabinet", "game.created_from_cabinet", "Game", id, "{\"status\":\"draft\"}");
     return new GameRowDto(id, textOrDefault(request.title(), "Новая игра"), startsAt, master.id(), master.displayName(), textOrDefault(request.gameSystem(), "D&D 5e"), status);
+  }
+
+  @PutMapping("/api/v1/admin/games/{id}")
+  public GameRowDto updateGame(@PathVariable String id, @RequestBody AdminGameRequest request) {
+    var master = trimToNull(request.masterPublicId()) == null ? null : findMaster(request.masterPublicId());
+    var startsAt = trimToNull(request.startsAt()) == null ? null : Instant.parse(request.startsAt().trim());
+    jdbcTemplate.update("""
+        update "Game"
+        set "title" = coalesce(nullif(?, ''), "title"),
+            "description" = coalesce(nullif(?, ''), "description"),
+            "gameSystem" = coalesce(nullif(?, ''), "gameSystem"),
+            "experienceLevel" = coalesce(nullif(?, ''), "experienceLevel"),
+            "ageRating" = coalesce(nullif(?, ''), "ageRating"),
+            "masterId" = coalesce(?, "masterId"),
+            "dateTimeStart" = coalesce(?, "dateTimeStart"),
+            "durationMinutes" = coalesce(?, "durationMinutes"),
+            "minPlayers" = coalesce(?, "minPlayers"),
+            "maxPlayers" = coalesce(?, "maxPlayers"),
+            "price" = coalesce(?, "price"),
+            "currency" = coalesce(nullif(?, ''), "currency"),
+            "contactUrl" = coalesce(nullif(?, ''), "contactUrl"),
+            "dateTimeEnd" = case
+              when ?::timestamp is not null then ?::timestamp + (coalesce(?, "durationMinutes") * interval '1 minute')
+              when ?::int is not null then "dateTimeStart" + (?::int * interval '1 minute')
+              else "dateTimeEnd"
+            end,
+            "updatedAt" = current_timestamp
+        where "id" = ?
+        """,
+        trimToNull(request.title()),
+        trimToNull(request.description()),
+        trimToNull(request.gameSystem()),
+        trimToNull(request.experienceLevel()),
+        trimToNull(request.ageRating()),
+        master == null ? null : master.id(),
+        startsAt == null ? null : Timestamp.from(startsAt),
+        request.durationMinutes(),
+        request.minPlayers(),
+        request.maxPlayers(),
+        request.price(),
+        trimToNull(request.currency()),
+        trimToNull(request.contactUrl()),
+        startsAt == null ? null : Timestamp.from(startsAt),
+        startsAt == null ? null : Timestamp.from(startsAt),
+        request.durationMinutes(),
+        request.durationMinutes(),
+        request.durationMinutes(),
+        id);
+    auditService.write("master-cabinet", "game.updated_from_cabinet", "Game", id, null);
+    return gameById(id);
   }
 
   @PostMapping("/api/v1/admin/games/{id}/publish")

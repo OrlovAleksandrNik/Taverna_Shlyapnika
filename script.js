@@ -472,7 +472,7 @@ function masterCabinetUrl(section = "") {
 }
 
 function goToMasterCabinet() {
-  window.location.assign(new URL(`${rootPath}index.html?hatter=1`, window.location.href).href);
+  window.location.assign(masterCabinetUrl());
 }
 
 function removeMasterCabinetNavLinks() {

@@ -47,6 +47,7 @@ const state = {
   tablePrefs: loadTablePrefs(),
   actionStatus: "Ready",
   adminToken: sessionStorage.getItem("control-admin-token") || "",
+  selectedGameId: "",
   remote: {}
 };
 
@@ -65,6 +66,14 @@ function render() {
           <div>
             <b>Личный кабинет Шляпника</b>
             <span>Административная стойка таверны</span>
+          </div>
+        </div>
+        <div class="master-profile">
+          <img src="/hatter-mark.png" alt="" />
+          <div>
+            <span>Мастер</span>
+            <strong>${escapeHtml(state.account?.displayName || "Шляпник")}</strong>
+            <small>${escapeHtml(state.account?.email || "доступ через шляпу")}</small>
           </div>
         </div>
         <label class="role-switch">
@@ -331,20 +340,21 @@ function techTemplate() {
 
 function gamesTemplate(section) {
   const records = recordsFromPayload(state.remote[section]);
+  const masters = recordsFromPayload(state.remote.masters);
   const rows = records.map((game) => [
     game.title,
     formatDateTime(game.startsAt),
     game.masterName || game.masterPublicId || "unassigned",
     game.status,
     actionButtons([
-      ["publish-game", "Опубликовать", game.id],
-      ["cancel-game", "Отменить", game.id],
-      ["delete-game", "В архив", game.id]
+      ["edit-game", "Редактировать", game.id, section],
+      ["publish-game", "Опубликовать", game.id, section],
+      ["cancel-game", "Отменить", game.id, section],
+      ["delete-game", "В архив", game.id, section]
     ])
   ]);
   const table = tableTemplate(sections[section][1], ["Игра", "Дата", "Мастер", "Статус", "Действия"], rows);
-  if (section === "schedule") return table;
-  const masters = recordsFromPayload(state.remote.masters);
+  if (section === "schedule") return `${gameEditorTemplate(records, masters)}${table}`;
   const masterControl = masters.length
     ? `<label>Мастер<select name="masterPublicId">${masters.map((master) => `<option value="${escapeHtml(master.publicId)}">${escapeHtml(master.title)}</option>`).join("")}</select></label>`
     : `<label>Мастер<input name="masterPublicId" type="text" placeholder="ID мастера из базы" /></label>`;
@@ -366,7 +376,50 @@ function gamesTemplate(section) {
       <label>Staff notes<textarea name="staffNotes" rows="3">Создано из кабинета мастера в монолите.</textarea></label>
       <button type="button" data-action="create-game" title="Создать игру в основном backend">Создать игру</button>
     </form>
+    ${gameEditorTemplate(records, masters)}
     ${table}
+  `;
+}
+
+function gameEditorTemplate(records, masters) {
+  const game = records.find((item) => item.id === state.selectedGameId);
+  if (!game) {
+    return `
+      <section class="editor master-editor is-empty">
+        <h2>Редактор игры</h2>
+        <p class="note">Выберите игру в списке ниже и нажмите «Редактировать». Здесь откроются поля, которые можно сохранить без перехода в Telegram.</p>
+      </section>
+    `;
+  }
+  const masterOptions = masters.length
+    ? masters.map((master) => `<option value="${escapeHtml(master.publicId)}" ${master.publicId === game.masterPublicId ? "selected" : ""}>${escapeHtml(master.title)}</option>`).join("")
+    : `<option value="${escapeHtml(game.masterPublicId || "")}">${escapeHtml(game.masterName || game.masterPublicId || "Мастер")}</option>`;
+  return `
+    <form class="editor master-editor" data-game-editor-form>
+      <div class="editor-head">
+        <div>
+          <p class="eyebrow">Редактирование игры</p>
+          <h2>${escapeHtml(game.title)}</h2>
+        </div>
+        <span class="status-pill">${escapeHtml(game.status)}</span>
+      </div>
+      <input type="hidden" name="id" value="${escapeHtml(game.id)}">
+      <label>Название<input name="title" type="text" value="${escapeHtml(game.title)}" required></label>
+      <label>Система<input name="gameSystem" type="text" value="${escapeHtml(game.gameSystem || "D&D 5e")}"></label>
+      <label>Дата и время<input name="startsAt" type="datetime-local" value="${escapeHtml(dateTimeLocalValue(game.startsAt))}"></label>
+      <label>Мастер<select name="masterPublicId">${masterOptions}</select></label>
+      <label>Длительность, минут<input name="durationMinutes" type="number" min="30" step="30" placeholder="Оставить как есть"></label>
+      <label>Мин. игроков<input name="minPlayers" type="number" min="1" placeholder="Оставить как есть"></label>
+      <label>Макс. игроков<input name="maxPlayers" type="number" min="1" placeholder="Оставить как есть"></label>
+      <label>Цена<input name="price" type="number" min="0" step="0.01" placeholder="Оставить как есть"></label>
+      <label>Валюта<input name="currency" type="text" placeholder="BYN"></label>
+      <label>Ссылка записи<input name="contactUrl" type="text" placeholder="Оставить как есть"></label>
+      <label class="form-wide">Описание<textarea name="description" rows="4" placeholder="Оставить как есть"></textarea></label>
+      <div class="editor-actions">
+        <button type="button" data-action="save-game">Сохранить изменения</button>
+        <button type="button" data-action="clear-game-editor">Закрыть редактор</button>
+      </div>
+    </form>
   `;
 }
 
@@ -742,6 +795,13 @@ function defaultGameStart() {
   return start.toISOString().slice(0, 16);
 }
 
+function dateTimeLocalValue(value) {
+  if (!value || Number.isNaN(Date.parse(value))) return "";
+  const date = new Date(value);
+  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+  return date.toISOString().slice(0, 16);
+}
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -777,6 +837,30 @@ function gamePayload(body) {
     masterPublicId: body.masterPublicId,
     contactUrl: body.contactUrl,
     staffNotes: body.staffNotes
+  };
+}
+
+function optionalNumber(value) {
+  return value === null || value === undefined || String(value).trim() === "" ? null : Number(value);
+}
+
+function optionalText(value) {
+  return value === null || value === undefined || String(value).trim() === "" ? null : String(value).trim();
+}
+
+function gameEditPayload(body) {
+  return {
+    title: optionalText(body.title),
+    description: optionalText(body.description),
+    gameSystem: optionalText(body.gameSystem),
+    startsAt: body.startsAt ? new Date(body.startsAt).toISOString() : null,
+    durationMinutes: optionalNumber(body.durationMinutes),
+    minPlayers: optionalNumber(body.minPlayers),
+    maxPlayers: optionalNumber(body.maxPlayers),
+    price: optionalNumber(body.price),
+    currency: optionalText(body.currency),
+    masterPublicId: optionalText(body.masterPublicId),
+    contactUrl: optionalText(body.contactUrl)
   };
 }
 
@@ -818,6 +902,28 @@ async function apiPost(path, body, csrf = false) {
   return text ? JSON.parse(text) : {};
 }
 
+async function apiPut(path, body, csrf = false) {
+  const headers = {
+    Accept: "application/json",
+    "Content-Type": "application/json"
+  };
+  if (csrf) headers["X-XSRF-TOKEN"] = await ensureCsrf();
+  if (state.adminToken) headers["x-internal-token"] = state.adminToken;
+  const response = await fetch(`${API_BASE}${path}`, {
+    method: "PUT",
+    credentials: "include",
+    headers,
+    body: JSON.stringify(body)
+  });
+  if (!response.ok) {
+    const error = new Error(`PUT ${path} failed with ${response.status}`);
+    error.status = response.status;
+    throw error;
+  }
+  const text = await response.text();
+  return text ? JSON.parse(text) : {};
+}
+
 async function apiDelete(path) {
   const response = await fetch(`${API_BASE}${path}`, {
     method: "DELETE",
@@ -837,6 +943,23 @@ async function apiDelete(path) {
 
 async function runAction(action, form, sourceElement = null) {
   const body = form ? formJson(form) : {};
+  if (action === "edit-game") {
+    state.selectedGameId = sourceElement?.dataset.id || "";
+    state.actionStatus = state.selectedGameId ? "Игра открыта в редакторе." : "Не удалось открыть игру.";
+    render();
+    return;
+  }
+  if (action === "clear-game-editor") {
+    state.selectedGameId = "";
+    state.actionStatus = "Редактор игры закрыт.";
+    render();
+    return;
+  }
+  if (needsConfirmation(action) && !window.confirm(confirmMessage(action))) {
+    state.actionStatus = "Действие отменено.";
+    render();
+    return;
+  }
   state.actionStatus = `${action}: sending...`;
   render();
   try {
@@ -844,18 +967,23 @@ async function runAction(action, form, sourceElement = null) {
       const game = await apiPost("/api/v1/admin/games", gamePayload(body), true);
       state.actionStatus = `Game created: ${game.title || game.id}`;
       await loadSectionData("games");
+    } else if (action === "save-game") {
+      const game = await apiPut(`/api/v1/admin/games/${body.id}`, gameEditPayload(body), true);
+      state.selectedGameId = game.id;
+      state.actionStatus = `Game saved: ${game.title || game.id}`;
+      await loadSectionData(state.section);
     } else if (action === "publish-game") {
       const game = await apiPost(`/api/v1/admin/games/${sourceElement?.dataset.id}/publish`, {}, true);
       state.actionStatus = `Game published: ${game.title || game.id}`;
-      await loadSectionData("games");
+      await loadSectionData(sourceElement?.dataset.sectionKey || state.section);
     } else if (action === "cancel-game") {
       const game = await apiPost(`/api/v1/admin/games/${sourceElement?.dataset.id}/cancel`, {}, true);
       state.actionStatus = `Game cancelled: ${game.title || game.id}`;
-      await loadSectionData("games");
+      await loadSectionData(sourceElement?.dataset.sectionKey || state.section);
     } else if (action === "delete-game") {
       await apiDelete(`/api/v1/admin/games/${sourceElement?.dataset.id}`);
       state.actionStatus = "Game moved to archive";
-      await loadSectionData("games");
+      await loadSectionData(sourceElement?.dataset.sectionKey || state.section);
     } else if (action === "publish-gallery-post") {
       const post = await apiPost(`/api/v1/admin/gallery/posts/${sourceElement?.dataset.id}/publish`, {}, true);
       state.actionStatus = `Gallery post published: ${post.title || post.publicId}`;
@@ -900,6 +1028,28 @@ function actionErrorMessage(action, error) {
   if (!error.status) return `${action}: backend is not reachable on ${API_BASE}`;
   if (error.status === 401 || error.status === 403) return `${action}: backend answered ${error.status}; нужен ключ кабинета`;
   return `${action}: backend answered ${error.status}`;
+}
+
+function needsConfirmation(action) {
+  return [
+    "cancel-game",
+    "delete-game",
+    "hide-gallery-post",
+    "delete-gallery-post",
+    "close-service-request",
+    "block-master"
+  ].includes(action);
+}
+
+function confirmMessage(action) {
+  return {
+    "cancel-game": "Отменить эту игру? Она исчезнет из активной афиши.",
+    "delete-game": "Переместить игру в архив? Физически из базы она не удалится.",
+    "hide-gallery-post": "Скрыть эту публикацию из галереи?",
+    "delete-gallery-post": "Удалить эту публикацию из галереи окончательно?",
+    "close-service-request": "Закрыть эту заявку?",
+    "block-master": "Заблокировать этого мастера?"
+  }[action] || "Подтвердить действие?";
 }
 
 async function checkBackend() {

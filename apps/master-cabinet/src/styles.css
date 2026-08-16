@@ -105,6 +105,41 @@ h1 {
   color: var(--muted);
 }
 
+.master-profile {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 12px;
+  border: 1px solid rgba(117, 214, 255, 0.22);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.master-profile img {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 0 22px rgba(117, 214, 255, 0.32);
+}
+
+.master-profile span,
+.master-profile small {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.master-profile strong {
+  display: block;
+  overflow: hidden;
+  color: var(--paper);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .role-switch,
 .form-panel label,
 .editor label {
@@ -388,6 +423,40 @@ th {
   padding: 16px;
 }
 
+.master-editor {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.master-editor.is-empty {
+  display: block;
+}
+
+.editor-head,
+.editor-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.editor-head h2 {
+  margin: 0;
+}
+
+.status-pill {
+  border: 1px solid rgba(117, 214, 255, 0.36);
+  border-radius: 999px;
+  padding: 6px 10px;
+  color: var(--paper);
+  background: rgba(117, 214, 255, 0.1);
+  font-size: 12px;
+}
+
+.form-wide {
+  grid-column: 1 / -1;
+}
+
 .game-form {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
@@ -405,6 +474,7 @@ th {
 .inline-actions {
   display: inline-flex;
   gap: 6px;
+  flex-wrap: wrap;
 }
 
 .inline-actions button {
@@ -443,7 +513,8 @@ button:disabled {
 
   .metric-grid,
   .project-grid,
-  .game-form {
+  .game-form,
+  .master-editor {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -468,13 +539,23 @@ button:disabled {
 
   .metric-grid,
   .project-grid,
-  .game-form {
+  .game-form,
+  .master-editor {
     grid-template-columns: 1fr;
   }
 
   .game-form label:has(textarea),
-  .game-form button {
+  .game-form button,
+  .editor-head,
+  .editor-actions,
+  .form-wide {
     grid-column: auto;
+  }
+
+  .editor-head,
+  .editor-actions {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .table-head,
