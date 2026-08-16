@@ -465,6 +465,10 @@ function lockDiary() {
   renderDiaryPage();
 }
 
+function goToMasterCabinet() {
+  window.location.assign(new URL(`${rootPath}master-cabinet/`, window.location.href).href);
+}
+
 function openDiaryLoginModal() {
   openModal(`
     <button class="modal-close" type="button" data-modal-close aria-label="Закрыть">×</button>
@@ -529,11 +533,8 @@ async function submitDiaryLogin(form) {
     }));
     status.textContent = result.message || "Дневник открыт.";
     closeModal();
-    if (result.role === "admin") {
-      window.location.href = `${rootPath}master-cabinet/`;
-      return;
-    }
-    unlockDiary(result.displayName || "мастера");
+    goToMasterCabinet();
+    return;
   } catch (error) {
     console.error("Diary login failed", error);
     status.textContent = error instanceof Error ? error.message : "Не удалось войти.";
@@ -568,11 +569,7 @@ async function submitMasterAccessRequest(form) {
         grantedAt: new Date().toISOString()
       }));
       closeModal();
-      if (result.role === "admin") {
-        window.location.href = `${rootPath}master-cabinet/`;
-        return;
-      }
-      unlockDiary(payload.displayName || result.displayName || "мастера");
+      goToMasterCabinet();
       return;
     }
     form.reset();
