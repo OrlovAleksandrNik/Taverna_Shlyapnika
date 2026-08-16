@@ -353,6 +353,7 @@ public class TelegramPollingService {
   private void sendStart(long chatId, long userId, String telegramUsername) {
     var master = backend.findMasterByTelegram(userId, telegramUsername);
     if (master == null) {
+      log.info("Telegram start menu sent userId={} masterFound=false", userId);
       telegram.sendMessage(
           chatId,
           "Добро пожаловать в систему мастеров Таверны Шляпника.\n\nЧтобы создавать игры для афиши, зарегистрируйтесь как мастер.",
@@ -360,6 +361,7 @@ public class TelegramPollingService {
       );
       return;
     }
+    log.info("Telegram main menu sent userId={} masterFound=true role={}", userId, master.role());
     telegram.sendMessage(chatId, "Добро пожаловать обратно, " + master.displayName() + ".", mainMenu());
   }
 
@@ -1474,7 +1476,10 @@ public class TelegramPollingService {
   }
 
   private Object startKeyboard() {
-    return replyKeyboard(List.of(replyRow("Регистрация"), replyRow("Отмена")));
+    return replyKeyboard(List.of(
+        replyRow("Регистрация", "Доступ"),
+        replyRow("Отмена")
+    ));
   }
 
   private Object mainMenu() {
