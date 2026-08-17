@@ -30,6 +30,6 @@ for (const [needle, label] of contracts) {
 assertIncludes('headers["X-XSRF-TOKEN"] = await ensureCsrf()', "CSRF header");
 assertIncludes('"X-XSRF-TOKEN": await ensureCsrf()', "DELETE CSRF header");
 assertIncludes("new Date(body.startsAt).toISOString()", "game date normalization");
-assertIncludes("state.actionStatus = actionErrorMessage(action, error)", "action failure feedback");
+assertIncludes("state.notice = actionErrorMessage(action, error)", "action failure feedback");
 
 console.log("action contract checks passed");

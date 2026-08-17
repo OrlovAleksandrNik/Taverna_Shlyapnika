@@ -5,6 +5,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -122,6 +123,43 @@ class MasterAccessControllerTest {
         .andExpect(jsonPath("$.role").value("admin"))
         .andExpect(jsonPath("$.telegramUsername").value("@MisterHatter"))
         .andExpect(jsonPath("$.email").value("master@example.com"));
+  }
+
+  @Test
+  void switchesHatterSessionToMasterMode() throws Exception {
+    var session = new MockHttpSession();
+    session.setAttribute("taverna.master.accessGranted", true);
+    session.setAttribute("taverna.master.displayName", "Шляпник");
+    session.setAttribute("taverna.master.role", "admin");
+    session.setAttribute("taverna.master.baseRole", "admin");
+    session.setAttribute("taverna.master.profileMode", "hatter");
+    session.setAttribute("taverna.master.telegramUsername", "@MisterHatter");
+    session.setAttribute("taverna.master.email", "master@example.com");
+
+    mvc.perform(put("/api/auth/session-mode").session(session)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"mode\":\"master\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.displayName").value("Мастер Александр"))
+        .andExpect(jsonPath("$.role").value("master"))
+        .andExpect(jsonPath("$.baseRole").value("admin"))
+        .andExpect(jsonPath("$.profileMode").value("master"))
+        .andExpect(jsonPath("$.canSwitchProfile").value(true));
+  }
+
+  @Test
+  void regularMasterCannotSwitchSessionMode() throws Exception {
+    var session = new MockHttpSession();
+    session.setAttribute("taverna.master.accessGranted", true);
+    session.setAttribute("taverna.master.displayName", "Мастер");
+    session.setAttribute("taverna.master.role", "master");
+    session.setAttribute("taverna.master.baseRole", "master");
+    session.setAttribute("taverna.master.profileMode", "master");
+
+    mvc.perform(put("/api/auth/session-mode").session(session)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"mode\":\"hatter\"}"))
+        .andExpect(status().isForbidden());
   }
 
   @Test

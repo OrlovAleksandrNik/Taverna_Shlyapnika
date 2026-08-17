@@ -21,7 +21,7 @@ function assertExcludes(role, item) {
   }
 }
 
-assertIncludes("MASTER", "projects");
+assertIncludes("MASTER", "overview");
 assertIncludes("MASTER", "games");
 assertIncludes("MASTER", "rating");
 assertIncludes("MASTER", "profile");
@@ -29,9 +29,9 @@ assertExcludes("MASTER", "masters");
 assertExcludes("MASTER", "backups");
 assertExcludes("MASTER", "settings");
 assertIncludes("HATTER", "masters");
-assertIncludes("HATTER", "backups");
-assertIncludes("HATTER", "settings");
 assertIncludes("HATTER", "profile");
+assertExcludes("HATTER", "backups");
+assertExcludes("HATTER", "settings");
 
 for (const forbiddenRole of ["OWNER", "DEVELOPER", "CONTENT_MANAGER", "RATING_MANAGER", "SUPERADMIN", "VIEWER"]) {
   if (source.includes(`${forbiddenRole}:`)) {
