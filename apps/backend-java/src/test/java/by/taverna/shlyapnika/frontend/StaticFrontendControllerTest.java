@@ -52,6 +52,19 @@ class StaticFrontendControllerTest {
   }
 
   @Test
+  void returnsMasterCabinetNestedAssetWhenFrontendServingIsEnabled() throws Exception {
+    var assetsDir = Files.createDirectories(staticDir.resolve("master-cabinet").resolve("assets"));
+    Files.writeString(assetsDir.resolve("index.js"), "console.log('cabinet')", StandardCharsets.UTF_8);
+    var controller = new StaticFrontendController(properties(true, staticDir));
+
+    var response = controller.masterCabinetPath("/assets/index.js");
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(response.getBody()).isNotNull();
+    assertThat(response.getBody().exists()).isTrue();
+  }
+
+  @Test
   void returnsNotFoundWhenFrontendServingIsDisabled() {
     var controller = new StaticFrontendController(properties(false, staticDir));
 

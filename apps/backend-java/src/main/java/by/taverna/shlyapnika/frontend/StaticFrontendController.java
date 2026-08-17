@@ -29,12 +29,19 @@ public class StaticFrontendController {
     return frontendPage(page);
   }
 
-  @GetMapping({
-      "/cabinet", "/cabinet/", "/cabinet/{path:[a-z0-9-]+}",
-      "/master-cabinet", "/master-cabinet/", "/master-cabinet/{path:[a-z0-9-]+}"
-  })
+  @GetMapping({"/cabinet", "/cabinet/", "/master-cabinet", "/master-cabinet/"})
   public ResponseEntity<Resource> masterCabinet() {
     // Кабинет мастера является вложенным SPA, поэтому все его клиентские маршруты ведут на index.html.
+    return frontendPage("master-cabinet/index.html");
+  }
+
+  @GetMapping({"/cabinet/{*path}", "/master-cabinet/{*path}"})
+  public ResponseEntity<Resource> masterCabinetPath(@PathVariable String path) {
+    var cleanPath = path == null ? "" : path.replaceFirst("^/", "");
+    if (!cleanPath.isBlank() && (cleanPath.contains(".") || cleanPath.startsWith("assets/") || cleanPath.startsWith("vendor/"))) {
+      var asset = frontendPage("master-cabinet/" + cleanPath);
+      if (asset.getStatusCode().is2xxSuccessful()) return asset;
+    }
     return frontendPage("master-cabinet/index.html");
   }
 
