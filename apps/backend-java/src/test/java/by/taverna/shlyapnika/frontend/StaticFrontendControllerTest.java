@@ -101,6 +101,7 @@ class StaticFrontendControllerTest {
         "test-internal-token",
         "",
         "",
+        "",
         true,
         serveFrontend,
         frontendDir.toString(),

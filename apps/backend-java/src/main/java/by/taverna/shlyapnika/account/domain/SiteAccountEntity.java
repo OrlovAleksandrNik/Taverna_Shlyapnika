@@ -35,6 +35,9 @@ public class SiteAccountEntity {
   @Column(name = "\"normalizedTelegramUsername\"")
   private String normalizedTelegramUsername;
 
+  @Column(name = "\"telegramUserId\"")
+  private Long telegramUserId;
+
   @Column(name = "\"consentGiven\"", nullable = false)
   private boolean consentGiven;
 
@@ -106,6 +109,14 @@ public class SiteAccountEntity {
     this.updatedAt = Instant.now();
   }
 
+  public void promoteToHatter(Long ownerTelegramUserId) {
+    this.role = "hatter";
+    this.status = "active";
+    this.telegramUserId = ownerTelegramUserId;
+    this.sessionVersion += 1;
+    this.updatedAt = Instant.now();
+  }
+
   public void changePassword(String passwordHash) {
     this.passwordHash = passwordHash;
     this.passwordChangedAt = Instant.now();
@@ -121,6 +132,7 @@ public class SiteAccountEntity {
   public String getStatus() { return status; }
   public String getTelegramUsername() { return telegramUsername; }
   public String getNormalizedTelegramUsername() { return normalizedTelegramUsername; }
+  public Long getTelegramUserId() { return telegramUserId; }
   public Instant getCreatedAt() { return createdAt; }
   public int getSessionVersion() { return sessionVersion; }
 }

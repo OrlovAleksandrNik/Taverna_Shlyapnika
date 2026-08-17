@@ -8,10 +8,34 @@
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self' https://*.up.railway.app"
     />
-    <title>Личный кабинет Шляпника</title>
+    <title>Моя таверна | Таверна Шляпника</title>
     <link rel="stylesheet" href="./src/styles.css" />
   </head>
   <body>
+    <header class="site-header" data-cabinet-site-header>
+      <div class="brand">
+        <a class="brand__mark" href="/hatter-diary.html" aria-label="Открыть дневник Шляпника">
+          <img class="brand__icon" src="./hatter-mark.png" alt="" aria-hidden="true" loading="eager" />
+        </a>
+        <a class="brand__text" href="/" aria-label="На главную страницу">
+          <span>
+            <strong>Таверна Шляпника</strong>
+            <small>D&D Могилёв</small>
+          </span>
+        </a>
+      </div>
+      <nav class="main-nav" aria-label="Основная навигация">
+        <a href="/">Главная</a>
+        <a href="/#games">Афиша</a>
+        <a href="/services.html">Услуги</a>
+        <a href="/#masters">Мастера</a>
+        <a href="/rating.html">Рейтинг</a>
+        <a href="/gallery.html">Галерея</a>
+        <a href="/dnd-simple.html">D&D простым языком</a>
+        <a href="/#contacts">Контакты</a>
+        <a class="is-current" href="/cabinet/">Моя таверна</a>
+      </nav>
+    </header>
     <div id="app"></div>
     <script src="./control-runtime-config.js"></script>
     <script src="./vendor/qrcode-bundle.js"></script>

@@ -18,6 +18,7 @@ public record TavernaProperties(
     @NotBlank String internalApiToken,
     String masterAccessCode,
     String hatterAccessCode,
+    String hatterTelegramUserId,
     boolean autoPublish,
     boolean serveFrontend,
     @NotBlank String frontendStaticDir,

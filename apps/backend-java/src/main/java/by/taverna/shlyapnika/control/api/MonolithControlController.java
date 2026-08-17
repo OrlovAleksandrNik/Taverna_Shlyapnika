@@ -618,7 +618,7 @@ public class MonolithControlController {
     return List.of(
         new ProjectDto("site-monolith", "Основной сайт и API", "Java 21 Spring Boot + static frontend", "apps/backend-java", "active", "monolith"),
         new ProjectDto("telegram-bot", "Писарь таверны", "Java Telegram Bot + internal API", "apps/telegram-bot-java", "active", "monolith"),
-        new ProjectDto("master-cabinet", "Кабинет мастера", "Vite frontend inside monolith", "apps/master-cabinet", "active", "monolith")
+        new ProjectDto("master-cabinet", "Моя таверна", "Раздел сайта внутри общего монолита", "apps/master-cabinet", "active", "monolith")
     );
   }
 
@@ -691,7 +691,7 @@ public class MonolithControlController {
   @GetMapping("/api/v1/admin/backups")
   public ItemsResponse<BackupJobDto> backups() {
     return new ItemsResponse<>(List.of(
-        new BackupJobDto("backup-read-only", "DISABLED", "manual database backups required", "not configured")
+        new BackupJobDto("backup-read-only", "Отключено", "Резервные копии базы выполняются вручную", "не настроено")
     ), 0, 20);
   }
 

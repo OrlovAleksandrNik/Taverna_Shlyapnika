@@ -106,6 +106,7 @@ public class SiteAccountService {
       String role,
       String status,
       String telegramUsername,
+      Long telegramUserId,
       int sessionVersion
   ) {
     static AuthenticatedAccount from(SiteAccountEntity account) {
@@ -116,6 +117,7 @@ public class SiteAccountService {
           account.getRole(),
           account.getStatus(),
           account.getTelegramUsername(),
+          account.getTelegramUserId(),
           account.getSessionVersion()
       );
     }

@@ -10,14 +10,14 @@ const roles = {
 };
 
 const sections = {
-  overview: ["Главная", "Рабочее место мастера"],
+  overview: ["Главная", "Моя таверна"],
   games: ["Игры", "Расписание, публикация и правки"],
   applications: ["Заявки", "Обращения с сайта"],
   gallery: ["Галерея", "Фотографии и истории"],
   rating: ["Рейтинг", "Игроки и очки"],
   masters: ["Доступ", "Мастера и заявки"],
   profile: ["Профиль", "Данные мастерского аккаунта"],
-  player: ["Личный кабинет", "Профиль игрока и будущие записи"]
+  player: ["Моя таверна", "Профиль игрока и будущие записи"]
 };
 
 const app = document.querySelector("#app");
@@ -68,13 +68,10 @@ function render() {
   app.innerHTML = `
     <div class="cabinet-shell">
       <aside class="cabinet-sidebar" aria-label="Разделы кабинета">
-        <a class="cabinet-brand" href="/" aria-label="Вернуться на сайт Таверны">
-          <img src="./hatter-mark.png" alt="" />
-          <span>
-            <b>${state.role === "HATTER" ? "Кабинет Шляпника" : state.role === "PLAYER" ? "Кабинет игрока" : "Кабинет мастера"}</b>
-            <small>Таверна Шляпника</small>
-          </span>
-        </a>
+        <div class="cabinet-section-title">
+          <span>Раздел сайта</span>
+          <b>Моя таверна</b>
+        </div>
         ${profileSwitchTemplate()}
         <nav class="cabinet-nav">
           ${visible.map((key) => `
@@ -91,7 +88,7 @@ function render() {
         <header class="cabinet-topbar">
           <div>
             <p class="eyebrow">${state.role === "HATTER" ? "Полный доступ" : state.role === "PLAYER" ? "Игровой доступ" : "Мастерский доступ"}</p>
-            <h1>${sections[state.section][0]}</h1>
+            <h1>${state.section === "overview" ? "Моя таверна" : sections[state.section][0]}</h1>
             <p>${sections[state.section][1]}</p>
           </div>
           <div class="topbar-actions">
@@ -118,7 +115,7 @@ function renderGate() {
       <section class="cabinet-gate__card">
         <img src="./hatter-mark.png" alt="" />
         <p class="eyebrow">Скрытая стойка Таверны</p>
-        <h1>Войдите через дневник Шляпника</h1>
+        <h1>Моя таверна закрыта</h1>
         <p>Дневник можно читать свободно, а рабочий кабинет открывается только подтверждённым мастерам.</p>
         <button type="button" data-open-diary-login>Открыть вход</button>
       </section>
@@ -173,7 +170,7 @@ function notificationsTemplate() {
       </div>
       ${actions.length ? actions.map((action) => `
         <button type="button" class="recent-action ${isUnread(action) ? "is-unread" : ""}" data-action="mark-notifications-read">
-          <span>${escapeHtml(action.action || "изменение")}</span>
+          <span>${escapeHtml(humanAction(action))}</span>
           <small>${escapeHtml(action.entityType || action.entity || "Таверна")} · ${formatDateTime(action.createdAt)}</small>
         </button>
       `).join("") : `<p>Пока нет новых записей.</p>`}
@@ -238,7 +235,7 @@ function overviewTemplate() {
         <img src="${state.account?.profileMode === "master" ? "/assets/images/masters/alexander.jpeg" : "./hatter-mark.png"}" alt="" />
       </div>
       <div>
-        <p class="eyebrow">${state.account?.profileMode === "master" ? "За мастерским столом" : "Личный кабинет Шляпника"}</p>
+        <p class="eyebrow">${state.account?.profileMode === "master" ? "За мастерским столом" : "Моя таверна Шляпника"}</p>
         <h2>${escapeHtml(state.account?.displayName || "Мастер Таверны")}</h2>
         <p>${state.role === "HATTER"
           ? "Здесь можно смотреть всю Таверну целиком: игры, заявки, галерею, рейтинг и доступ мастеров."
@@ -281,7 +278,50 @@ function gamesTemplate() {
       </form>
     </section>
     ${gameEditorTemplate(records, masters)}
+    ${gamesCalendarTemplate(records)}
     ${cardListTemplate("Игры в расписании", records, gameCard)}
+  `;
+}
+
+function gamesCalendarTemplate(records) {
+  const today = new Date();
+  const days = Array.from({ length: 35 }, (_, index) => {
+    const date = new Date(today);
+    date.setDate(today.getDate() + index);
+    date.setHours(0, 0, 0, 0);
+    return date;
+  });
+  return `
+    <section class="work-panel calendar-panel">
+      <div class="panel-head">
+        <div>
+          <p class="eyebrow">Общая занятость Таверны</p>
+          <h2>Календарь игр</h2>
+        </div>
+        <span class="calendar-hint">нижний огонь — днём, верхний — вечером</span>
+      </div>
+      <div class="cabinet-calendar" aria-label="Календарь занятости">
+        ${days.map((day) => calendarDayTemplate(day, records)).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function calendarDayTemplate(day, records) {
+  const dayKey = dateTimeLocalValue(day.toISOString()).slice(0, 10);
+  const events = records.filter((game) => dateTimeLocalValue(game.startsAt).slice(0, 10) === dayKey);
+  const dayEvents = events.filter((game) => new Date(game.startsAt).getHours() < 16);
+  const eveningEvents = events.filter((game) => new Date(game.startsAt).getHours() >= 16);
+  const title = events.length
+    ? events.map((game) => `${game.title || "Игра"} · ${formatDateTime(game.startsAt)} · ${game.masterName || "мастер не указан"} · ${game.status || ""}`).join("\n")
+    : "Свободно";
+  return `
+    <button type="button" class="calendar-day ${events.length ? "is-busy" : ""}" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}">
+      <span class="calendar-dot calendar-dot-evening ${eveningEvents.length ? "is-active" : ""}"></span>
+      <strong>${day.getDate()}</strong>
+      <small>${day.toLocaleDateString("ru-RU", { weekday: "short" })}</small>
+      <span class="calendar-dot calendar-dot-day ${dayEvents.length ? "is-active" : ""}"></span>
+    </button>
   `;
 }
 
@@ -539,16 +579,53 @@ function adminRatingTemplate() {
 
 function adminRatingCard(player) {
   const rankClass = Number(player.rank) <= 3 ? ` rank-${player.rank}` : "";
+  const selected = state.selectedRatingId === player.publicId;
   return `
-    <button type="button" class="rating-row${rankClass}" data-action="edit-rating-player" data-id="${escapeHtml(player.publicId)}">
-      <span class="rank">${escapeHtml(player.rank)}</span>
-      <strong>${escapeHtml(player.displayName)}</strong>
-      <em>${escapeHtml(player.nickname || "персонаж не указан")}</em>
-      <span>${escapeHtml(player.gamesPlayed)} игр</span>
-      <span>${escapeHtml(player.totalPoints)} очков</span>
-      <span>${escapeHtml(player.inspirationCount)} вдохновения</span>
-      <span>${escapeHtml(player.averagePointsPerGame ?? "0.00")} среднее</span>
-    </button>
+    <article class="rating-row${rankClass} ${selected ? "is-editing" : ""}">
+      <button type="button" class="rating-row-main" data-action="edit-rating-player" data-id="${escapeHtml(player.publicId)}">
+        <span class="rank">${escapeHtml(player.rank)}</span>
+        <strong>${escapeHtml(player.displayName)}</strong>
+        <em>${escapeHtml(player.nickname || "персонаж не указан")}</em>
+        <span>${escapeHtml(player.gamesPlayed)} игр</span>
+        <span>${escapeHtml(player.totalPoints)} очков</span>
+        <span>${escapeHtml(player.inspirationCount)} вдохновения</span>
+        <span>${escapeHtml(player.averagePointsPerGame ?? "0.00")} среднее</span>
+      </button>
+      ${selected ? ratingInlineEditor(player) : ""}
+    </article>
+  `;
+}
+
+function ratingInlineEditor(player) {
+  return `
+    <form class="rating-inline-editor" data-rating-editor-form>
+      <input type="hidden" name="id" value="${escapeHtml(player.publicId)}" />
+      <input type="hidden" name="currentGamesPlayed" value="${escapeHtml(player.gamesPlayed || 0)}" />
+      <input type="hidden" name="currentTotalPoints" value="${escapeHtml(player.totalPoints || 0)}" />
+      <input type="hidden" name="currentInspirationCount" value="${escapeHtml(player.inspirationCount || 0)}" />
+      ${ratingInlineField("Игры", "gamesPlayed", player.gamesPlayed || 0)}
+      ${ratingInlineField("Очки", "totalPoints", player.totalPoints || 0)}
+      ${ratingInlineField("Вдохновение", "inspirationCount", player.inspirationCount || 0)}
+      <label class="rating-reason">Причина
+        <input name="reason" type="text" value="Правка из кабинета мастера" />
+      </label>
+      <div class="form-actions">
+        <button type="button" data-action="save-rating-player">Сохранить</button>
+        <button type="button" data-action="cancel-rating-edit">Отмена</button>
+      </div>
+    </form>
+  `;
+}
+
+function ratingInlineField(label, name, value) {
+  return `
+    <label class="rating-number-field">${escapeHtml(label)}
+      <span>
+        <button type="button" data-action="rating-step" data-field="${escapeHtml(name)}" data-step="-1" aria-label="Уменьшить ${escapeHtml(label)}">−</button>
+        <input name="${escapeHtml(name)}" type="number" min="0" step="1" value="${escapeHtml(value)}" />
+        <button type="button" data-action="rating-step" data-field="${escapeHtml(name)}" data-step="1" aria-label="Увеличить ${escapeHtml(label)}">+</button>
+      </span>
+    </label>
   `;
 }
 
@@ -581,10 +658,6 @@ function adminProfileTemplate() {
 
 function modalTemplate() {
   if (state.galleryModal) return galleryModalTemplate(state.galleryModal);
-  if (state.selectedRatingId) {
-    const player = recordsFromPayload(state.remote.rating).find((item) => item.publicId === state.selectedRatingId);
-    return player ? ratingEditorModal(player) : "";
-  }
   return "";
 }
 
@@ -604,29 +677,6 @@ function galleryModalTemplate(post) {
           <p class="muted-line">Автор: ${escapeHtml(post.authorName || "не указан")} · статус: ${escapeHtml(post.status || "")}</p>
           ${media.length > 1 ? `<div class="gallery-modal-thumbs">${media.map((item) => `<img src="${escapeHtml(item.thumbnailUrl || item.mediumUrl || item.fileUrl)}" alt="${escapeHtml(item.altText || post.title || "Фото")}" loading="lazy" />`).join("")}</div>` : ""}
         </div>
-      </article>
-    </div>
-  `;
-}
-
-function ratingEditorModal(player) {
-  return `
-    <div class="cabinet-modal" data-modal-backdrop role="dialog" aria-modal="true" aria-label="Редактирование рейтинга">
-      <article class="cabinet-modal__panel rating-editor-panel">
-        <button type="button" class="modal-close" data-action="close-modal" aria-label="Закрыть">×</button>
-        <p class="eyebrow">Рейтинг игрока</p>
-        <h2>${escapeHtml(player.displayName)}</h2>
-        <p>${escapeHtml(player.nickname || "персонаж не указан")}</p>
-        <form class="form-grid" data-rating-editor-form>
-          <input type="hidden" name="id" value="${escapeHtml(player.publicId)}" />
-          <label>Игры: изменить на<input name="gamesDelta" type="number" step="1" value="0" /></label>
-          <label>Очки: изменить на<input name="pointsDelta" type="number" step="1" value="0" /></label>
-          <label>Вдохновение: изменить на<input name="inspirationDelta" type="number" step="1" value="0" /></label>
-          <label class="form-wide">Причина<textarea name="reason" rows="3">Правка из кабинета мастера</textarea></label>
-          <div class="form-actions">
-            <button type="button" data-action="save-rating-player">Сохранить рейтинг</button>
-          </div>
-        </form>
       </article>
     </div>
   `;
@@ -767,6 +817,15 @@ async function runAction(action, form, sourceElement = null) {
   if (action === "edit-rating-player") {
     state.selectedRatingId = sourceElement?.dataset.id || "";
     render();
+    return;
+  }
+  if (action === "cancel-rating-edit") {
+    state.selectedRatingId = "";
+    render();
+    return;
+  }
+  if (action === "rating-step") {
+    stepRatingInput(sourceElement);
     return;
   }
   if (action === "edit-profile") {
@@ -998,7 +1057,7 @@ async function loadSectionData(section) {
         blocked: recordsFromPayload(blocked)
       };
     } catch (error) {
-      state.notice = error.status ? `Раздел ответил ошибкой ${error.status}.` : "Сервер временно недоступен.";
+      state.notice = "Не удалось загрузить раздел. Попробуйте обновить страницу.";
     } finally {
       if (state.loadingSection === section) state.loadingSection = null;
       if (state.account?.accessGranted) render();
@@ -1011,7 +1070,7 @@ async function loadSectionData(section) {
   try {
     state.remote[remoteKey(section)] = await apiGet(endpoint);
   } catch (error) {
-    state.notice = error.status ? `Раздел ответил ошибкой ${error.status}.` : "Сервер временно недоступен.";
+    state.notice = "Не удалось загрузить раздел. Попробуйте обновить страницу.";
   } finally {
     if (state.loadingSection === section) state.loadingSection = null;
     if (state.account?.accessGranted) render();
@@ -1126,6 +1185,42 @@ function recentActions() {
   return state.remote.overview?.recentActions || recordsFromPayload(state.remote.notifications);
 }
 
+function humanAction(action) {
+  const actor = humanActor(action.actor || action.user || action.userId);
+  const entity = action.entityTitle || action.entityType || "запись";
+  const map = {
+    "game.created_from_cabinet": `${actor} создал игру`,
+    "game.updated_from_cabinet": `${actor} изменил игру`,
+    "game.published_from_cabinet": `${actor} опубликовал игру`,
+    "game.cancelled_from_cabinet": `${actor} отменил игру`,
+    "game.archived_from_cabinet": `${actor} перенёс игру в архив`,
+    "gallery.post_published_from_cabinet": `${actor} открыл публикацию галереи`,
+    "gallery.post_hidden_from_cabinet": `${actor} скрыл публикацию галереи`,
+    "gallery.post_deleted_from_cabinet": `${actor} удалил публикацию галереи`,
+    "rating.player_adjusted_from_cabinet": `${actor} изменил рейтинг игрока`,
+    "site_account.master_approved_from_cabinet": `${actor} подтвердил мастерский доступ`,
+    "site_account.master_rejected_from_cabinet": `${actor} отклонил мастерский доступ`,
+    "site_account.master_blocked_from_cabinet": `${actor} отозвал мастерский доступ`,
+    "master.access_approved_from_cabinet": `${actor} подтвердил заявку мастера`,
+    "master.access_rejected_from_cabinet": `${actor} отклонил заявку мастера`,
+    "master.access_blocked_from_cabinet": `${actor} забрал доступ мастера`,
+    "service_request.contacted_from_cabinet": `${actor} взял заявку в работу`,
+    "service_request.closed_from_cabinet": `${actor} закрыл заявку`,
+    "master.profile_updated_from_cabinet": `${actor} обновил профиль мастера`,
+    "master.profile_photo_updated_from_cabinet": `${actor} обновил фото мастера`
+  };
+  return map[action.action] || `${actor} изменил ${entity}`;
+}
+
+function humanActor(value) {
+  const actor = String(value || "").trim();
+  if (!actor) return "Таверна";
+  if (actor === "master-cabinet") return "Кабинет таверны";
+  if (actor === "telegram-bot") return "Писарь таверны";
+  if (/^\d+$/.test(actor)) return "Писарь таверны";
+  return actor;
+}
+
 function actionKey(action) {
   return `${action.createdAt || ""}|${action.action || ""}|${action.entityType || action.entity || ""}`;
 }
@@ -1179,12 +1274,33 @@ function gameEditPayload(body) {
 }
 
 function ratingPayload(body) {
+  const currentGames = optionalNumber(body.currentGamesPlayed) || 0;
+  const currentPoints = optionalNumber(body.currentTotalPoints) || 0;
+  const currentInspiration = optionalNumber(body.currentInspirationCount) || 0;
+  if (body.gamesPlayed !== undefined || body.totalPoints !== undefined || body.inspirationCount !== undefined) {
+    return {
+      gamesDelta: Math.max(0, optionalNumber(body.gamesPlayed) || 0) - currentGames,
+      pointsDelta: Math.max(0, optionalNumber(body.totalPoints) || 0) - currentPoints,
+      inspirationDelta: Math.max(0, optionalNumber(body.inspirationCount) || 0) - currentInspiration,
+      reason: optionalText(body.reason) || "Правка из кабинета мастера"
+    };
+  }
   return {
     gamesDelta: optionalNumber(body.gamesDelta) || 0,
     pointsDelta: optionalNumber(body.pointsDelta) || 0,
     inspirationDelta: optionalNumber(body.inspirationDelta) || 0,
     reason: optionalText(body.reason) || "Правка из кабинета мастера"
   };
+}
+
+function stepRatingInput(button) {
+  const form = button?.closest("[data-rating-editor-form]");
+  const field = button?.dataset.field;
+  if (!form || !field) return;
+  const input = form.elements[field];
+  if (!(input instanceof HTMLInputElement)) return;
+  const current = Number(input.value || 0);
+  input.value = String(Math.max(0, current + Number(button.dataset.step || 0)));
 }
 
 async function saveProfile(form) {

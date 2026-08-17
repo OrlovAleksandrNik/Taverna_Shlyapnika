@@ -57,6 +57,7 @@ class HealthControllerTest {
         "test-internal-token",
         "",
         "",
+        "",
         true,
         false,
         "static-site",

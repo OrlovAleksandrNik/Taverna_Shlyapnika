@@ -7,8 +7,8 @@ const js = readFileSync(resolve(root, "src/main.js"), "utf8");
 const css = readFileSync(resolve(root, "src/styles.css"), "utf8");
 
 const requiredText = [
-  "Личный кабинет Шляпника",
-  "Кабинет мастера",
+  "Моя таверна",
+  "Раздел сайта",
   "Последние действия",
   "API_BASE",
   "data-action=\"create-game\"",

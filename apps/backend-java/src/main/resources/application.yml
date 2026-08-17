@@ -69,6 +69,7 @@ taverna:
   internal-api-token: ${BOT_BACKEND_SECRET:${INTERNAL_API_TOKEN:change-me-local-token}}
   master-access-code: ${MASTER_ACCESS_CODE:}
   hatter-access-code: ${HATTER_ACCESS_CODE:}
+  hatter-telegram-user-id: ${HATTER_TELEGRAM_USER_ID:${ADMIN_TELEGRAM_IDS:}}
   auto-publish: ${AUTO_PUBLISH:true}
   serve-frontend: ${SERVE_FRONTEND:false}
   frontend-static-dir: ${FRONTEND_STATIC_DIR:static-site}

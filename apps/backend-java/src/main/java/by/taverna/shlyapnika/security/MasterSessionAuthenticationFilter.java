@@ -71,19 +71,29 @@ public class MasterSessionAuthenticationFilter extends OncePerRequestFilter {
   }
 
   private void refreshSession(jakarta.servlet.http.HttpSession session, SiteAccountEntity account) {
-    var role = legacyRole(account.getRole());
+    var baseRole = legacyRole(account.getRole());
+    var canSwitch = "admin".equalsIgnoreCase(baseRole);
+    var requestedProfileMode = stringAttribute(session, "taverna.master.profileMode");
+    var profileMode = canSwitch && "master".equalsIgnoreCase(requestedProfileMode) ? "master" : (canSwitch ? "hatter" : account.getRole());
+    var role = canSwitch && "master".equals(profileMode) ? "master" : baseRole;
+    var displayName = canSwitch && "master".equals(profileMode) ? "Мастер Александр" : (canSwitch ? "Шляпник" : account.getDisplayName());
     session.setAttribute("taverna.master.accessGranted", true);
-    session.setAttribute("taverna.master.displayName", account.getDisplayName());
+    session.setAttribute("taverna.master.displayName", displayName);
     session.setAttribute("taverna.master.role", role);
-    session.setAttribute("taverna.master.baseRole", role);
-    session.setAttribute("taverna.master.profileMode", account.getRole());
+    session.setAttribute("taverna.master.baseRole", baseRole);
+    session.setAttribute("taverna.master.profileMode", profileMode);
     session.setAttribute("taverna.master.telegramUsername", account.getTelegramUsername());
     session.setAttribute("taverna.master.email", account.getEmail());
     session.setAttribute("taverna.auth.accountType", account.getRole());
     session.setAttribute("taverna.auth.status", account.getStatus());
     session.setAttribute("taverna.auth.systemRole", systemRole(account.getRole()));
-    session.setAttribute("taverna.auth.activeProfile", account.getRole());
+    session.setAttribute("taverna.auth.activeProfile", canSwitch && "master".equals(profileMode) ? "alexander" : profileMode);
     session.setAttribute("taverna.auth.sessionVersion", account.getSessionVersion());
+  }
+
+  private static String stringAttribute(jakarta.servlet.http.HttpSession session, String key) {
+    var value = session.getAttribute(key);
+    return value == null ? null : String.valueOf(value);
   }
 
   private static String legacyRole(String role) {

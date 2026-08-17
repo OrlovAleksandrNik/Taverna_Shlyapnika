@@ -96,7 +96,7 @@ async function ensureCabinetNavLink() {
     if (!session?.accessGranted) return;
     const link = document.createElement("a");
     link.href = assetPath("cabinet/");
-    link.textContent = "Личный кабинет";
+    link.textContent = "Моя таверна";
     link.dataset.authCabinetLink = "";
     const contacts = Array.from(menu.querySelectorAll("a")).find((item) => item.getAttribute("href")?.includes("contacts"));
     menu.insertBefore(link, contacts || null);

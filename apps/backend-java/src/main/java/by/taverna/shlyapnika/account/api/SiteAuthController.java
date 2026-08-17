@@ -61,36 +61,39 @@ public class SiteAuthController {
 
   private static void writeSession(HttpSession session, AuthenticatedAccount account) {
     var systemRole = systemRole(account.role());
+    var hatter = "HATTER".equals(systemRole);
     session.setAttribute("taverna.master.accessGranted", true);
-    session.setAttribute("taverna.master.displayName", account.displayName());
-    session.setAttribute("taverna.master.role", legacyRole(account.role()));
+    session.setAttribute("taverna.master.displayName", hatter ? "Шляпник" : account.displayName());
+    session.setAttribute("taverna.master.role", hatter ? "admin" : legacyRole(account.role()));
     session.setAttribute("taverna.master.baseRole", legacyRole(account.role()));
-    session.setAttribute("taverna.master.profileMode", account.role());
+    session.setAttribute("taverna.master.profileMode", hatter ? "hatter" : account.role());
     session.setAttribute("taverna.master.telegramUsername", account.telegramUsername());
     session.setAttribute("taverna.master.email", account.email());
     session.setAttribute("taverna.auth.accountId", account.id());
     session.setAttribute("taverna.auth.accountType", account.role());
     session.setAttribute("taverna.auth.status", account.status());
     session.setAttribute("taverna.auth.systemRole", systemRole);
-    session.setAttribute("taverna.auth.activeProfile", account.role());
+    session.setAttribute("taverna.auth.activeProfile", hatter ? "hatter" : account.role());
     session.setAttribute("taverna.auth.sessionVersion", account.sessionVersion());
   }
 
   private static MasterSessionResponse response(AuthenticatedAccount account, boolean accessGranted) {
+    var systemRole = systemRole(account.role());
+    var hatter = "HATTER".equals(systemRole);
     return new MasterSessionResponse(
         accessGranted,
-        account.displayName(),
+        hatter ? "Шляпник" : account.displayName(),
+        hatter ? "admin" : legacyRole(account.role()),
         legacyRole(account.role()),
-        legacyRole(account.role()),
-        account.role(),
-        false,
+        hatter ? "hatter" : account.role(),
+        hatter,
         account.telegramUsername(),
         account.email(),
         account.id(),
         account.role(),
         account.status(),
-        systemRole(account.role()),
-        account.role()
+        systemRole,
+        hatter ? "hatter" : account.role()
     );
   }
 

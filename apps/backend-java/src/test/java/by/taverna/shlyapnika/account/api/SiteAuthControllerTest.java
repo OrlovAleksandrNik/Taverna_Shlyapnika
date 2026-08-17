@@ -39,6 +39,7 @@ class SiteAuthControllerTest {
         "player",
         "active",
         "@player",
+        null,
         0
     ));
 
@@ -74,6 +75,7 @@ class SiteAuthControllerTest {
         "master",
         "pending_approval",
         "@new_master",
+        null,
         0
     ));
 
@@ -108,6 +110,7 @@ class SiteAuthControllerTest {
         "master",
         "active",
         "@master",
+        null,
         0
     ));
 
@@ -124,6 +127,37 @@ class SiteAuthControllerTest {
         .andExpect(jsonPath("$.systemRole").value("MASTER"))
         .andExpect(request().sessionAttribute("taverna.master.accessGranted", true))
         .andExpect(request().sessionAttribute("taverna.auth.accountId", "acc_master"));
+  }
+
+  @Test
+  void logsInHatterWithSwitchableOwnerContext() throws Exception {
+    when(service.login(any())).thenReturn(new AuthenticatedAccount(
+        "acc_hatter",
+        "Александр",
+        "owner@example.com",
+        "hatter",
+        "active",
+        "@MisterHatter",
+        1169106804L,
+        3
+    ));
+
+    mvc.perform(post("/api/auth/login")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "email": "owner@example.com",
+                  "password": "password-1"
+                }
+                """))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.accessGranted").value(true))
+        .andExpect(jsonPath("$.displayName").value("Шляпник"))
+        .andExpect(jsonPath("$.systemRole").value("HATTER"))
+        .andExpect(jsonPath("$.canSwitchProfile").value(true))
+        .andExpect(jsonPath("$.activeProfile").value("hatter"))
+        .andExpect(request().sessionAttribute("taverna.master.baseRole", "admin"))
+        .andExpect(request().sessionAttribute("taverna.auth.systemRole", "HATTER"));
   }
 
   @Test

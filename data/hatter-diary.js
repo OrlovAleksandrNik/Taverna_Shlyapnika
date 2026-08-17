@@ -11,7 +11,7 @@ window.TAVERNA_HATTER_DIARY_META = {
   ],
   "fontFamily": "Betina Script Rus",
   "fontSource": "Betina Script Rus",
-  "fontNote": "The diary uses the local Betina Script Rus face because it keeps Cyrillic handwritten and readable. Teddy Bear is not used for diary text because its Cyrillic rendering is unreliable."
+  "fontNote": "Дневник использует единый локальный рукописный шрифт Betina Script Rus: он поддерживает кириллицу и остаётся читаемым в длинных записях."
 };
 
 window.TAVERNA_HATTER_DIARY = [
