@@ -9,6 +9,7 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 
 class StaticFrontendControllerTest {
   @TempDir
@@ -22,6 +23,7 @@ class StaticFrontendControllerTest {
     var response = controller.index();
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(response.getHeaders().getContentType()).isEqualTo(MediaType.TEXT_HTML);
     assertThat(response.getBody()).isNotNull();
     assertThat(response.getBody().exists()).isTrue();
   }
@@ -34,6 +36,7 @@ class StaticFrontendControllerTest {
     var response = controller.htmlPage("dnd-beginners.html");
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(response.getHeaders().getContentType()).isEqualTo(MediaType.TEXT_HTML);
     assertThat(response.getBody()).isNotNull();
     assertThat(response.getBody().exists()).isTrue();
   }
@@ -47,6 +50,7 @@ class StaticFrontendControllerTest {
     var response = controller.masterCabinet();
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(response.getHeaders().getContentType()).isEqualTo(MediaType.TEXT_HTML);
     assertThat(response.getBody()).isNotNull();
     assertThat(response.getBody().exists()).isTrue();
   }
@@ -60,8 +64,22 @@ class StaticFrontendControllerTest {
     var response = controller.masterCabinetPath("/assets/index.js");
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(response.getHeaders().getContentType()).isNotEqualTo(MediaType.APPLICATION_JSON);
+    assertThat(response.getHeaders().getContentType().toString()).contains("javascript");
     assertThat(response.getBody()).isNotNull();
     assertThat(response.getBody().exists()).isTrue();
+  }
+
+  @Test
+  void returnsStylesheetContentTypeForMasterCabinetAsset() throws Exception {
+    var assetsDir = Files.createDirectories(staticDir.resolve("master-cabinet").resolve("assets"));
+    Files.writeString(assetsDir.resolve("index.css"), "body { color: white; }", StandardCharsets.UTF_8);
+    var controller = new StaticFrontendController(properties(true, staticDir));
+
+    var response = controller.masterCabinetPath("/assets/index.css");
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(response.getHeaders().getContentType()).isEqualTo(MediaType.valueOf("text/css"));
   }
 
   @Test

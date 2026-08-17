@@ -6,6 +6,8 @@ import java.nio.file.Path;
 import org.springframework.core.io.PathResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.MediaTypeFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -52,6 +54,13 @@ public class StaticFrontendController {
     if (!file.startsWith(frontendRoot) || !Files.isRegularFile(file)) {
       return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
     }
-    return ResponseEntity.ok(new PathResource(file));
+    return ResponseEntity.ok()
+        .contentType(mediaType(file))
+        .body(new PathResource(file));
+  }
+
+  private static MediaType mediaType(Path file) {
+    return MediaTypeFactory.getMediaType(file.getFileName().toString())
+        .orElse(MediaType.APPLICATION_OCTET_STREAM);
   }
 }
