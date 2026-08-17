@@ -49,7 +49,12 @@ public class PublicPostRateLimitFilter extends OncePerRequestFilter {
   private boolean isProtectedPost(HttpServletRequest request) {
     if (!"POST".equalsIgnoreCase(request.getMethod())) return false;
     var path = request.getRequestURI();
-    return "/api/game-signups".equals(path) || "/api/service-requests".equals(path);
+    return "/api/game-signups".equals(path)
+        || "/api/service-requests".equals(path)
+        || "/api/auth/login".equals(path)
+        || "/api/auth/register".equals(path)
+        || "/api/auth/forgot-password".equals(path)
+        || "/api/auth/reset-password".equals(path);
   }
 
   private boolean allowed(String key) {

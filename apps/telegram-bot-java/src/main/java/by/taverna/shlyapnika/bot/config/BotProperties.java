@@ -12,7 +12,8 @@ public record BotProperties(
     String displayName,
     String shortDescription,
     String cacheChatId,
-    long cleanupDelaySeconds
+    long cleanupDelaySeconds,
+    String hatterTelegramUserId
 ) {
   public boolean tokenConfigured() {
     return token != null && !token.isBlank();
@@ -30,5 +31,13 @@ public record BotProperties(
     return shortDescription == null || shortDescription.isBlank()
         ? "Создаёт афиши игр, ведёт галерею и помогает мастерам управлять рейтингом игроков."
         : shortDescription.trim();
+  }
+
+  public boolean isHatter(long telegramUserId) {
+    if (hatterTelegramUserId == null || hatterTelegramUserId.isBlank()) return false;
+    return java.util.Arrays.stream(hatterTelegramUserId.split(","))
+        .map(String::trim)
+        .filter(value -> !value.isBlank())
+        .anyMatch(value -> value.equals(String.valueOf(telegramUserId)));
   }
 }

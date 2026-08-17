@@ -5,6 +5,7 @@ import by.taverna.shlyapnika.access.api.MasterAccessResponse;
 import by.taverna.shlyapnika.access.api.MasterLoginRequest;
 import by.taverna.shlyapnika.access.domain.MasterAccessRequestEntity;
 import by.taverna.shlyapnika.access.infrastructure.MasterAccessRequestRepository;
+import by.taverna.shlyapnika.account.infrastructure.SiteAccountRepository;
 import by.taverna.shlyapnika.audit.AuditService;
 import by.taverna.shlyapnika.common.NotFoundException;
 import by.taverna.shlyapnika.config.TavernaProperties;
@@ -14,6 +15,7 @@ import by.taverna.shlyapnika.notification.TelegramNotificationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +25,7 @@ public class MasterAccessService {
   private static final Logger log = LoggerFactory.getLogger(MasterAccessService.class);
 
   private final MasterAccessRequestRepository requests;
+  private final SiteAccountRepository accounts;
   private final MasterRepository masters;
   private final ConsentService consentService;
   private final AuditService auditService;
@@ -31,6 +34,7 @@ public class MasterAccessService {
 
   public MasterAccessService(
       MasterAccessRequestRepository requests,
+      SiteAccountRepository accounts,
       MasterRepository masters,
       ConsentService consentService,
       AuditService auditService,
@@ -38,6 +42,7 @@ public class MasterAccessService {
       TavernaProperties properties
   ) {
     this.requests = requests;
+    this.accounts = accounts;
     this.masters = masters;
     this.consentService = consentService;
     this.auditService = auditService;
@@ -111,19 +116,42 @@ public class MasterAccessService {
   @Transactional(readOnly = true)
   public List<MasterAccessRequestDto> list(String status) {
     var normalizedStatus = status == null || status.isBlank() ? "pending" : status.trim();
-    if (!List.of("pending", "approved", "rejected").contains(normalizedStatus)) {
+    if (!List.of("pending", "approved", "rejected", "blocked").contains(normalizedStatus)) {
       throw new IllegalArgumentException("Неизвестный статус заявки.");
     }
-    return requests.findByStatusOrderByCreatedAtAsc(normalizedStatus).stream()
-        .map(request -> new MasterAccessRequestDto(
-            request.getId(),
-            request.getDisplayName(),
-            request.getEmail(),
-            request.getTelegramUsername(),
-            request.getRequestedRole(),
-            request.getStatus(),
-            request.getCreatedAt()
+    var result = new ArrayList<MasterAccessRequestDto>();
+    if (!"blocked".equals(normalizedStatus)) {
+      result.addAll(requests.findByStatusOrderByCreatedAtAsc(normalizedStatus).stream()
+          .map(request -> new MasterAccessRequestDto(
+              request.getId(),
+              request.getDisplayName(),
+              request.getEmail(),
+              request.getTelegramUsername(),
+              request.getRequestedRole(),
+              request.getStatus(),
+              request.getCreatedAt()
+          ))
+          .toList());
+    }
+    var accountStatus = switch (normalizedStatus) {
+      case "pending" -> "pending_approval";
+      case "approved" -> "active";
+      case "blocked" -> "blocked";
+      default -> "rejected";
+    };
+    result.addAll(accounts.findByRoleAndStatusOrderByCreatedAtAsc("master", accountStatus).stream()
+        .map(account -> new MasterAccessRequestDto(
+            account.getId(),
+            account.getDisplayName(),
+            account.getEmail(),
+            account.getTelegramUsername(),
+            "master",
+            normalizedStatus,
+            account.getCreatedAt()
         ))
+        .toList());
+    return result.stream()
+        .sorted(java.util.Comparator.comparing(MasterAccessRequestDto::createdAt))
         .toList();
   }
 
@@ -155,6 +183,15 @@ public class MasterAccessService {
 
   @Transactional
   public MasterAccessRequestEntity approve(String requestId, Long adminTelegramId, String comment) {
+    var account = accounts.findById(requestId);
+    if (account.isPresent() && "master".equals(account.get().getRole())) {
+      var masterAccount = account.get();
+      masterAccount.approveMaster();
+      accounts.save(masterAccount);
+      auditService.write(String.valueOf(adminTelegramId), "site_account.master_approved", "SiteAccount", requestId, null);
+      notifications.notifyAdmins("Мастерский доступ подтверждён: " + masterAccount.getDisplayName() + " (" + masterAccount.getTelegramUsername() + ")");
+      return null;
+    }
     var request = requests.findById(requestId).orElseThrow(() -> new NotFoundException("Заявка на мастерский доступ не найдена."));
     request.approve(adminTelegramId, comment);
     request = requests.save(request);
@@ -165,12 +202,32 @@ public class MasterAccessService {
 
   @Transactional
   public MasterAccessRequestEntity reject(String requestId, Long adminTelegramId, String comment) {
+    var account = accounts.findById(requestId);
+    if (account.isPresent() && "master".equals(account.get().getRole())) {
+      var masterAccount = account.get();
+      masterAccount.rejectMaster();
+      accounts.save(masterAccount);
+      auditService.write(String.valueOf(adminTelegramId), "site_account.master_rejected", "SiteAccount", requestId, null);
+      notifications.notifyAdmins("Мастерский доступ отклонён: " + masterAccount.getDisplayName() + " (" + masterAccount.getTelegramUsername() + ")");
+      return null;
+    }
     var request = requests.findById(requestId).orElseThrow(() -> new NotFoundException("Заявка на мастерский доступ не найдена."));
     request.reject(adminTelegramId, comment);
     request = requests.save(request);
     auditService.write(String.valueOf(adminTelegramId), "master.access.rejected", "MasterAccessRequest", request.getId(), null);
     notifications.notifyAdmins("Мастерский доступ отклонён: " + request.getDisplayName() + " (" + request.getTelegramUsername() + ")");
     return request;
+  }
+
+  @Transactional
+  public void block(String requestId, Long adminTelegramId, String comment) {
+    var account = accounts.findById(requestId)
+        .orElseThrow(() -> new NotFoundException("Аккаунт мастера не найден."));
+    if (!"master".equals(account.getRole())) throw new IllegalArgumentException("Забрать доступ можно только у мастера.");
+    account.block();
+    accounts.save(account);
+    auditService.write(String.valueOf(adminTelegramId), "site_account.master_blocked", "SiteAccount", requestId, null);
+    notifications.notifyAdmins("Мастерский доступ отозван: " + account.getDisplayName() + " (" + account.getTelegramUsername() + ")");
   }
 
   private String adminMessage(MasterAccessRequestEntity request) {

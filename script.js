@@ -514,6 +514,7 @@ function openDiaryLoginModal() {
         <label class="form-wide">E-mail<input name="email" type="email" autocomplete="email" placeholder="master@example.com"></label>
         <label class="form-wide">Пароль<input name="password" type="password" autocomplete="current-password" minlength="8"></label>
         <label>Telegram<input name="telegramUsername" autocomplete="username" placeholder="@MisterHatter"></label>
+        <button class="diary-forgot-link" type="button" data-diary-forgot-open>Забыли пароль?</button>
         <button class="button primary" type="submit">Войти</button>
         <p class="form-status" data-form-status></p>
       </form>
@@ -540,6 +541,22 @@ function openDiaryRegisterModal() {
         <label class="form-wide">Telegram<input name="telegramUsername" autocomplete="username" placeholder="@username" minlength="3" maxlength="80"></label>
         ${consentField("account-registration")}
         <button class="button primary" type="submit">Создать аккаунт</button>
+        <p class="form-status" data-form-status></p>
+      </form>
+    </div>
+  `, "diary-auth-panel");
+}
+
+function openDiaryForgotPasswordModal() {
+  openModal(`
+    <button class="modal-close" type="button" data-modal-close aria-label="Закрыть">×</button>
+    <div class="diary-auth-modal">
+      <p class="eyebrow">Восстановление доступа</p>
+      <h2>Вернуть ключ</h2>
+      <p>Укажите e-mail аккаунта. Если он есть в Таверне, мы отправим ссылку для смены пароля.</p>
+      <form class="request-form diary-auth-form" data-diary-forgot-form>
+        <label class="form-wide">E-mail<input name="email" type="email" autocomplete="email" maxlength="160" required></label>
+        <button class="button primary" type="submit">Отправить ссылку</button>
         <p class="form-status" data-form-status></p>
       </form>
     </div>
@@ -649,12 +666,76 @@ async function submitMasterAccessRequest(form) {
   }
 }
 
+async function submitDiaryForgotPassword(form) {
+  const status = form.querySelector("[data-form-status]");
+  const button = form.querySelector("button[type='submit']");
+  const payload = Object.fromEntries(new FormData(form).entries());
+  button.disabled = true;
+  status.textContent = "Отправляем письмо...";
+  try {
+    const response = await fetch(`${apiRoot}api/auth/forgot-password`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || result.message || "Не удалось отправить письмо.");
+    status.textContent = result.message || "Если аккаунт с таким email существует, мы отправили письмо для восстановления пароля.";
+    form.reset();
+  } catch (error) {
+    console.error("Password reset request failed", error);
+    status.textContent = error instanceof Error ? error.message : "Не удалось отправить письмо.";
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function submitResetPassword(form) {
+  const status = form.querySelector("[data-form-status]");
+  const button = form.querySelector("button[type='submit']");
+  const payload = Object.fromEntries(new FormData(form).entries());
+  if (payload.password !== payload.passwordConfirmation) {
+    status.textContent = "Пароли не совпадают.";
+    form.querySelector("input[name='passwordConfirmation']")?.focus();
+    return;
+  }
+  button.disabled = true;
+  status.textContent = "Меняем пароль...";
+  try {
+    const response = await fetch(`${apiRoot}api/auth/reset-password`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || result.message || "Не удалось сменить пароль.");
+    status.textContent = result.message || "Пароль успешно изменён.";
+    form.reset();
+    window.setTimeout(openDiaryLoginModal, 1000);
+  } catch (error) {
+    console.error("Password reset failed", error);
+    status.textContent = error instanceof Error ? error.message : "Не удалось сменить пароль.";
+  } finally {
+    button.disabled = false;
+  }
+}
+
 function initDiaryAccess() {
   if (!document.querySelector("[data-diary-page]")) return;
   const state = diaryAccessState();
   unlockDiary(state?.accessGranted ? state.displayName : "");
   document.querySelector("[data-diary-login-open]")?.addEventListener("click", openDiaryLoginModal);
   document.querySelector("[data-diary-register-open]")?.addEventListener("click", openDiaryRegisterModal);
+}
+
+function initResetPasswordPage() {
+  const form = document.querySelector("[data-reset-password-form]");
+  if (!(form instanceof HTMLFormElement)) return;
+  const token = new URLSearchParams(window.location.search).get("token") || "";
+  const input = form.querySelector("input[name='token']");
+  if (input instanceof HTMLInputElement) input.value = token;
 }
 
 document.addEventListener("click", (event) => {
@@ -729,6 +810,10 @@ document.addEventListener("click", (event) => {
   if (signupButton instanceof HTMLButtonElement) {
     const game = games.find((item) => item.id === signupButton.dataset.openSignup);
     if (game) openSignupModal(game);
+  }
+
+  if (target.closest("[data-diary-forgot-open]")) {
+    openDiaryForgotPasswordModal();
   }
 });
 
@@ -844,6 +929,14 @@ document.addEventListener("submit", (event) => {
   if (form.matches("[data-diary-login-form]")) {
     event.preventDefault();
     submitDiaryLogin(form);
+  }
+  if (form.matches("[data-diary-forgot-form]")) {
+    event.preventDefault();
+    submitDiaryForgotPassword(form);
+  }
+  if (form.matches("[data-reset-password-form]")) {
+    event.preventDefault();
+    submitResetPassword(form);
   }
 });
 
@@ -1618,6 +1711,7 @@ loadMasterProfiles();
 renderContactBlock();
 renderGalleryPage();
 initDiaryAccess();
+initResetPasswordPage();
 renderFooter();
 initReveal();
 

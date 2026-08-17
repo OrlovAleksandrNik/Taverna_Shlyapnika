@@ -14,4 +14,6 @@ public interface SiteAccountRepository extends JpaRepository<SiteAccountEntity, 
   Optional<SiteAccountEntity> findFirstByNormalizedTelegramUsernameOrderByCreatedAtDesc(String normalizedTelegramUsername);
 
   List<SiteAccountEntity> findByRoleAndStatusOrderByCreatedAtAsc(String role, String status);
+
+  List<SiteAccountEntity> findByRoleAndStatusInOrderByCreatedAtAsc(String role, List<String> statuses);
 }

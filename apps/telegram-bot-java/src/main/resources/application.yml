@@ -26,3 +26,4 @@ taverna:
     short-description: ${BOT_SHORT_DESCRIPTION:Создаёт афиши игр, ведёт галерею и помогает мастерам управлять рейтингом игроков.}
     cache-chat-id: ${BOT_CACHE_CHAT_ID:}
     cleanup-delay-seconds: ${BOT_CLEANUP_DELAY_SECONDS:86400}
+    hatter-telegram-user-id: ${HATTER_TELEGRAM_USER_ID:${ADMIN_TELEGRAM_IDS:}}

@@ -26,4 +26,16 @@ public final class SiteAuthRequests {
       @NotBlank @Size(max = 160) String password
   ) {
   }
+
+  public record ForgotPasswordRequest(
+      @NotBlank @Email @Size(max = 160) String email
+  ) {
+  }
+
+  public record ResetPasswordRequest(
+      @NotBlank @Size(min = 24, max = 200) String token,
+      @NotBlank @Size(min = 8, max = 160) String password,
+      @NotBlank @Size(min = 8, max = 160) String passwordConfirmation
+  ) {
+  }
 }

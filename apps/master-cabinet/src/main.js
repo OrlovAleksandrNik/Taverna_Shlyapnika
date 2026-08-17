@@ -413,7 +413,7 @@ function mastersTemplate() {
   `);
 }
 
-function accessRequestsTemplate() {
+function legacyAccessRequestsTemplate() {
   const requests = recordsFromPayload(state.remote.masters);
   return cardListTemplate("Заявки на мастерский доступ", requests, (request) => `
     <article class="data-card">
@@ -428,6 +428,48 @@ function accessRequestsTemplate() {
       </div>
     </article>
   `);
+}
+
+function accessRequestsTemplate() {
+  const access = state.remote.masterAccess || {};
+  return `
+    ${cardListTemplate("Ожидают подтверждения", access.pending || [], pendingAccessCard)}
+    ${cardListTemplate("Активные мастера", access.active || [], activeAccessCard)}
+    ${cardListTemplate("Заблокированные", access.blocked || [], blockedAccessCard)}
+  `;
+}
+
+function pendingAccessCard(request) {
+  return accessCard(request, `
+    <button type="button" data-action="approve-master-access" data-id="${escapeHtml(request.publicId)}">Разрешить доступ</button>
+    <button type="button" data-action="reject-master-access" data-id="${escapeHtml(request.publicId)}">Отклонить</button>
+  `);
+}
+
+function activeAccessCard(request) {
+  return accessCard(request, `
+    <button type="button" data-action="revoke-master-access" data-id="${escapeHtml(request.publicId)}">Забрать доступ</button>
+  `);
+}
+
+function blockedAccessCard(request) {
+  return accessCard(request, `
+    <button type="button" data-action="approve-master-access" data-id="${escapeHtml(request.publicId)}">Вернуть доступ</button>
+  `);
+}
+
+function accessCard(request, actions) {
+  return `
+    <article class="data-card">
+      <div>
+        <p class="eyebrow">${escapeHtml(request.requestedRole === "admin" ? "Шляпник" : "Мастер")} · ${formatDateTime(request.createdAt)}</p>
+        <h3>${escapeHtml(request.displayName || "Новая заявка")}</h3>
+        <p>${escapeHtml(request.telegramUsername || "Telegram не указан")} · ${escapeHtml(request.email || "email не указан")}</p>
+        <p>${escapeHtml(request.status || "")}</p>
+      </div>
+      <div class="inline-actions">${actions}</div>
+    </article>
+  `;
 }
 
 function profileTemplate() {
@@ -824,6 +866,10 @@ async function runAction(action, form, sourceElement = null) {
       const request = await apiPost(`/api/v1/admin/master-access-requests/${sourceElement?.dataset.id}/reject`, {}, true);
       state.notice = `Доступ отклонён: ${request.displayName || request.publicId}`;
       await loadSectionData("masters");
+    } else if (action === "revoke-master-access") {
+      const request = await apiPost(`/api/v1/admin/master-access-requests/${sourceElement?.dataset.id}/block`, {}, true);
+      state.notice = `Доступ забран: ${request.displayName || request.publicId}`;
+      await loadSectionData("masters");
     }
     await loadSectionData("overview");
   } catch (error) {
@@ -938,6 +984,27 @@ function applySession(session) {
 }
 
 async function loadSectionData(section) {
+  if (section === "masters") {
+    state.loadingSection = section;
+    try {
+      const [pending, active, blocked] = await Promise.all([
+        apiGet("/api/v1/admin/master-access-requests?status=pending"),
+        apiGet("/api/v1/admin/master-access-requests?status=approved"),
+        apiGet("/api/v1/admin/master-access-requests?status=blocked")
+      ]);
+      state.remote.masterAccess = {
+        pending: recordsFromPayload(pending),
+        active: recordsFromPayload(active),
+        blocked: recordsFromPayload(blocked)
+      };
+    } catch (error) {
+      state.notice = error.status ? `Раздел ответил ошибкой ${error.status}.` : "Сервер временно недоступен.";
+    } finally {
+      if (state.loadingSection === section) state.loadingSection = null;
+      if (state.account?.accessGranted) render();
+    }
+    return;
+  }
   const endpoint = sectionEndpoint(section);
   if (!endpoint) return;
   state.loadingSection = section;
@@ -1176,11 +1243,13 @@ function needsConfirmation(action) {
     "hide-gallery-post",
     "delete-gallery-post",
     "close-service-request",
-    "block-master"
+    "block-master",
+    "revoke-master-access"
   ].includes(action);
 }
 
 function confirmMessage(action) {
+  if (action === "revoke-master-access") return "Забрать доступ у этого мастера?";
   return {
     "cancel-game": "Отменить эту игру? Она исчезнет из активной афиши.",
     "delete-game": "Перенести игру в архив?",

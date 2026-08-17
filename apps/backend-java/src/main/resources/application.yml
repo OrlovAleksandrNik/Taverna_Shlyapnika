@@ -1,9 +1,28 @@
 server:
   port: ${PORT:8080}
+  servlet:
+    session:
+      timeout: ${SESSION_TIMEOUT:21d}
+      cookie:
+        name: TAVERNA_SESSION
+        http-only: true
+        secure: ${SESSION_COOKIE_SECURE:false}
+        same-site: ${SESSION_COOKIE_SAME_SITE:lax}
 
 spring:
   application:
     name: taverna-shlyapnika-backend
+  mail:
+    host: ${SMTP_HOST:}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USER:}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${SMTP_AUTH:true}
+          starttls:
+            enable: ${SMTP_STARTTLS:true}
   servlet:
     multipart:
       max-file-size: 50MB
@@ -56,6 +75,6 @@ taverna:
   telegram:
     bot-token: ${TELEGRAM_BOT_TOKEN:}
     admin-ids: ${ADMIN_TELEGRAM_IDS:}
-    admin-usernames: ${ADMIN_TELEGRAM_USERNAMES:MisterHatter}
+    admin-usernames: ${ADMIN_TELEGRAM_USERNAMES:}
   media:
     storage: ${MEDIA_STORAGE:local}

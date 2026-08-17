@@ -62,7 +62,7 @@ public class InternalController {
   @PostMapping("/api/internal/master-access-requests/{requestId}/approve")
   public Map<String, Object> approveMasterAccessRequest(@PathVariable String requestId, @Valid @RequestBody MasterAccessDecisionRequest request) {
     var approved = masterAccessService.approve(requestId, request.adminTelegramId(), request.comment());
-    return Map.of("ok", true, "requestId", approved.getId(), "status", approved.getStatus());
+    return Map.of("ok", true, "requestId", requestId, "status", approved == null ? "approved" : approved.getStatus());
   }
 
   @GetMapping("/api/internal/master-access-requests")
@@ -73,7 +73,13 @@ public class InternalController {
   @PostMapping("/api/internal/master-access-requests/{requestId}/reject")
   public Map<String, Object> rejectMasterAccessRequest(@PathVariable String requestId, @Valid @RequestBody MasterAccessDecisionRequest request) {
     var rejected = masterAccessService.reject(requestId, request.adminTelegramId(), request.comment());
-    return Map.of("ok", true, "requestId", rejected.getId(), "status", rejected.getStatus());
+    return Map.of("ok", true, "requestId", requestId, "status", rejected == null ? "rejected" : rejected.getStatus());
+  }
+
+  @PostMapping("/api/internal/master-access-requests/{requestId}/block")
+  public Map<String, Object> blockMasterAccessRequest(@PathVariable String requestId, @Valid @RequestBody MasterAccessDecisionRequest request) {
+    masterAccessService.block(requestId, request.adminTelegramId(), request.comment());
+    return Map.of("ok", true, "requestId", requestId, "status", "blocked");
   }
 
   @GetMapping("/api/internal/bot-sessions/{telegramUserId}")

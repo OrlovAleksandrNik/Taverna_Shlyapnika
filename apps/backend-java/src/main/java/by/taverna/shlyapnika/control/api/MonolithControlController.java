@@ -411,9 +411,10 @@ public class MonolithControlController {
   public ItemsResponse<MasterAccessRequestRowDto> masterAccessRequests(
       @RequestParam(defaultValue = "pending") String status
   ) {
-    var safeStatus = List.of("pending", "approved", "rejected").contains(status) ? status : "pending";
+    var safeStatus = List.of("pending", "approved", "rejected", "blocked").contains(status) ? status : "pending";
     var accountStatus = switch (safeStatus) {
       case "approved" -> "active";
+      case "blocked" -> "blocked";
       case "rejected" -> "rejected";
       default -> "pending_approval";
     };
@@ -478,6 +479,7 @@ public class MonolithControlController {
     var accountUpdated = jdbcTemplate.update("""
         update "SiteAccount"
         set "status" = 'rejected',
+            "sessionVersion" = "sessionVersion" + 1,
             "updatedAt" = current_timestamp
         where "id" = ?
           and "role" = 'master'
@@ -495,6 +497,32 @@ public class MonolithControlController {
         where "id" = ?
         """, id);
     auditService.write("master-cabinet", "master.access_rejected_from_cabinet", "MasterAccessRequest", id, null);
+    return masterAccessRequestById(id);
+  }
+
+  @PostMapping("/api/v1/admin/master-access-requests/{id}/block")
+  public MasterAccessRequestRowDto blockMasterAccessRequest(@PathVariable String id) {
+    var accountUpdated = jdbcTemplate.update("""
+        update "SiteAccount"
+        set "status" = 'blocked',
+            "sessionVersion" = "sessionVersion" + 1,
+            "updatedAt" = current_timestamp
+        where "id" = ?
+          and "role" = 'master'
+        """, id);
+    if (accountUpdated > 0) {
+      auditService.write("master-cabinet", "site_account.master_blocked_from_cabinet", "SiteAccount", id, null);
+      return masterAccessRequestById(id);
+    }
+    jdbcTemplate.update("""
+        update "MasterAccessRequest"
+        set "status" = 'rejected'::"MasterAccessRequestStatus",
+            "decidedAt" = current_timestamp,
+            "decisionComment" = 'Доступ забран из кабинета Шляпника',
+            "updatedAt" = current_timestamp
+        where "id" = ?
+        """, id);
+    auditService.write("master-cabinet", "master.access_blocked_from_cabinet", "MasterAccessRequest", id, null);
     return masterAccessRequestById(id);
   }
 

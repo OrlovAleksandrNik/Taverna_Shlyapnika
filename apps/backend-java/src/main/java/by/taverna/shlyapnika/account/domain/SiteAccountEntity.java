@@ -47,6 +47,12 @@ public class SiteAccountEntity {
   @Column(name = "\"consentedAt\"")
   private Instant consentedAt;
 
+  @Column(name = "\"passwordChangedAt\"")
+  private Instant passwordChangedAt;
+
+  @Column(name = "\"sessionVersion\"", nullable = false)
+  private int sessionVersion;
+
   @Column(name = "\"createdAt\"", nullable = false)
   private Instant createdAt;
 
@@ -90,6 +96,20 @@ public class SiteAccountEntity {
 
   public void rejectMaster() {
     this.status = "rejected";
+    this.sessionVersion += 1;
+    this.updatedAt = Instant.now();
+  }
+
+  public void block() {
+    this.status = "blocked";
+    this.sessionVersion += 1;
+    this.updatedAt = Instant.now();
+  }
+
+  public void changePassword(String passwordHash) {
+    this.passwordHash = passwordHash;
+    this.passwordChangedAt = Instant.now();
+    this.sessionVersion += 1;
     this.updatedAt = Instant.now();
   }
 
@@ -102,4 +122,5 @@ public class SiteAccountEntity {
   public String getTelegramUsername() { return telegramUsername; }
   public String getNormalizedTelegramUsername() { return normalizedTelegramUsername; }
   public Instant getCreatedAt() { return createdAt; }
+  public int getSessionVersion() { return sessionVersion; }
 }

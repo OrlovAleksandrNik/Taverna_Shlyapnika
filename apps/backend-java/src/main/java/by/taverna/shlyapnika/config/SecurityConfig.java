@@ -18,7 +18,12 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @Configuration
 public class SecurityConfig {
   @Bean
-  SecurityFilterChain securityFilterChain(HttpSecurity http, TavernaProperties properties, PublicPostRateLimitFilter rateLimitFilter) throws Exception {
+  SecurityFilterChain securityFilterChain(
+      HttpSecurity http,
+      TavernaProperties properties,
+      PublicPostRateLimitFilter rateLimitFilter,
+      MasterSessionAuthenticationFilter masterSessionAuthenticationFilter
+  ) throws Exception {
     return http
         .cors(Customizer.withDefaults())
         .csrf(AbstractHttpConfigurer::disable)
@@ -41,7 +46,7 @@ public class SecurityConfig {
             .anyRequest().permitAll()
         )
         .addFilterBefore(new InternalApiTokenFilter(properties.internalApiToken()), UsernamePasswordAuthenticationFilter.class)
-        .addFilterAfter(new MasterSessionAuthenticationFilter(), InternalApiTokenFilter.class)
+        .addFilterAfter(masterSessionAuthenticationFilter, InternalApiTokenFilter.class)
         .addFilterBefore(rateLimitFilter, InternalApiTokenFilter.class)
         .build();
   }

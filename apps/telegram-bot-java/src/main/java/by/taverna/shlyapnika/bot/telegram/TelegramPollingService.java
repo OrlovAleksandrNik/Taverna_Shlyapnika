@@ -153,11 +153,11 @@ public class TelegramPollingService {
     switch (text) {
       case "/cancel" -> {
         sessions.reset(userId);
-        telegram.sendMessage(chatId, "Отменено.", mainMenu());
+        telegram.sendMessage(chatId, "Отменено.", mainMenu(userId, null));
       }
       case "Отмена" -> {
         sessions.reset(userId);
-        telegram.sendMessage(chatId, "Отменено.", mainMenu());
+        telegram.sendMessage(chatId, "Отменено.", mainMenu(userId, null));
       }
       case "/start", "Главное меню", "Меню" -> sendStart(chatId, userId, telegramUsername);
       case "/register", "Регистрация", "Зарегистрироваться как мастер" -> beginRegistration(chatId, userId);
@@ -207,9 +207,11 @@ public class TelegramPollingService {
       case "rating_adjust_inspiration" -> selectRatingPlayer(chatId, userId, "inspiration");
       case "rating_visibility" -> selectRatingPlayer(chatId, userId, "visibility");
       case "access_requests" -> showMasterAccessRequests(chatId, userId);
+      case "access_active" -> showActiveMasterAccess(chatId, userId);
+      case "access_blocked" -> showBlockedMasterAccess(chatId, userId);
       case "cancel" -> {
         sessions.reset(userId);
-        telegram.sendMessage(chatId, "Отменено.", mainMenu());
+        telegram.sendMessage(chatId, "Отменено.", mainMenu(userId, null));
       }
       case "use_profile_contact" -> useProfileContact(chatId, userId);
       case "manual_game_contact" -> {
@@ -270,6 +272,14 @@ public class TelegramPollingService {
     }
     if (data.startsWith("access_reject:")) {
       decideMasterAccessRequest(chatId, userId, data.substring("access_reject:".length()), false);
+      return;
+    }
+    if (data.startsWith("access_revoke:")) {
+      confirmRevokeMasterAccess(chatId, userId, data.substring("access_revoke:".length()));
+      return;
+    }
+    if (data.startsWith("access_revoke_confirm:")) {
+      revokeMasterAccess(chatId, userId, data.substring("access_revoke_confirm:".length()));
       return;
     }
     if (data.startsWith("rating_player:")
@@ -353,6 +363,11 @@ public class TelegramPollingService {
   private void sendStart(long chatId, long userId, String telegramUsername) {
     var master = backend.findMasterByTelegram(userId, telegramUsername);
     if (master == null) {
+      if (properties.isHatter(userId)) {
+        log.info("Telegram owner menu sent userId={} masterFound=false", userId);
+        telegram.sendMessage(chatId, "Шляпник на месте. Раздел «Доступ» доступен в нижнем меню.", mainMenu(userId, null));
+        return;
+      }
       log.info("Telegram start menu sent userId={} masterFound=false", userId);
       telegram.sendMessage(
           chatId,
@@ -362,7 +377,7 @@ public class TelegramPollingService {
       return;
     }
     log.info("Telegram main menu sent userId={} masterFound=true role={}", userId, master.role());
-    telegram.sendMessage(chatId, "Добро пожаловать обратно, " + master.displayName() + ".", mainMenu(master));
+    telegram.sendMessage(chatId, "Добро пожаловать обратно, " + master.displayName() + ".", mainMenu(userId, master));
   }
 
   private void beginRegistration(long chatId, long userId) {
@@ -451,7 +466,7 @@ public class TelegramPollingService {
           draft.contactUrl(BotTextParser.contact(text));
           var master = backend.upsertMaster(new BackendMasterRequest(userId, telegramUsername, draft.displayName(), draft.contactUrl()));
           sessions.reset(userId);
-          telegram.sendMessage(chatId, "Готово. Регистрация завершена, теперь можно создавать игры.", mainMenu());
+          telegram.sendMessage(chatId, "Готово. Регистрация завершена, теперь можно создавать игры.", mainMenu(userId, master));
           log.info("Master registered via Java bot masterId={} telegramUserId={}", master.id(), userId);
         }
         case "create:title" -> {
@@ -588,7 +603,7 @@ public class TelegramPollingService {
           sessions.reset(userId);
           showRatingPlayerActions(chatId, userId, player.id(), "Игрок добавлен: " + player.displayName() + (player.nickname() == null ? "" : " — " + player.nickname()) + ".");
         }
-        default -> telegram.sendMessage(chatId, "Я вас слышу. Используйте нижнее меню или команды /register, /create_game и /my_games.", mainMenu());
+        default -> telegram.sendMessage(chatId, "Я вас слышу. Используйте нижнее меню или команды /register, /create_game и /my_games.", mainMenu(userId, null));
       }
     } catch (IllegalArgumentException error) {
       telegram.sendMessage(chatId, retryInputMessage(session.state(), error.getMessage()), retryInputKeyboard(session.state()));
@@ -676,7 +691,7 @@ public class TelegramPollingService {
     var message = "published".equals(game.status())
         ? "Игра опубликована и добавлена в афишу."
         : "Заявка создана и ждёт подтверждения администратора.";
-    telegram.sendMessage(chatId, message + "\n\n" + game.title() + "\n" + game.startsAtLabel(), mainMenu());
+    telegram.sendMessage(chatId, message + "\n\n" + game.title() + "\n" + game.startsAtLabel(), mainMenu(userId, null));
   }
 
   private void showMasterGames(long chatId, long userId) {
@@ -684,7 +699,7 @@ public class TelegramPollingService {
     if (master == null) return;
     var games = backend.listMasterGames(master.id(), "upcoming").games();
     if (games == null || games.isEmpty()) {
-      telegram.sendMessage(chatId, "Пока нет предстоящих игр.", mainMenu());
+      telegram.sendMessage(chatId, "Пока нет предстоящих игр.", mainMenu(userId, null));
       return;
     }
     for (var game : games) {
@@ -705,7 +720,7 @@ public class TelegramPollingService {
     var master = requireActiveMaster(chatId, userId);
     if (master == null) return;
     var result = backend.setMasterGameStatus(master.id(), gameId, "cancelled");
-    telegram.sendMessage(chatId, "Игра отменена и больше не показывается в активной афише.\n\n" + result.game().title(), mainMenu());
+    telegram.sendMessage(chatId, "Игра отменена и больше не показывается в активной афише.\n\n" + result.game().title(), mainMenu(userId, null));
   }
 
   private void showEditFields(long chatId, long userId, String gameId) {
@@ -728,7 +743,7 @@ public class TelegramPollingService {
     if (master == null) return;
     var result = backend.updateMasterGame(master.id(), parts[1], updateRequest(parts[2], text));
     sessions.reset(userId);
-    telegram.sendMessage(chatId, "Игра обновлена.\n\n" + result.game().title() + "\n" + result.game().startsAtLabel(), mainMenu());
+    telegram.sendMessage(chatId, "Игра обновлена.\n\n" + result.game().title() + "\n" + result.game().startsAtLabel(), mainMenu(userId, null));
   }
 
   private void handleGalleryMediaMessage(long chatId, long userId, JsonNode message) {
@@ -955,7 +970,17 @@ public class TelegramPollingService {
   }
 
   private BackendMasterResponse requireAccessAdmin(long chatId, long userId) {
-    return requireAdminMaster(chatId, userId, "Подтверждение мастерских аккаунтов доступно только владельцу или администратору Таверны.");
+    if (properties.isHatter(userId)) {
+      try {
+        var master = backend.findMasterByTelegram(userId, telegramUsernames.get(userId));
+        if (master != null) return master;
+      } catch (Exception ignored) {
+        log.debug("Hatter access continues without local master profile userId={}", userId);
+      }
+      return new BackendMasterResponse("hatter", userId, telegramUsernames.get(userId), "Шляпник", "", "admin", "active");
+    }
+    telegram.sendMessage(chatId, "Подтверждение мастерских аккаунтов доступно только владельцу Таверны.");
+    return null;
   }
 
   private BackendMasterResponse requireAdminMaster(long chatId, long userId, String deniedMessage) {
@@ -1016,17 +1041,39 @@ public class TelegramPollingService {
       if (requestId.isBlank()) continue;
       telegram.sendMessage(
           chatId,
-          String.join("\n",
-              "Заявка мастера",
-              "",
-              "Имя: " + request.path("displayName").asText(""),
-              "Telegram: " + request.path("telegramUsername").asText(""),
-              "E-mail: " + request.path("email").asText(""),
-              "Роль: " + accessRoleLabel(request.path("requestedRole").asText("master")),
-              "Статус: " + request.path("status").asText("pending")
-          ),
+          accessRequestText("Заявка мастера", request),
           accessDecisionKeyboard(requestId)
       );
+    }
+  }
+
+  private void showActiveMasterAccess(long chatId, long userId) {
+    if (requireAccessAdmin(chatId, userId) == null) return;
+    var requests = backend.listMasterAccessRequests("approved");
+    if (!requests.isArray() || requests.isEmpty()) {
+      telegram.sendMessage(chatId, "Активных мастеров пока нет.", accessMenuKeyboard());
+      return;
+    }
+    telegram.sendMessage(chatId, "Активные мастера: " + requests.size(), accessMenuKeyboard());
+    for (var request : requests) {
+      var requestId = request.path("id").asText("");
+      if (requestId.isBlank()) continue;
+      telegram.sendMessage(chatId, accessRequestText("Активный мастер", request), accessActiveKeyboard(requestId));
+    }
+  }
+
+  private void showBlockedMasterAccess(long chatId, long userId) {
+    if (requireAccessAdmin(chatId, userId) == null) return;
+    var requests = backend.listMasterAccessRequests("blocked");
+    if (!requests.isArray() || requests.isEmpty()) {
+      telegram.sendMessage(chatId, "Заблокированных мастеров пока нет.", accessMenuKeyboard());
+      return;
+    }
+    telegram.sendMessage(chatId, "Заблокированные мастера: " + requests.size(), accessMenuKeyboard());
+    for (var request : requests) {
+      var requestId = request.path("id").asText("");
+      if (requestId.isBlank()) continue;
+      telegram.sendMessage(chatId, accessRequestText("Доступ отозван", request), accessDecisionKeyboard(requestId));
     }
   }
 
@@ -1034,6 +1081,30 @@ public class TelegramPollingService {
     if (requireAccessAdmin(chatId, userId) == null) return;
     backend.decideMasterAccessRequest(requestId, userId, approve);
     telegram.sendMessage(chatId, approve ? "Мастерский доступ подтверждён." : "Заявка мастера отклонена.", accessMenuKeyboard());
+  }
+
+  private void confirmRevokeMasterAccess(long chatId, long userId, String requestId) {
+    if (requireAccessAdmin(chatId, userId) == null) return;
+    telegram.sendMessage(chatId, "Забрать доступ у этого мастера? Аккаунт и данные сохранятся, но кабинет мастера станет недоступен.", accessRevokeConfirmKeyboard(requestId));
+  }
+
+  private void revokeMasterAccess(long chatId, long userId, String requestId) {
+    if (requireAccessAdmin(chatId, userId) == null) return;
+    backend.blockMasterAccessRequest(requestId, userId);
+    telegram.sendMessage(chatId, "Доступ мастера отозван. Данные аккаунта сохранены.", accessMenuKeyboard());
+  }
+
+  private String accessRequestText(String title, JsonNode request) {
+    return String.join("\n",
+        title,
+        "",
+        "Имя: " + request.path("displayName").asText(""),
+        "Telegram: " + request.path("telegramUsername").asText(""),
+        "E-mail: " + request.path("email").asText(""),
+        "Роль: " + accessRoleLabel(request.path("requestedRole").asText("master")),
+        "Статус: " + request.path("status").asText("pending"),
+        "Дата: " + request.path("createdAt").asText("не указана")
+    );
   }
 
   private void decideLatestMasterAccessRequest(long chatId, long userId, boolean approve) {
@@ -1490,8 +1561,8 @@ public class TelegramPollingService {
     ));
   }
 
-  private Object mainMenu(BackendMasterResponse master) {
-    if (master != null && "admin".equals(master.role())) {
+  private Object mainMenu(long userId, BackendMasterResponse master) {
+    if (properties.isHatter(userId)) {
       return replyKeyboard(List.of(
           replyRow("Игра", "Мои"),
           replyRow("Галерея", "Рейтинг"),
@@ -1504,7 +1575,9 @@ public class TelegramPollingService {
 
   private Object accessMenuKeyboard() {
     return keyboard(List.of(
-        row(button("Заявки мастеров", "access_requests")),
+        row(button("Ожидают подтверждения", "access_requests")),
+        row(button("Активные мастера", "access_active")),
+        row(button("Заблокированные", "access_blocked")),
         row(button("Главное меню", "menu"))
     ));
   }
@@ -1513,6 +1586,19 @@ public class TelegramPollingService {
     return keyboard(List.of(
         row(button("Принять", "access_approve:" + requestId), button("Отклонить", "access_reject:" + requestId)),
         row(button("К списку заявок", "access_requests"))
+    ));
+  }
+
+  private Object accessActiveKeyboard(String requestId) {
+    return keyboard(List.of(
+        row(button("Забрать доступ", "access_revoke:" + requestId)),
+        row(button("К активным мастерам", "access_active"))
+    ));
+  }
+
+  private Object accessRevokeConfirmKeyboard(String requestId) {
+    return keyboard(List.of(
+        row(button("Да, забрать", "access_revoke_confirm:" + requestId), button("Отмена", "access_active"))
     ));
   }
 

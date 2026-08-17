@@ -105,7 +105,8 @@ public class SiteAccountService {
       String email,
       String role,
       String status,
-      String telegramUsername
+      String telegramUsername,
+      int sessionVersion
   ) {
     static AuthenticatedAccount from(SiteAccountEntity account) {
       return new AuthenticatedAccount(
@@ -114,7 +115,8 @@ public class SiteAccountService {
           account.getEmail(),
           account.getRole(),
           account.getStatus(),
-          account.getTelegramUsername()
+          account.getTelegramUsername(),
+          account.getSessionVersion()
       );
     }
   }

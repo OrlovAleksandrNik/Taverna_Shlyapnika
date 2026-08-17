@@ -307,6 +307,22 @@ public class BackendApiClient {
     }
   }
 
+  public void blockMasterAccessRequest(String requestId, long adminTelegramId) {
+    try {
+      var path = "/api/internal/master-access-requests/" + encode(requestId) + "/block";
+      var body = java.util.Map.of("adminTelegramId", adminTelegramId, "comment", "Доступ отозван через Telegram-бота");
+      var request = baseRequest(path)
+          .header("Content-Type", "application/json")
+          .POST(HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(body), StandardCharsets.UTF_8))
+          .build();
+      var response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+      ensureSuccess(response, "block master access request");
+    } catch (Exception error) {
+      log.warn("Backend master access block failed requestId={}", requestId, error);
+      throw new IllegalStateException("Не удалось забрать доступ мастера. Попробуйте немного позже.");
+    }
+  }
+
   public BackendRatingResponses.MutationResponse addRatingGameResult(String masterId, BackendRatingRequests.GameResult body) {
     return postRating(masterId, "/rating/game-results", body, BackendRatingResponses.MutationResponse.class, "add rating game result");
   }

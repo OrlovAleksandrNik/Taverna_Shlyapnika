@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import by.taverna.shlyapnika.account.SiteAccountService;
 import by.taverna.shlyapnika.account.SiteAccountService.AuthenticatedAccount;
+import by.taverna.shlyapnika.account.PasswordResetService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -26,6 +27,9 @@ class SiteAuthControllerTest {
   @MockBean
   private SiteAccountService service;
 
+  @MockBean
+  private PasswordResetService passwordResetService;
+
   @Test
   void registersPlayerAndWritesSession() throws Exception {
     when(service.register(any())).thenReturn(new AuthenticatedAccount(
@@ -34,7 +38,8 @@ class SiteAuthControllerTest {
         "player@example.com",
         "player",
         "active",
-        "@player"
+        "@player",
+        0
     ));
 
     mvc.perform(post("/api/auth/register")
@@ -68,7 +73,8 @@ class SiteAuthControllerTest {
         "master@example.com",
         "master",
         "pending_approval",
-        "@new_master"
+        "@new_master",
+        0
     ));
 
     mvc.perform(post("/api/auth/register")
@@ -101,7 +107,8 @@ class SiteAuthControllerTest {
         "master@example.com",
         "master",
         "active",
-        "@master"
+        "@master",
+        0
     ));
 
     mvc.perform(post("/api/auth/login")
@@ -117,5 +124,32 @@ class SiteAuthControllerTest {
         .andExpect(jsonPath("$.systemRole").value("MASTER"))
         .andExpect(request().sessionAttribute("taverna.master.accessGranted", true))
         .andExpect(request().sessionAttribute("taverna.auth.accountId", "acc_master"));
+  }
+
+  @Test
+  void forgotPasswordReturnsSafePublicMessage() throws Exception {
+    when(passwordResetService.requestReset("master@example.com"))
+        .thenReturn(PasswordResetService.PUBLIC_RESPONSE);
+
+    mvc.perform(post("/api/auth/forgot-password")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"email\":\"master@example.com\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.message").value(PasswordResetService.PUBLIC_RESPONSE));
+  }
+
+  @Test
+  void resetPasswordDelegatesTokenChange() throws Exception {
+    mvc.perform(post("/api/auth/reset-password")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "token": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "password": "new-password",
+                  "passwordConfirmation": "new-password"
+                }
+                """))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.message").value("Пароль успешно изменён."));
   }
 }

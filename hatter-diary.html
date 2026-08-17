@@ -51,10 +51,6 @@
 
   <main id="top">
     <section class="diary-page" data-diary-page>
-      <div class="diary-auth-shortcuts" aria-label="Доступ мастера">
-        <button class="button primary" type="button" data-diary-login-open>Войти</button>
-        <button class="button ghost" type="button" data-diary-register-open>Зарегистрироваться</button>
-      </div>
       <div class="diary-shell reveal" data-diary-private>
         <article class="diary-entry" data-diary-entry></article>
         <nav class="diary-actions" aria-label="Навигация по записям">
@@ -64,6 +60,10 @@
         </nav>
         <aside class="diary-archive" aria-label="Закрытая полка" data-diary-archive></aside>
         <div class="diary-return">
+          <div class="diary-auth-shortcuts" aria-label="Доступ к кабинетам">
+            <button class="button ghost" type="button" data-diary-login-open>Войти</button>
+            <button class="button ghost" type="button" data-diary-register-open>Зарегистрироваться</button>
+          </div>
           <a class="button ghost" href="about.html">Вернуться к истории таверны</a>
           <a class="button ghost" href="index.html#top">На главную</a>
         </div>
