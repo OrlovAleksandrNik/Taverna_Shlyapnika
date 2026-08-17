@@ -29,7 +29,10 @@ public class StaticFrontendController {
     return frontendPage(page);
   }
 
-  @GetMapping({"/master-cabinet", "/master-cabinet/", "/master-cabinet/{path:[a-z0-9-]+}"})
+  @GetMapping({
+      "/cabinet", "/cabinet/", "/cabinet/{path:[a-z0-9-]+}",
+      "/master-cabinet", "/master-cabinet/", "/master-cabinet/{path:[a-z0-9-]+}"
+  })
   public ResponseEntity<Resource> masterCabinet() {
     // Кабинет мастера является вложенным SPA, поэтому все его клиентские маршруты ведут на index.html.
     return frontendPage("master-cabinet/index.html");

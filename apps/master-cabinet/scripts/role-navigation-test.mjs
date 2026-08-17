@@ -22,15 +22,21 @@ function assertExcludes(role, item) {
 }
 
 assertIncludes("MASTER", "projects");
-assertIncludes("MASTER", "signups");
-assertExcludes("MASTER", "users");
-assertIncludes("CONTENT_MANAGER", "files");
-assertExcludes("CONTENT_MANAGER", "users");
-assertIncludes("DEVELOPER", "projects");
-assertExcludes("DEVELOPER", "users");
+assertIncludes("MASTER", "games");
+assertIncludes("MASTER", "rating");
+assertIncludes("MASTER", "profile");
+assertExcludes("MASTER", "masters");
+assertExcludes("MASTER", "backups");
+assertExcludes("MASTER", "settings");
+assertIncludes("HATTER", "masters");
+assertIncludes("HATTER", "backups");
+assertIncludes("HATTER", "settings");
+assertIncludes("HATTER", "profile");
 
-if (!source.includes('roles.OWNER.splice(roles.OWNER.indexOf("settings"), 0, "security")')) {
-  throw new Error("OWNER security menu wiring is missing");
+for (const forbiddenRole of ["OWNER", "DEVELOPER", "CONTENT_MANAGER", "RATING_MANAGER", "SUPERADMIN", "VIEWER"]) {
+  if (source.includes(`${forbiddenRole}:`)) {
+    throw new Error(`Legacy role must not be declared: ${forbiddenRole}`);
+  }
 }
 
 console.log("role navigation checks passed");

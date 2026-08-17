@@ -6,7 +6,7 @@ const html = readFileSync(resolve(root, "index.html"), "utf8");
 const js = readFileSync(resolve(root, "src/main.js"), "utf8");
 const css = readFileSync(resolve(root, "src/styles.css"), "utf8");
 
-const requiredText = ["Личный кабинет Шляпника", "Программы мастера", "Desktop Agent", "Feature flags", "publicRegistration", "Код Шляпника", "Upload policy", "Колонки", "Export", "API_BASE", "Data:", "data-backend-output", "data-source-output", "data-action=\"create-game\"", "publish-game", "delete-game", "control-table-prefs", "control-runtime-config.js", "vendor/qrcode-bundle.js", "X-XSRF-TOKEN"];
+const requiredText = ["Личный кабинет Шляпника", "Кабинет мастера", "Программы", "VoiceMod", "ScreenStage", "Код действий", "API_BASE", "data-backend-output", "data-action=\"create-game\"", "publish-game", "delete-game", "control-table-prefs", "control-runtime-config.js", "vendor/qrcode-bundle.js", "X-XSRF-TOKEN"];
 const missing = requiredText.filter((text) => !html.includes(text) && !js.includes(text) && !css.includes(text));
 
 if (missing.length) {
@@ -27,6 +27,13 @@ if (js.includes("statusLine.innerHTML")) {
 
 if (css.includes("letter-spacing: -")) {
   throw new Error("Negative letter spacing is not allowed.");
+}
+
+const forbiddenText = ["Feature flags", "publicRegistration", "Upload policy", "Колонки", "Export", "DEVELOPER", "CONTENT_MANAGER", "RATING_MANAGER", "role-switch"];
+const forbidden = forbiddenText.filter((text) => html.includes(text) || js.includes(text) || css.includes(text));
+
+if (forbidden.length) {
+  throw new Error(`Forbidden legacy control UI text found: ${forbidden.join(", ")}`);
 }
 
 console.log("frontend smoke checks passed");

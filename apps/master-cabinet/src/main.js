@@ -1,87 +1,109 @@
 const API_BASE = window.CONTROL_API_BASE ?? "";
+const ACCESS_STORAGE_KEY = "tavernaDiaryAccess";
 
 const roles = {
-  OWNER: [
-    "overview", "schedule", "games", "signups", "applications", "services", "masters", "players", "rating",
-    "gallery", "stories", "files", "projects", "notifications", "backups", "audit", "users", "settings", "tech"
+  HATTER: [
+    "overview", "schedule", "games", "applications", "masters", "rating", "gallery", "services",
+    "projects", "backups", "settings", "audit", "profile"
   ],
-  MASTER: ["overview", "schedule", "games", "signups", "gallery", "stories", "projects", "notifications", "tech"],
-  CONTENT_MANAGER: ["overview", "gallery", "stories", "files", "notifications", "tech"],
-  RATING_MANAGER: ["overview", "players", "rating", "audit", "tech"],
-  DEVELOPER: ["overview", "projects", "audit", "settings", "tech"]
+  MASTER: ["overview", "schedule", "games", "applications", "rating", "gallery", "projects", "profile"]
 };
 
 const sections = {
-  overview: ["Обзор", "Пульс кабинета"],
-  schedule: ["Расписание", "Календарь и переносы"],
-  games: ["Игры", "Редактор, публикация, статусы"],
-  signups: ["Записи", "Заполненность столов"],
-  applications: ["Заявки", "Входящие обращения"],
-  services: ["Услуги", "Пакеты и стоимость"],
-  masters: ["Мастера", "Профили и назначения"],
-  players: ["Игроки", "Карточки игроков"],
-  rating: ["Рейтинг", "Операции и откаты"],
-  gallery: ["Галерея", "Медиа и публикации"],
-  stories: ["Истории", "Черновики и автосохранение"],
-  files: ["Файлы", "Безопасное хранилище"],
-  projects: ["Программы мастера", "VoiceMod и ScreenStage"],
-  notifications: ["Уведомления", "Шаблоны и события"],
-  backups: ["Резервные копии", "Создание и проверка"],
-  audit: ["Журнал действий", "Критические операции"],
-  users: ["Пользователи и роли", "Приглашения и permissions"],
-  security: ["Безопасность", "2FA, сессии, восстановление"],
-  settings: ["Настройки", "Флаги интеграций"],
-  tech: ["Состояние", "Backend health"]
+  overview: ["Главная", "Ближайшие дела Таверны"],
+  schedule: ["Расписание", "День, неделя и список игр"],
+  games: ["Игры", "Создание, переносы и публикация"],
+  applications: ["Заявки", "Игры, услуги и обращения"],
+  services: ["Услуги", "Пакеты, описания и доступность"],
+  masters: ["Мастера", "Профили и доступ"],
+  rating: ["Игроки и рейтинг", "Таблица лидеров"],
+  gallery: ["Галерея", "Фото и истории"],
+  projects: ["Программы", "VoiceMod и ScreenStage"],
+  backups: ["Резервные копии", "Общие данные монолита"],
+  audit: ["Журнал действий", "История изменений"],
+  settings: ["Настройки", "Данные Таверны"],
+  profile: ["Профиль", "Аккаунт мастера"]
 };
 
-roles.OWNER.splice(roles.OWNER.indexOf("settings"), 0, "security");
-roles.DEVELOPER.splice(roles.DEVELOPER.indexOf("settings"), 0, "security");
+const accessAccount = loadAccessAccount();
 
 const state = {
-  role: "OWNER",
-  section: "overview",
+  role: normalizeRole(accessAccount?.role),
+  section: initialSection(normalizeRole(accessAccount?.role)),
   backend: "unknown",
   loadingSection: null,
-  account: null,
+  account: accessAccount,
   twoFactorSetup: null,
   tablePrefs: loadTablePrefs(),
-  actionStatus: "Ready",
+  actionStatus: "Кабинет подключён к общей базе Таверны.",
   adminToken: sessionStorage.getItem("control-admin-token") || "",
   selectedGameId: "",
   remote: {}
 };
 
-const genericDataSections = new Set(["applications", "services", "masters", "notifications"]);
+const genericDataSections = new Set(["applications", "services", "masters"]);
 
 const app = document.querySelector("#app");
 
+function loadAccessAccount() {
+  try {
+    return JSON.parse(localStorage.getItem(ACCESS_STORAGE_KEY) || "null");
+  } catch {
+    return null;
+  }
+}
+
+function normalizeRole(role) {
+  const value = String(role || "").toLowerCase();
+  return value === "admin" || value === "hatter" ? "HATTER" : "MASTER";
+}
+
+function initialSection(role) {
+  const hash = window.location.hash.replace("#", "").trim();
+  return roles[role]?.includes(hash) ? hash : "overview";
+}
+
+function cabinetAccessTemplate() {
+  return `
+    <main class="cabinet-gate">
+      <section class="cabinet-gate__card">
+        <img src="/hatter-mark.png" alt="" />
+        <p class="eyebrow">Скрытая стойка Таверны</p>
+        <h1>Войдите через дневник Шляпника</h1>
+        <p>Кабинет открывается только после подтверждённого мастерского доступа. Дневник остаётся читаемым, но управление Таверной спрятано за отдельным входом.</p>
+        <button type="button" data-open-diary-login>Открыть вход</button>
+      </section>
+    </main>
+  `;
+}
+
 function render() {
+  if (!state.account?.accessGranted) {
+    app.innerHTML = cabinetAccessTemplate();
+    document.querySelector("[data-open-diary-login]")?.addEventListener("click", () => {
+      window.location.assign(new URL("/hatter-diary.html", window.location.origin).href);
+    });
+    return;
+  }
   const visible = roles[state.role];
-  const dataSource = sectionDataSource(state.section);
   app.innerHTML = `
     <div class="shell">
       <aside class="sidebar" aria-label="Разделы кабинета">
         <div class="brand">
           <img src="/hatter-mark.png" alt="" />
           <div>
-            <b>Личный кабинет Шляпника</b>
-            <span>Административная стойка таверны</span>
+            <b>${state.role === "HATTER" ? "Личный кабинет Шляпника" : "Кабинет мастера"}</b>
+            <span>Рабочая стойка Таверны</span>
           </div>
         </div>
         <div class="master-profile">
           <img src="/hatter-mark.png" alt="" />
           <div>
-            <span>Мастер</span>
+            <span>${state.role === "HATTER" ? "Шляпник" : "Мастер"}</span>
             <strong>${escapeHtml(state.account?.displayName || "Шляпник")}</strong>
-            <small>${escapeHtml(state.account?.email || "доступ через шляпу")}</small>
+            <small>${escapeHtml(sessionLabel())}</small>
           </div>
         </div>
-        <label class="role-switch">
-          <span>Роль</span>
-          <select id="roleSelect" aria-label="Выбор роли">
-            ${Object.keys(roles).map((role) => `<option ${role === state.role ? "selected" : ""}>${role}</option>`).join("")}
-          </select>
-        </label>
         <nav>
           ${visible.map((key) => `
             <button class="nav-item ${state.section === key ? "active" : ""}" data-section="${key}" title="${sections[key][1]}">
@@ -95,12 +117,12 @@ function render() {
           <div>
             <p class="eyebrow">Личный кабинет Шляпника</p>
             <h1>${sections[state.section][0]}</h1>
-            <p class="session-line">${escapeHtml(sessionLabel())}</p>
+            <p class="session-line">${escapeHtml(sections[state.section][1])}</p>
           </div>
           <div class="status-line" aria-live="polite">
-            <label class="admin-token">Код Шляпника<input id="adminTokenInput" type="password" autocomplete="off" value="${escapeHtml(state.adminToken)}" /></label>
+            ${state.role === "HATTER" ? `<label class="admin-token">Код действий<input id="adminTokenInput" type="password" autocomplete="off" value="${escapeHtml(state.adminToken)}" /></label>` : ""}
             <span><span class="dot ${state.backend === "online" ? "ok" : ""}"></span>Backend: <span data-backend-output>${state.backend}</span></span>
-            <span class="source-badge ${dataSource}" data-source-output>Data: ${dataSource}</span>
+            <button type="button" data-action="logout">Выйти</button>
           </div>
         </header>
         <section class="content">
@@ -108,24 +130,13 @@ function render() {
           ${sectionTemplate(state.section)}
         </section>
       </main>
-      <aside class="notices" aria-label="Записки Шляпника">
-        <h2>Записки</h2>
-        <button class="notice">Резервные копии работают в безопасном read-only режиме</button>
-        <button class="notice warn">Desktop Agent выключен</button>
-        <button class="notice">CSRF cookie ожидается от backend</button>
-      </aside>
     </div>
   `;
 
-  document.querySelector("#roleSelect").addEventListener("change", (event) => {
-    state.role = event.target.value;
-    if (!roles[state.role].includes(state.section)) state.section = roles[state.role][0];
-    render();
-    loadSectionData(state.section);
-  });
   document.querySelectorAll("[data-section]").forEach((button) => {
     button.addEventListener("click", () => {
       state.section = button.dataset.section;
+      window.location.hash = state.section;
       render();
       loadSectionData(state.section);
     });
@@ -163,19 +174,15 @@ function render() {
 function sectionTemplate(section) {
   if (section === "overview") return overviewTemplate();
   if (section === "games" || section === "schedule") return gamesTemplate(section);
-  if (section === "signups") return signupsTemplate(section);
   if (section === "applications" || section === "services") return serviceRequestsTemplate(section);
   if (section === "masters") return mastersTemplate(section);
   if (section === "projects") return projectsTemplate();
-  if (section === "users") return usersTemplate();
-  if (section === "players" || section === "rating") return ratingTemplate(section);
-  if (section === "gallery" || section === "stories") return galleryTemplate(section);
-  if (section === "security") return securityTemplate();
-  if (section === "files") return filesTemplate();
+  if (section === "rating") return ratingTemplate(section);
+  if (section === "gallery") return galleryTemplate(section);
   if (section === "settings") return settingsTemplate();
-  if (section === "tech") return techTemplate();
   if (section === "audit") return auditTemplate();
   if (section === "backups") return backupsTemplate();
+  if (section === "profile") return profileTemplate();
   return genericTemplate(section);
 }
 
@@ -229,56 +236,6 @@ function projectsTemplate() {
   `;
 }
 
-function usersTemplate() {
-  const accounts = recordsFromPayload(state.remote.users);
-  const accountRows = accounts.map((account) => [
-    account.publicId,
-    account.email || "telegram не указан",
-    Array.isArray(account.roles) ? account.roles.join(", ") : account.roles,
-    account.status,
-    actionButtons([
-      ["activate-master", "Активировать", account.publicId, "users"],
-      ["block-master", "Заблокировать", account.publicId, "users"]
-    ])
-  ]);
-  return `
-    <p class="note">Раздел показывает реальные Telegram-профили мастеров из таблицы Master. Полная система ролей и приглашений будет перенесена отдельным защищённым шагом.</p>
-    ${tableTemplate("Профили мастеров", ["ID", "Telegram", "Роль", "Статус", "Действия"], accountRows)}
-  `;
-}
-
-function securityTemplate() {
-  return `
-    <div class="metric-grid">
-      <article class="metric"><span>Код Шляпника</span><strong>required</strong><small>x-internal-token для важных действий</small></article>
-      <article class="metric"><span>Секреты</span><strong>runtime</strong><small>не хранятся в статике</small></article>
-      <article class="metric"><span>Сессии</span><strong>planned</strong><small>будут перенесены в монолит отдельным шагом</small></article>
-    </div>
-    <p class="note">Полная авторизация кабинета, 2FA и управление сессиями остались в архивном control-service и будут переноситься после основных мастерских сценариев.</p>
-  `;
-}
-
-function filesTemplate() {
-  const storage = state.remote.filesStorage;
-  const fileRows = storage ? [
-    ["media", storage.media?.adapter, storage.media?.root, "configured"],
-    ["projectArtifacts", storage.projectArtifacts?.adapter, storage.projectArtifacts?.root, "configured"],
-    ["futureAdapters", Array.isArray(storage.futureAdapters) ? storage.futureAdapters.join(", ") : "", "planned"]
-  ] : [
-    ["images", ".jpg .png .webp .gif", "allowed", "проверять dimensions"],
-    ["documents", ".pdf .txt .md", "allowed", "без секретов"],
-    ["executables", ".exe .bat .cmd .ps1 .msi .dll .jar", "blocked", "только Desktop Agent allowlist"]
-  ];
-  return `
-    <div class="metric-grid">
-      <article class="metric"><span>MediaStorage</span><strong>${escapeHtml(storage?.media?.adapter || "local")}</strong><small>CONTROL_MEDIA_STORAGE_ROOT</small></article>
-      <article class="metric"><span>ProjectArtifactStorage</span><strong>${escapeHtml(storage?.projectArtifacts?.adapter || "local")}</strong><small>не для загрузки .exe из UI</small></article>
-      <article class="metric"><span>Upload policy</span><strong>strict</strong><small>MIME, extension, size, safe name</small></article>
-    </div>
-    ${tableTemplate("Политика файлов", ["Тип", "Правило", "Статус", "Заметка"], fileRows)}
-  `;
-}
-
 function backupsTemplate() {
   const rows = toRows(state.remote.backups, ["publicId", "status", "checksum", "manifestPath"], []);
   return `
@@ -294,47 +251,16 @@ function auditTemplate() {
 }
 
 function settingsTemplate() {
-  const flags = state.remote.settings?.featureFlags || {
-    publicRegistration: false,
-    mainSiteIntegration: false,
-    telegramIntegration: false,
-    desktopAgent: false
-  };
-  const rows = Object.entries(flags).map(([key, value]) => [key, String(value), value ? "enabled" : "disabled"]);
-  const stored = toRows(state.remote.settings?.storedSettings, ["key", "value", "sensitive", "encrypted"], []);
+  const settings = state.remote.settings || {};
+  const rows = [
+    ["Контакты", settings.contactsConfigured ? "заполнены" : "требуют проверки", "Адрес, Telegram, Instagram, телефон"],
+    ["Игры", settings.defaultGameSystem || "D&D 5e", "стандартная система для новых игр"],
+    ["Заявки", settings.requestsEnabled === false ? "приостановлены" : "принимаются", "формы сайта и записи"],
+    ["Галерея", settings.galleryEnabled === false ? "скрыта" : "показывается", "фото и истории Таверны"]
+  ];
   return `
-    ${tableTemplate("Feature flags", ["Key", "Value", "Status"], rows)}
-    ${tableTemplate("Stored settings", ["Key", "Value", "Sensitive", "Encrypted"], stored)}
-  `;
-}
-
-function techTemplate() {
-  const integration = state.remote.tech || {
-    mode: "monolith",
-    mainSiteIntegrationEnabled: false,
-    telegramIntegrationEnabled: false,
-    desktopAgentEnabled: false,
-    contractsPrepared: true,
-    productionDataUsed: false
-  };
-  const desktopAgent = integration.desktopAgent || {
-    enabled: integration.desktopAgentEnabled,
-    allowlistedProjects: {},
-    browserPathInputAccepted: false,
-    allowedExtensions: ".exe, .cmd, .bat"
-  };
-  return `
-    <div class="tech">
-      <p>Backend health: <strong>${state.backend}</strong></p>
-      <p>Integration mode: <strong>${escapeHtml(integration.mode)}</strong></p>
-      <p>Main site integration: <strong>${escapeHtml(integration.mainSiteIntegrationEnabled)}</strong></p>
-      <p>Telegram integration: <strong>${escapeHtml(integration.telegramIntegrationEnabled)}</strong></p>
-      <p>Desktop Agent: <strong>${escapeHtml(integration.desktopAgentEnabled)}</strong></p>
-      <p>Desktop allowlist: <strong>${escapeHtml(Object.keys(desktopAgent.allowlistedProjects || {}).join(", ") || "not configured")}</strong></p>
-      <p>Browser path input: <strong>${escapeHtml(desktopAgent.browserPathInputAccepted)}</strong></p>
-      <p>Contracts prepared: <strong>${escapeHtml(integration.contractsPrepared)}</strong></p>
-      <p>Production data used: <strong>${escapeHtml(integration.productionDataUsed)}</strong></p>
-    </div>
+    <p class="note">Здесь остаются только настройки, которые влияют на видимую работу Таверны. Секреты, окружение и технические параметры не показываются в кабинете.</p>
+    ${tableTemplate("Настройки Таверны", ["Раздел", "Значение", "Комментарий"], rows)}
   `;
 }
 
@@ -455,6 +381,26 @@ function genericTemplate(section) {
       status,
       updatedAt
     ]))}
+  `;
+}
+
+function profileTemplate() {
+  return `
+    <section class="profile-panel">
+      <div class="profile-card">
+        <img src="/hatter-mark.png" alt="" />
+        <div>
+          <p class="eyebrow">${state.role === "HATTER" ? "Шляпник" : "Мастер"}</p>
+          <h2>${escapeHtml(state.account?.displayName || "Мастер Таверны")}</h2>
+          <p>${escapeHtml(sessionLabel())}. Профиль связан с подтверждённым входом через дневник и Telegram.</p>
+        </div>
+      </div>
+      <div class="metric-grid">
+        <article class="metric"><span>Telegram</span><strong>${escapeHtml(state.account?.telegramUsername || "указан при входе")}</strong><small>основной способ связи</small></article>
+        <article class="metric"><span>Роль</span><strong>${state.role}</strong><small>MASTER или HATTER</small></article>
+        <article class="metric"><span>2FA</span><strong>запланировано</strong><small>будет подключено в security-модуле</small></article>
+      </div>
+    </section>
   `;
 }
 
@@ -580,13 +526,6 @@ function tableTemplate(title, headers, rows) {
             <option value="published" ${selectedStatus === "published" ? "selected" : ""}>published</option>
             <option value="archived" ${selectedStatus === "archived" ? "selected" : ""}>archived</option>
           </select>
-          <select data-table-field="sort" aria-label="Сортировка">
-            <option value="none" ${sort === "none" ? "selected" : ""}>Без сортировки</option>
-            <option value="first-asc" ${sort === "first-asc" ? "selected" : ""}>A-Z</option>
-            <option value="first-desc" ${sort === "first-desc" ? "selected" : ""}>Z-A</option>
-          </select>
-          <button data-table-columns="toggle" title="Колонки">Колонки</button>
-          <button title="Экспорт">Export</button>
         </div>
       </div>
       <div class="table-scroll">
@@ -596,7 +535,6 @@ function tableTemplate(title, headers, rows) {
         </table>
       </div>
       <div class="table-foot">
-        <button data-danger="archive" title="Массовое архивирование требует подтверждения">Архивировать выбранные</button>
         <span>Страница <b data-page-output>${page}</b> / ${maxPage}</span>
         <button data-page-action="prev" title="Предыдущая страница" ${page <= 1 ? "disabled" : ""}>Назад</button>
         <button data-page-action="next" title="Следующая страница" ${page >= maxPage ? "disabled" : ""}>Вперёд</button>
@@ -812,9 +750,8 @@ function escapeHtml(value) {
 }
 
 function sessionLabel() {
-  if (!state.account) return "Session: not authenticated";
-  const roles = Array.isArray(state.account.roles) ? state.account.roles.join(", ") : state.account.roles;
-  return `${state.account.displayName || state.account.email} / ${roles || "no roles"}`;
+  if (!state.account) return "доступ не открыт";
+  return state.role === "HATTER" ? "полный доступ" : "мастерский доступ";
 }
 
 function formJson(form) {
@@ -943,6 +880,12 @@ async function apiDelete(path) {
 
 async function runAction(action, form, sourceElement = null) {
   const body = form ? formJson(form) : {};
+  if (action === "logout") {
+    localStorage.removeItem(ACCESS_STORAGE_KEY);
+    sessionStorage.removeItem("control-admin-token");
+    window.location.assign(new URL("/hatter-diary.html", window.location.origin).href);
+    return;
+  }
   if (action === "edit-game") {
     state.selectedGameId = sourceElement?.dataset.id || "";
     state.actionStatus = state.selectedGameId ? "Игра открыта в редакторе." : "Не удалось открыть игру.";
@@ -1083,7 +1026,6 @@ function sectionDataSource(section) {
 }
 
 function remoteKey(section) {
-  if (section === "security") return "securitySessions";
   return section === "files" ? "filesStorage" : section;
 }
 
@@ -1103,18 +1045,12 @@ async function apiGet(path) {
 function sectionEndpoint(section) {
   if (section === "overview") return "/api/v1/admin/dashboard";
   if (section === "projects") return "/api/v1/admin/projects";
-  if (section === "users") return "/api/v1/admin/users";
-  if (section === "files") return "/api/v1/admin/files/storage";
   if (section === "backups") return "/api/v1/admin/backups";
-  if (section === "security") return null;
   if (section === "settings") return "/api/v1/admin/settings";
-  if (section === "tech") return "/api/v1/admin/integration/status";
   if (section === "audit") return "/api/v1/admin/audit?page=0";
   if (section === "games") return "/api/v1/admin/games?page=0&size=20";
-  if (section === "signups") return "/api/v1/admin/signups/summary?page=0&size=50";
-  if (section === "players" || section === "rating") return "/api/v1/admin/rating/players?page=0&size=50";
+  if (section === "rating") return "/api/v1/admin/rating/players?page=0&size=50";
   if (section === "gallery") return "/api/v1/admin/gallery/posts?page=0&size=50";
-  if (section === "stories") return "/api/v1/admin/gallery/posts?type=story&page=0&size=50";
   if (section === "schedule") {
     const from = new Date();
     const to = new Date(from);
