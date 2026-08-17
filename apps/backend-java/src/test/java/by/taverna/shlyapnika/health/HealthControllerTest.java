@@ -47,6 +47,22 @@ class HealthControllerTest {
     assertThat(response.getBody().get("database")).isEqualTo("ok");
   }
 
+  @Test
+  void healthReportsExternalTelegramBotWhenTokenIsConfigured() {
+    var controller = new HealthController(jdbcTemplate, propertiesWithTelegramToken());
+
+    var body = controller.health();
+
+    assertThat(body.get("bot"))
+        .isInstanceOfSatisfying(
+            java.util.Map.class,
+            bot -> {
+              assertThat(bot.get("enabled")).isEqualTo(true);
+              assertThat(bot.get("running")).isEqualTo(true);
+              assertThat(bot.get("mode")).isEqualTo("external-railway-service");
+            });
+  }
+
   private static TavernaProperties properties() {
     return new TavernaProperties(
         "http://localhost:8080",
@@ -62,6 +78,24 @@ class HealthControllerTest {
         false,
         "static-site",
         new TavernaProperties.Telegram("", "", "")
+    );
+  }
+
+  private static TavernaProperties propertiesWithTelegramToken() {
+    return new TavernaProperties(
+        "http://localhost:8080",
+        "/uploads",
+        "uploads",
+        "Europe/Minsk",
+        "http://localhost:4177",
+        "test-internal-token",
+        "",
+        "",
+        "",
+        true,
+        false,
+        "static-site",
+        new TavernaProperties.Telegram("test-token", "", "")
     );
   }
 }

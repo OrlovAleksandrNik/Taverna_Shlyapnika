@@ -58,10 +58,19 @@ public class HealthController {
     var tokenConfigured = properties.telegram() != null
         && properties.telegram().botToken() != null
         && !properties.telegram().botToken().isBlank();
+    if (!tokenConfigured) {
+      return Map.of(
+          "enabled", false,
+          "running", false,
+          "mode", "not-configured",
+          "lastUpdateAt", ""
+      );
+    }
     return Map.of(
-        "enabled", tokenConfigured,
-        "running", false,
-        "mode", "java-migration-pending",
+        "enabled", true,
+        "running", true,
+        "mode", "external-railway-service",
+        "service", "Telegram_Bot",
         "lastUpdateAt", ""
     );
   }
