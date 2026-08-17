@@ -1,6 +1,7 @@
 package by.taverna.shlyapnika.config;
 
 import by.taverna.shlyapnika.security.InternalApiTokenFilter;
+import by.taverna.shlyapnika.security.MasterSessionAuthenticationFilter;
 import by.taverna.shlyapnika.security.PublicPostRateLimitFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -19,16 +20,17 @@ public class SecurityConfig {
     return http
         .cors(Customizer.withDefaults())
         .csrf(AbstractHttpConfigurer::disable)
-        .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
         .authorizeHttpRequests(auth -> auth
             .requestMatchers("/api/internal/**").authenticated()
             .requestMatchers(HttpMethod.GET, "/api/v1/admin/**").permitAll()
-            .requestMatchers("/api/v1/admin/**").authenticated()
+            .requestMatchers("/api/v1/admin/**").hasAnyRole("INTERNAL", "HATTER")
             .requestMatchers(HttpMethod.GET, "/api/**", "/health", "/ready", "/actuator/health", "/actuator/info", "/uploads/**").permitAll()
             .requestMatchers(HttpMethod.POST, "/api/game-signups", "/api/service-requests", "/api/auth/**").permitAll()
             .anyRequest().permitAll()
         )
         .addFilterBefore(new InternalApiTokenFilter(properties.internalApiToken()), UsernamePasswordAuthenticationFilter.class)
+        .addFilterAfter(new MasterSessionAuthenticationFilter(), InternalApiTokenFilter.class)
         .addFilterBefore(rateLimitFilter, InternalApiTokenFilter.class)
         .build();
   }

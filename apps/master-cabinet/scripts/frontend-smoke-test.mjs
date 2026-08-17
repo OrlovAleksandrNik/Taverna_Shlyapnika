@@ -6,7 +6,7 @@ const html = readFileSync(resolve(root, "index.html"), "utf8");
 const js = readFileSync(resolve(root, "src/main.js"), "utf8");
 const css = readFileSync(resolve(root, "src/styles.css"), "utf8");
 
-const requiredText = ["Личный кабинет Шляпника", "Кабинет мастера", "Программы", "VoiceMod", "ScreenStage", "Код действий", "API_BASE", "data-backend-output", "data-action=\"create-game\"", "publish-game", "delete-game", "control-table-prefs", "control-runtime-config.js", "vendor/qrcode-bundle.js", "X-XSRF-TOKEN"];
+const requiredText = ["Личный кабинет Шляпника", "Кабинет мастера", "Программы", "VoiceMod", "ScreenStage", "Код действий", "API_BASE", "data-backend-output", "data-action=\"create-game\"", "publish-game", "delete-game", "control-table-prefs", "control-runtime-config.js", "vendor/qrcode-bundle.js", "X-XSRF-TOKEN", "/api/auth/session", "/api/auth/logout"];
 const missing = requiredText.filter((text) => !html.includes(text) && !js.includes(text) && !css.includes(text));
 
 if (missing.length) {

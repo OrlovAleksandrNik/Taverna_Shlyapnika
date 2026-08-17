@@ -42,7 +42,8 @@ class WebConfigTest {
             .header(HttpHeaders.ORIGIN, "https://taverna.example")
             .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "GET"))
         .andExpect(status().isOk())
-        .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "https://taverna.example"));
+        .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "https://taverna.example"))
+        .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_CREDENTIALS, "true"));
   }
 
   @Test
@@ -51,7 +52,8 @@ class WebConfigTest {
             .header(HttpHeaders.ORIGIN, "null")
             .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "GET"))
         .andExpect(status().isOk())
-        .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "null"));
+        .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "null"))
+        .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_CREDENTIALS, "true"));
   }
 
   @Test
@@ -59,9 +61,10 @@ class WebConfigTest {
     mvc.perform(options("/api/v1/admin/gallery/posts/gallery-test")
             .header(HttpHeaders.ORIGIN, "http://localhost:4177")
             .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "DELETE")
-            .header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, "x-internal-token"))
+            .header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, "x-internal-token,X-XSRF-TOKEN"))
         .andExpect(status().isOk())
         .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://localhost:4177"))
-        .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS, "GET,POST,PATCH,DELETE,OPTIONS"));
+        .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS, "GET,POST,PATCH,DELETE,OPTIONS"))
+        .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_CREDENTIALS, "true"));
   }
 }

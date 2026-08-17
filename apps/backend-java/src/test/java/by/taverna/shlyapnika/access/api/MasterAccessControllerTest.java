@@ -3,8 +3,10 @@ package by.taverna.shlyapnika.access.api;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import by.taverna.shlyapnika.access.MasterAccessService;
@@ -15,6 +17,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(MasterAccessController.class)
@@ -80,12 +83,53 @@ class MasterAccessControllerTest {
             .contentType(MediaType.APPLICATION_JSON)
             .content("""
                 {
-                  "telegramUsername": "@MisterHatter"
+                  "telegramUsername": "@MisterHatter",
+                  "email": "master@example.com"
                 }
                 """))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.accessGranted").value(true))
         .andExpect(jsonPath("$.displayName").value("Александр"))
-        .andExpect(jsonPath("$.role").value("admin"));
+        .andExpect(jsonPath("$.role").value("admin"))
+        .andExpect(request().sessionAttribute("taverna.master.accessGranted", true))
+        .andExpect(request().sessionAttribute("taverna.master.displayName", "Александр"))
+        .andExpect(request().sessionAttribute("taverna.master.role", "admin"))
+        .andExpect(request().sessionAttribute("taverna.master.telegramUsername", "@MisterHatter"))
+        .andExpect(request().sessionAttribute("taverna.master.email", "master@example.com"));
+  }
+
+  @Test
+  void returnsAnonymousSessionWithoutLogin() throws Exception {
+    mvc.perform(get("/api/auth/session"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.accessGranted").value(false))
+        .andExpect(jsonPath("$.role").value("master"));
+  }
+
+  @Test
+  void returnsActiveMasterSession() throws Exception {
+    var session = new MockHttpSession();
+    session.setAttribute("taverna.master.accessGranted", true);
+    session.setAttribute("taverna.master.displayName", "Александр");
+    session.setAttribute("taverna.master.role", "admin");
+    session.setAttribute("taverna.master.telegramUsername", "@MisterHatter");
+    session.setAttribute("taverna.master.email", "master@example.com");
+
+    mvc.perform(get("/api/auth/session").session(session))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.accessGranted").value(true))
+        .andExpect(jsonPath("$.displayName").value("Александр"))
+        .andExpect(jsonPath("$.role").value("admin"))
+        .andExpect(jsonPath("$.telegramUsername").value("@MisterHatter"))
+        .andExpect(jsonPath("$.email").value("master@example.com"));
+  }
+
+  @Test
+  void logsOutMasterSession() throws Exception {
+    var session = new MockHttpSession();
+    session.setAttribute("taverna.master.accessGranted", true);
+
+    mvc.perform(post("/api/auth/logout").session(session))
+        .andExpect(status().isNoContent());
   }
 }

@@ -530,6 +530,7 @@ async function submitDiaryLogin(form) {
   try {
     const response = await fetch(`${apiRoot}api/auth/master-login`, {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify(payload)
     });
@@ -566,6 +567,7 @@ async function submitMasterAccessRequest(form) {
   try {
     const response = await fetch(`${apiRoot}api/auth/master-access-requests`, {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify(payload)
     });

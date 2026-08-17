@@ -881,6 +881,15 @@ async function apiDelete(path) {
 async function runAction(action, form, sourceElement = null) {
   const body = form ? formJson(form) : {};
   if (action === "logout") {
+    try {
+      await fetch(`${API_BASE}/api/auth/logout`, {
+        method: "POST",
+        credentials: "include",
+        headers: { Accept: "application/json" }
+      });
+    } catch {
+      // Даже если сеть недоступна, локальный выход должен убрать доступ из интерфейса.
+    }
     localStorage.removeItem(ACCESS_STORAGE_KEY);
     sessionStorage.removeItem("control-admin-token");
     window.location.assign(new URL("/hatter-diary.html", window.location.origin).href);
@@ -1079,7 +1088,38 @@ async function loadSectionData(section) {
   }
 }
 
+async function restoreSession() {
+  try {
+    const session = await apiGet("/api/auth/session");
+    if (!session?.accessGranted) {
+      if (state.account?.accessGranted) {
+        state.account = null;
+        localStorage.removeItem(ACCESS_STORAGE_KEY);
+        render();
+      }
+      return;
+    }
+    state.account = {
+      accessGranted: true,
+      displayName: session.displayName || "мастера",
+      role: session.role || "master",
+      telegramUsername: session.telegramUsername || "",
+      email: session.email || "",
+      grantedAt: new Date().toISOString()
+    };
+    state.role = normalizeRole(state.account.role);
+    if (!roles[state.role].includes(state.section)) state.section = initialSection(state.role);
+    localStorage.setItem(ACCESS_STORAGE_KEY, JSON.stringify(state.account));
+    render();
+    await loadSectionData(state.section);
+    if (state.role === "HATTER") await loadSectionData("masters");
+  } catch {
+    return;
+  }
+}
+
 render();
 checkBackend();
+restoreSession();
 loadSectionData(state.section);
-loadSectionData("masters");
+if (state.role === "HATTER") loadSectionData("masters");
