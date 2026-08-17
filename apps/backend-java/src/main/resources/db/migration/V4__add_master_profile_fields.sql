@@ -1,0 +1,10 @@
+ALTER TABLE "Master"
+  ADD COLUMN IF NOT EXISTS "profilePhotoUrl" TEXT,
+  ADD COLUMN IF NOT EXISTS "profileStatus" TEXT,
+  ADD COLUMN IF NOT EXISTS "profileBio" TEXT,
+  ADD COLUMN IF NOT EXISTS "profileStyle" TEXT,
+  ADD COLUMN IF NOT EXISTS "profileInterests" TEXT,
+  ADD COLUMN IF NOT EXISTS "profileSystems" TEXT,
+  ADD COLUMN IF NOT EXISTS "profileExperience" TEXT,
+  ADD COLUMN IF NOT EXISTS "phone" TEXT,
+  ADD COLUMN IF NOT EXISTS "extraLinks" TEXT;

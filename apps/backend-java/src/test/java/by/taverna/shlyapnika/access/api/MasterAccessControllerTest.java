@@ -148,6 +148,29 @@ class MasterAccessControllerTest {
   }
 
   @Test
+  void keepsInferredBaseRoleWhenOldHatterSessionSwitchesTwice() throws Exception {
+    var session = new MockHttpSession();
+    session.setAttribute("taverna.master.accessGranted", true);
+    session.setAttribute("taverna.master.displayName", "РЁР»СЏРїРЅРёРє");
+    session.setAttribute("taverna.master.role", "admin");
+    session.setAttribute("taverna.master.profileMode", "hatter");
+
+    mvc.perform(put("/api/auth/session-mode").session(session)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"mode\":\"master\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.baseRole").value("admin"))
+        .andExpect(jsonPath("$.canSwitchProfile").value(true));
+
+    mvc.perform(put("/api/auth/session-mode").session(session)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"mode\":\"hatter\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.role").value("admin"))
+        .andExpect(jsonPath("$.profileMode").value("hatter"));
+  }
+
+  @Test
   void regularMasterCannotSwitchSessionMode() throws Exception {
     var session = new MockHttpSession();
     session.setAttribute("taverna.master.accessGranted", true);

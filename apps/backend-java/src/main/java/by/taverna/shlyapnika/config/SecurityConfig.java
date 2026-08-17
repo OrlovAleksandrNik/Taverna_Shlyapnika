@@ -23,7 +23,16 @@ public class SecurityConfig {
         .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
         .authorizeHttpRequests(auth -> auth
             .requestMatchers("/api/internal/**").authenticated()
-            .requestMatchers(HttpMethod.GET, "/api/v1/admin/**").permitAll()
+            .requestMatchers(HttpMethod.GET,
+                "/api/v1/admin/master-access-requests",
+                "/api/v1/admin/users",
+                "/api/v1/admin/settings",
+                "/api/v1/admin/audit",
+                "/api/v1/admin/projects",
+                "/api/v1/admin/data/masters").hasAnyRole("INTERNAL", "HATTER")
+            .requestMatchers(HttpMethod.GET, "/api/v1/admin/**").hasAnyRole("INTERNAL", "HATTER", "MASTER")
+            .requestMatchers(HttpMethod.PUT, "/api/v1/admin/profile").hasAnyRole("INTERNAL", "HATTER", "MASTER")
+            .requestMatchers(HttpMethod.POST, "/api/v1/admin/profile/photo").hasAnyRole("INTERNAL", "HATTER", "MASTER")
             .requestMatchers("/api/v1/admin/**").hasAnyRole("INTERNAL", "HATTER")
             .requestMatchers(HttpMethod.GET, "/api/**", "/health", "/ready", "/actuator/health", "/actuator/info", "/uploads/**").permitAll()
             .requestMatchers(HttpMethod.POST, "/api/game-signups", "/api/service-requests", "/api/auth/**").permitAll()

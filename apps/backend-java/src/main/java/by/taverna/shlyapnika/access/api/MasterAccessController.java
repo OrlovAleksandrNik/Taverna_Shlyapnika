@@ -51,13 +51,17 @@ public class MasterAccessController {
     if (!Boolean.TRUE.equals(session.getAttribute("taverna.master.accessGranted"))) {
       return MasterSessionResponse.anonymous();
     }
+    var baseRole = stringAttribute(session, "taverna.master.baseRole", stringAttribute(session, "taverna.master.role"));
+    if (baseRole != null) {
+      session.setAttribute("taverna.master.baseRole", baseRole);
+    }
     return new MasterSessionResponse(
         true,
         stringAttribute(session, "taverna.master.displayName"),
         stringAttribute(session, "taverna.master.role"),
-        stringAttribute(session, "taverna.master.baseRole", stringAttribute(session, "taverna.master.role")),
+        baseRole,
         stringAttribute(session, "taverna.master.profileMode", isHatter(stringAttribute(session, "taverna.master.role")) ? "hatter" : "master"),
-        isHatter(stringAttribute(session, "taverna.master.baseRole", stringAttribute(session, "taverna.master.role"))),
+        isHatter(baseRole),
         stringAttribute(session, "taverna.master.telegramUsername"),
         stringAttribute(session, "taverna.master.email")
     );
@@ -73,6 +77,7 @@ public class MasterAccessController {
     if (!isHatter(baseRole)) {
       return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
     }
+    session.setAttribute("taverna.master.baseRole", baseRole);
     if ("hatter".equals(request.mode())) {
       session.setAttribute("taverna.master.role", "admin");
       session.setAttribute("taverna.master.profileMode", "hatter");

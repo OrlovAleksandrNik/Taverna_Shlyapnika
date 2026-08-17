@@ -28,16 +28,17 @@ public class MasterSessionAuthenticationFilter extends OncePerRequestFilter {
     }
 
     var role = String.valueOf(session.getAttribute("taverna.master.role"));
+    var baseRole = String.valueOf(session.getAttribute("taverna.master.baseRole"));
     var displayName = String.valueOf(session.getAttribute("taverna.master.displayName"));
-    SecurityContextHolder.getContext().setAuthentication(new MasterSessionAuthentication(displayName, role));
+    SecurityContextHolder.getContext().setAuthentication(new MasterSessionAuthentication(displayName, role, baseRole));
     filterChain.doFilter(request, response);
   }
 
   private static final class MasterSessionAuthentication extends AbstractAuthenticationToken {
     private final String principal;
 
-    private MasterSessionAuthentication(String principal, String role) {
-      super(authorities(role));
+    private MasterSessionAuthentication(String principal, String role, String baseRole) {
+      super(authorities(role, baseRole));
       this.principal = principal;
       setAuthenticated(true);
     }
@@ -52,12 +53,15 @@ public class MasterSessionAuthenticationFilter extends OncePerRequestFilter {
       return principal;
     }
 
-    private static List<SimpleGrantedAuthority> authorities(String role) {
+    private static List<SimpleGrantedAuthority> authorities(String role, String baseRole) {
       var authorities = new ArrayList<SimpleGrantedAuthority>();
       var normalized = String.valueOf(role).equalsIgnoreCase("admin") || String.valueOf(role).equalsIgnoreCase("hatter")
           ? "HATTER"
           : "MASTER";
       authorities.add(new SimpleGrantedAuthority("ROLE_" + normalized));
+      if (String.valueOf(baseRole).equalsIgnoreCase("admin") || String.valueOf(baseRole).equalsIgnoreCase("hatter")) {
+        authorities.add(new SimpleGrantedAuthority("ROLE_HATTER"));
+      }
       return authorities;
     }
   }

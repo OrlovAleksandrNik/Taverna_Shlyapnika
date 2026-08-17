@@ -3,6 +3,9 @@ package by.taverna.shlyapnika.control.api;
 import by.taverna.shlyapnika.audit.AuditService;
 import by.taverna.shlyapnika.common.Ids;
 import by.taverna.shlyapnika.config.TavernaProperties;
+import by.taverna.shlyapnika.media.MediaStorage;
+import by.taverna.shlyapnika.media.MediaUpload;
+import jakarta.servlet.http.HttpServletRequest;
 import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -12,26 +15,31 @@ import java.util.List;
 import java.util.Map;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 public class MonolithControlController {
   private final JdbcTemplate jdbcTemplate;
   private final AuditService auditService;
   private final TavernaProperties properties;
+  private final MediaStorage mediaStorage;
 
-  public MonolithControlController(JdbcTemplate jdbcTemplate, AuditService auditService, TavernaProperties properties) {
+  public MonolithControlController(JdbcTemplate jdbcTemplate, AuditService auditService, TavernaProperties properties, MediaStorage mediaStorage) {
     this.jdbcTemplate = jdbcTemplate;
     this.auditService = auditService;
     this.properties = properties;
+    this.mediaStorage = mediaStorage;
   }
 
   @GetMapping("/api/v1/admin/dashboard")
@@ -90,14 +98,16 @@ public class MonolithControlController {
     var startsAt = Instant.parse(required(request.startsAt(), "startsAt"));
     var durationMinutes = positiveOrDefault(request.durationMinutes(), 180);
     var endsAt = startsAt.plusSeconds(durationMinutes.longValue() * 60);
-    var status = "draft";
+    var status = properties.autoPublish() ? "published" : "draft";
     jdbcTemplate.update("""
         insert into "Game" (
           "id", "masterId", "title", "description", "gameSystem", "experienceLevel", "ageRating",
           "dateTimeStart", "durationMinutes", "dateTimeEnd", "minPlayers", "maxPlayers",
-          "price", "currency", "imageUrl", "contactUrl", "status", "createdAt", "updatedAt"
+          "price", "currency", "imageUrl", "contactUrl", "status", "publishedAt", "createdAt", "updatedAt"
         )
-        values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, null, ?, ?::"GameStatus", current_timestamp, current_timestamp)
+        values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, null, ?, ?::"GameStatus",
+                case when ? = 'published' then current_timestamp else null end,
+                current_timestamp, current_timestamp)
         """,
         id,
         master.id(),
@@ -114,9 +124,10 @@ public class MonolithControlController {
         request.price() == null ? BigDecimal.ZERO : request.price(),
         textOrDefault(request.currency(), "BYN"),
         textOrDefault(request.contactUrl(), master.contactUrl()),
+        status,
         status
     );
-    auditService.write("master-cabinet", "game.created_from_cabinet", "Game", id, "{\"status\":\"draft\"}");
+    auditService.write("master-cabinet", "game.created_from_cabinet", "Game", id, "{\"status\":\"" + status + "\"}");
     return new GameRowDto(id, textOrDefault(request.title(), "Новая игра"), startsAt, master.id(), master.displayName(), textOrDefault(request.gameSystem(), "D&D 5e"), status);
   }
 
@@ -284,6 +295,13 @@ public class MonolithControlController {
         select p."publicId", p."type"::text as "type", p."title", p."category"::text as "category",
                p."status"::text as "status", p."isVisible", p."eventDate", p."publishedAt",
                p."createdAt", p."updatedAt", m."displayName" as "authorName",
+               (
+                 select coalesce(first_media."thumbnailUrl", first_media."mediumUrl", first_media."fileUrl")
+                 from "GalleryMedia" first_media
+                 where first_media."galleryPostId" = p."id"
+                 order by first_media."sortOrder" asc, first_media."createdAt" asc
+                 limit 1
+               ) as "previewUrl",
                count(media."id")::int as "mediaCount"
         from "GalleryPost" p
         left join "Master" m on m."id" = p."authorMasterId"
@@ -301,6 +319,7 @@ public class MonolithControlController {
             rs.getString("status"),
             rs.getBoolean("isVisible"),
             rs.getInt("mediaCount"),
+            rs.getString("previewUrl"),
             rs.getString("authorName"),
             instant(rs, "eventDate"),
             instant(rs, "publishedAt"),
@@ -308,6 +327,198 @@ public class MonolithControlController {
             instant(rs, "updatedAt")
         ), trimToNull(type), trimToNull(type), safeSize, offset);
     return new ItemsResponse<>(items, safePage, safeSize);
+  }
+
+  @GetMapping("/api/v1/admin/gallery/posts/{publicId}")
+  public GalleryPostDetailsDto galleryPostDetails(@PathVariable String publicId) {
+    var post = jdbcTemplate.queryForObject("""
+        select p."publicId", p."type"::text as "type", p."title", p."description",
+               p."storyHtml", p."category"::text as "category", p."status"::text as "status",
+               p."isVisible", p."eventDate", p."publishedAt", p."createdAt", p."updatedAt",
+               m."displayName" as "authorName"
+        from "GalleryPost" p
+        left join "Master" m on m."id" = p."authorMasterId"
+        where p."publicId" = ?
+        """, (rs, rowNum) -> new GalleryPostDetailsDto(
+            rs.getString("publicId"),
+            rs.getString("type"),
+            rs.getString("title"),
+            rs.getString("description"),
+            rs.getString("storyHtml"),
+            rs.getString("category"),
+            rs.getString("status"),
+            rs.getBoolean("isVisible"),
+            rs.getString("authorName"),
+            instant(rs, "eventDate"),
+            instant(rs, "publishedAt"),
+            instant(rs, "createdAt"),
+            instant(rs, "updatedAt"),
+            List.of()
+        ), publicId);
+    var media = jdbcTemplate.query("""
+        select "id", "fileUrl", "thumbnailUrl", "mediumUrl", "width", "height", "mimeType", "altText"
+        from "GalleryMedia"
+        where "galleryPostId" = (
+          select "id" from "GalleryPost" where "publicId" = ?
+        )
+        order by "sortOrder" asc, "createdAt" asc
+        """, (rs, rowNum) -> new GalleryMediaDto(
+            rs.getString("id"),
+            rs.getString("fileUrl"),
+            rs.getString("thumbnailUrl"),
+            rs.getString("mediumUrl"),
+            (Integer) rs.getObject("width"),
+            (Integer) rs.getObject("height"),
+            rs.getString("mimeType"),
+            rs.getString("altText")
+        ), publicId);
+    return post.withMedia(media);
+  }
+
+  @PostMapping("/api/v1/admin/rating/players/{id}/adjust")
+  public RatingPlayerRowDto adjustRatingPlayer(@PathVariable String id, @RequestBody RatingAdjustmentRequest request) {
+    var gamesDelta = request.gamesDelta() == null ? 0 : request.gamesDelta();
+    var pointsDelta = request.pointsDelta() == null ? 0 : request.pointsDelta();
+    var inspirationDelta = request.inspirationDelta() == null ? 0 : request.inspirationDelta();
+    jdbcTemplate.update("""
+        update "RatingPlayer"
+        set "gamesPlayed" = greatest(0, "gamesPlayed" + ?),
+            "totalPoints" = greatest(0, "totalPoints" + ?),
+            "inspirationCount" = greatest(0, "inspirationCount" + ?),
+            "lastStatsAt" = current_timestamp,
+            "updatedAt" = current_timestamp
+        where "id" = ?
+        """, gamesDelta, pointsDelta, inspirationDelta, id);
+    jdbcTemplate.update("""
+        insert into "RatingEvent" (
+          "id", "playerId", "type", "pointsDelta", "inspirationDelta", "gamesDelta",
+          "reason", "createdByMasterId", "createdAt"
+        )
+        values (?, ?, 'correction'::"RatingEventType", ?, ?, ?, ?, null, current_timestamp)
+        """,
+        Ids.newId("rte"),
+        id,
+        pointsDelta,
+        inspirationDelta,
+        gamesDelta,
+        textOrDefault(request.reason(), "Правка из кабинета мастера"));
+    auditService.write("master-cabinet", "rating.player_adjusted_from_cabinet", "RatingPlayer", id,
+        "{\"gamesDelta\":" + gamesDelta + ",\"pointsDelta\":" + pointsDelta + ",\"inspirationDelta\":" + inspirationDelta + "}");
+    return ratingPlayerById(id);
+  }
+
+  @GetMapping("/api/v1/admin/master-access-requests")
+  public ItemsResponse<MasterAccessRequestRowDto> masterAccessRequests(
+      @RequestParam(defaultValue = "pending") String status
+  ) {
+    var safeStatus = List.of("pending", "approved", "rejected").contains(status) ? status : "pending";
+    var items = jdbcTemplate.query("""
+        select "id", "displayName", "email", "telegramUsername", "requestedRole",
+               "status"::text as "status", "createdAt", "updatedAt"
+        from "MasterAccessRequest"
+        where "status" = ?::"MasterAccessRequestStatus"
+        order by "createdAt" asc
+        limit 100
+        """, (rs, rowNum) -> new MasterAccessRequestRowDto(
+            rs.getString("id"),
+            rs.getString("displayName"),
+            rs.getString("email"),
+            rs.getString("telegramUsername"),
+            rs.getString("requestedRole"),
+            rs.getString("status"),
+            instant(rs, "createdAt"),
+            instant(rs, "updatedAt")
+        ), safeStatus);
+    return new ItemsResponse<>(items, 0, 100);
+  }
+
+  @PostMapping("/api/v1/admin/master-access-requests/{id}/approve")
+  public MasterAccessRequestRowDto approveMasterAccessRequest(@PathVariable String id) {
+    jdbcTemplate.update("""
+        update "MasterAccessRequest"
+        set "status" = 'approved'::"MasterAccessRequestStatus",
+            "decidedAt" = current_timestamp,
+            "decisionComment" = 'Одобрено из кабинета Шляпника',
+            "updatedAt" = current_timestamp
+        where "id" = ?
+        """, id);
+    auditService.write("master-cabinet", "master.access_approved_from_cabinet", "MasterAccessRequest", id, null);
+    return masterAccessRequestById(id);
+  }
+
+  @PostMapping("/api/v1/admin/master-access-requests/{id}/reject")
+  public MasterAccessRequestRowDto rejectMasterAccessRequest(@PathVariable String id) {
+    jdbcTemplate.update("""
+        update "MasterAccessRequest"
+        set "status" = 'rejected'::"MasterAccessRequestStatus",
+            "decidedAt" = current_timestamp,
+            "decisionComment" = 'Отклонено из кабинета Шляпника',
+            "updatedAt" = current_timestamp
+        where "id" = ?
+        """, id);
+    auditService.write("master-cabinet", "master.access_rejected_from_cabinet", "MasterAccessRequest", id, null);
+    return masterAccessRequestById(id);
+  }
+
+  @GetMapping("/api/v1/admin/profile")
+  public MasterProfileDto profile(HttpServletRequest request) {
+    return profileBySession(request);
+  }
+
+  @PutMapping("/api/v1/admin/profile")
+  public MasterProfileDto updateProfile(HttpServletRequest request, @RequestBody MasterProfileRequest body) {
+    var profile = profileBySession(request);
+    jdbcTemplate.update("""
+        update "Master"
+        set "displayName" = coalesce(nullif(?, ''), "displayName"),
+            "telegramUsername" = coalesce(nullif(?, ''), "telegramUsername"),
+            "contactUrl" = coalesce(nullif(?, ''), "contactUrl"),
+            "profilePhotoUrl" = coalesce(nullif(?, ''), "profilePhotoUrl"),
+            "profileStatus" = nullif(?, ''),
+            "profileBio" = nullif(?, ''),
+            "profileStyle" = nullif(?, ''),
+            "profileInterests" = nullif(?, ''),
+            "profileSystems" = nullif(?, ''),
+            "profileExperience" = nullif(?, ''),
+            "phone" = nullif(?, ''),
+            "extraLinks" = nullif(?, ''),
+            "updatedAt" = current_timestamp
+        where "id" = ?
+        """,
+        trimToNull(body.displayName()),
+        trimToNull(body.telegramUsername()),
+        trimToNull(body.contactUrl()),
+        trimToNull(body.photoUrl()),
+        trimToNull(body.status()),
+        trimToNull(body.bio()),
+        trimToNull(body.style()),
+        trimToNull(body.interests()),
+        trimToNull(body.systems()),
+        trimToNull(body.experience()),
+        trimToNull(body.phone()),
+        trimToNull(body.extraLinks()),
+        profile.id());
+    auditService.write("master-cabinet", "master.profile_updated_from_cabinet", "Master", profile.id(), null);
+    return masterProfileById(profile.id());
+  }
+
+  @PostMapping(value = "/api/v1/admin/profile/photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  public MasterProfileDto uploadProfilePhoto(HttpServletRequest request, @RequestPart("file") MultipartFile file) throws Exception {
+    var profile = profileBySession(request);
+    var stored = mediaStorage.store(new MediaUpload(
+        file.getBytes(),
+        file.getOriginalFilename(),
+        file.getContentType(),
+        "masters",
+        "Фото мастера " + profile.displayName()));
+    jdbcTemplate.update("""
+        update "Master"
+        set "profilePhotoUrl" = ?,
+            "updatedAt" = current_timestamp
+        where "id" = ?
+        """, stored.originalUrl(), profile.id());
+    auditService.write("master-cabinet", "master.profile_photo_updated_from_cabinet", "Master", profile.id(), null);
+    return masterProfileById(profile.id());
   }
 
   @GetMapping("/api/v1/admin/data/{section}")
@@ -705,6 +916,13 @@ public class MonolithControlController {
         select p."publicId", p."type"::text as "type", p."title", p."category"::text as "category",
                p."status"::text as "status", p."isVisible", p."eventDate", p."publishedAt",
                p."createdAt", p."updatedAt", m."displayName" as "authorName",
+               (
+                 select coalesce(first_media."thumbnailUrl", first_media."mediumUrl", first_media."fileUrl")
+                 from "GalleryMedia" first_media
+                 where first_media."galleryPostId" = p."id"
+                 order by first_media."sortOrder" asc, first_media."createdAt" asc
+                 limit 1
+               ) as "previewUrl",
                count(media."id")::int as "mediaCount"
         from "GalleryPost" p
         left join "Master" m on m."id" = p."authorMasterId"
@@ -720,12 +938,132 @@ public class MonolithControlController {
             rs.getString("status"),
             rs.getBoolean("isVisible"),
             rs.getInt("mediaCount"),
+            rs.getString("previewUrl"),
             rs.getString("authorName"),
             instant(rs, "eventDate"),
             instant(rs, "publishedAt"),
             instant(rs, "createdAt"),
             instant(rs, "updatedAt")
         ), publicId);
+  }
+
+  private RatingPlayerRowDto ratingPlayerById(String id) {
+    return jdbcTemplate.queryForObject("""
+        select ranked.*
+        from (
+          select row_number() over (
+                   order by "totalPoints" desc,
+                            case when "gamesPlayed" > 0 then "totalPoints"::numeric / "gamesPlayed" else 0 end desc,
+                            "gamesPlayed" desc,
+                            lower("displayName") asc
+                 )::int as "rank",
+                 "id", "displayName", "nickname", "isVisible", "gamesPlayed",
+                 "totalPoints", "inspirationCount",
+                 round(case when "gamesPlayed" > 0 then "totalPoints"::numeric / "gamesPlayed" else 0 end, 2) as "averagePointsPerGame",
+                 "lastGameAt", "lastStatsAt", "updatedAt"
+          from "RatingPlayer"
+        ) ranked
+        where ranked."id" = ?
+        """, (rs, rowNum) -> new RatingPlayerRowDto(
+            rs.getInt("rank"),
+            rs.getString("id"),
+            rs.getString("displayName"),
+            rs.getString("nickname"),
+            rs.getBoolean("isVisible"),
+            rs.getInt("gamesPlayed"),
+            rs.getInt("totalPoints"),
+            rs.getInt("inspirationCount"),
+            rs.getBigDecimal("averagePointsPerGame"),
+            instant(rs, "lastGameAt"),
+            instant(rs, "lastStatsAt"),
+            instant(rs, "updatedAt")
+        ), id);
+  }
+
+  private MasterAccessRequestRowDto masterAccessRequestById(String id) {
+    return jdbcTemplate.queryForObject("""
+        select "id", "displayName", "email", "telegramUsername", "requestedRole",
+               "status"::text as "status", "createdAt", "updatedAt"
+        from "MasterAccessRequest"
+        where "id" = ?
+        """, (rs, rowNum) -> new MasterAccessRequestRowDto(
+            rs.getString("id"),
+            rs.getString("displayName"),
+            rs.getString("email"),
+            rs.getString("telegramUsername"),
+            rs.getString("requestedRole"),
+            rs.getString("status"),
+            instant(rs, "createdAt"),
+            instant(rs, "updatedAt")
+        ), id);
+  }
+
+  private MasterProfileDto profileBySession(HttpServletRequest request) {
+    var session = request.getSession(false);
+    var profileMode = session == null ? "" : String.valueOf(session.getAttribute("taverna.master.profileMode"));
+    var canSwitch = session != null && "admin".equalsIgnoreCase(String.valueOf(session.getAttribute("taverna.master.baseRole")));
+    if (canSwitch && "master".equals(profileMode)) {
+      var rows = jdbcTemplate.query("""
+          select *
+          from "Master"
+          where "status" = 'active'
+            and lower("displayName") like '%александр%'
+          order by "updatedAt" desc
+          limit 1
+          """, (rs, rowNum) -> masterProfile(rs));
+      if (!rows.isEmpty()) return rows.get(0);
+    }
+    var telegram = session == null ? null : normalizeTelegram(String.valueOf(session.getAttribute("taverna.master.telegramUsername")));
+    if (telegram != null) {
+      var rows = jdbcTemplate.query("""
+          select *
+          from "Master"
+          where lower(replace(coalesce("telegramUsername", ''), '@', '')) = ?
+             or lower(replace(coalesce("contactUrl", ''), '@', '')) like ?
+          order by "updatedAt" desc
+          limit 1
+          """, (rs, rowNum) -> masterProfile(rs), telegram, "%" + telegram + "%");
+      if (!rows.isEmpty()) return rows.get(0);
+    }
+    var displayName = session == null ? null : String.valueOf(session.getAttribute("taverna.master.displayName"));
+    var rows = jdbcTemplate.query("""
+        select *
+        from "Master"
+        where "status" = 'active'
+        order by case when "displayName" = ? then 0 else 1 end, "displayName" asc
+        limit 1
+        """, (rs, rowNum) -> masterProfile(rs), displayName);
+    if (rows.isEmpty()) throw new IllegalArgumentException("Профиль мастера не найден.");
+    return rows.get(0);
+  }
+
+  private MasterProfileDto masterProfileById(String id) {
+    return jdbcTemplate.queryForObject("""
+        select *
+        from "Master"
+        where "id" = ?
+        """, (rs, rowNum) -> masterProfile(rs), id);
+  }
+
+  private MasterProfileDto masterProfile(ResultSet rs) throws SQLException {
+    return new MasterProfileDto(
+        rs.getString("id"),
+        rs.getString("displayName"),
+        rs.getString("telegramUsername"),
+        rs.getString("contactUrl"),
+        rs.getString("profilePhotoUrl"),
+        rs.getString("profileStatus"),
+        rs.getString("profileBio"),
+        rs.getString("profileStyle"),
+        rs.getString("profileInterests"),
+        rs.getString("profileSystems"),
+        rs.getString("profileExperience"),
+        rs.getString("phone"),
+        rs.getString("extraLinks"),
+        rs.getString("role"),
+        rs.getString("status"),
+        instant(rs, "updatedAt")
+    );
   }
 
   private MasterOptionDto findMaster(String masterId) {
@@ -776,6 +1114,17 @@ public class MonolithControlController {
 
   private static String publicTelegramHandle(String username) {
     return username == null || username.isBlank() ? "" : "@" + username.replaceFirst("^@", "");
+  }
+
+  private static String normalizeTelegram(String username) {
+    if (username == null || username.isBlank() || "null".equals(username)) return null;
+    return username
+        .replace("https://t.me/", "")
+        .replace("http://t.me/", "")
+        .replace("@", "")
+        .replace("/", "")
+        .trim()
+        .toLowerCase();
   }
 
   public record DashboardResponse(
@@ -842,11 +1191,113 @@ public class MonolithControlController {
       String status,
       boolean visible,
       int mediaCount,
+      String previewUrl,
       String authorName,
       Instant eventDate,
       Instant publishedAt,
       Instant createdAt,
       Instant updatedAt
+  ) {
+    public GalleryPostRowDto(
+        String publicId,
+        String type,
+        String title,
+        String category,
+        String status,
+        boolean visible,
+        int mediaCount,
+        String authorName,
+        Instant eventDate,
+        Instant publishedAt,
+        Instant createdAt,
+        Instant updatedAt
+    ) {
+      this(publicId, type, title, category, status, visible, mediaCount, null, authorName, eventDate, publishedAt, createdAt, updatedAt);
+    }
+  }
+
+  public record GalleryPostDetailsDto(
+      String publicId,
+      String type,
+      String title,
+      String description,
+      String storyHtml,
+      String category,
+      String status,
+      boolean visible,
+      String authorName,
+      Instant eventDate,
+      Instant publishedAt,
+      Instant createdAt,
+      Instant updatedAt,
+      List<GalleryMediaDto> media
+  ) {
+    GalleryPostDetailsDto withMedia(List<GalleryMediaDto> media) {
+      return new GalleryPostDetailsDto(publicId, type, title, description, storyHtml, category, status, visible,
+          authorName, eventDate, publishedAt, createdAt, updatedAt, media);
+    }
+  }
+
+  public record GalleryMediaDto(
+      String id,
+      String fileUrl,
+      String thumbnailUrl,
+      String mediumUrl,
+      Integer width,
+      Integer height,
+      String mimeType,
+      String altText
+  ) {
+  }
+
+  public record RatingAdjustmentRequest(Integer gamesDelta, Integer pointsDelta, Integer inspirationDelta, String reason) {
+  }
+
+  public record MasterAccessRequestRowDto(
+      String publicId,
+      String displayName,
+      String email,
+      String telegramUsername,
+      String requestedRole,
+      String status,
+      Instant createdAt,
+      Instant updatedAt
+  ) {
+  }
+
+  public record MasterProfileDto(
+      String id,
+      String displayName,
+      String telegramUsername,
+      String contactUrl,
+      String photoUrl,
+      String statusText,
+      String bio,
+      String style,
+      String interests,
+      String systems,
+      String experience,
+      String phone,
+      String extraLinks,
+      String role,
+      String accountStatus,
+      Instant updatedAt
+  ) {
+  }
+
+  public record MasterProfileRequest(
+      String displayName,
+      String telegramUsername,
+      String contactUrl,
+      String photoUrl,
+      String status,
+      String bio,
+      String style,
+      String interests,
+      String systems,
+      String experience,
+      String phone,
+      String extraLinks
   ) {
   }
 

@@ -27,6 +27,10 @@ const state = {
   loadingSection: null,
   selectedGameId: "",
   selectedProfileId: "",
+  selectedGalleryId: "",
+  selectedRatingId: "",
+  profileEditing: false,
+  galleryModal: null,
   tablePrefs: loadTablePrefs(),
   lastSeenAction: localStorage.getItem(NOTIFICATIONS_SEEN_KEY) || "",
   notice: "",
@@ -99,6 +103,7 @@ function render() {
         </section>
       </main>
     </div>
+    ${modalTemplate()}
   `;
 
   bindEvents();
@@ -165,10 +170,10 @@ function sectionTemplate(section) {
   if (section === "overview") return overviewTemplate();
   if (section === "games") return gamesTemplate();
   if (section === "applications") return applicationsTemplate();
-  if (section === "gallery") return galleryTemplate();
-  if (section === "rating") return ratingTemplate();
-  if (section === "masters") return mastersTemplate();
-  if (section === "profile") return profileTemplate();
+  if (section === "gallery") return adminGalleryTemplate();
+  if (section === "rating") return adminRatingTemplate();
+  if (section === "masters") return accessRequestsTemplate();
+  if (section === "profile") return adminProfileTemplate();
   return `<p class="empty-state">Раздел пока готовится.</p>`;
 }
 
@@ -358,6 +363,23 @@ function mastersTemplate() {
   `);
 }
 
+function accessRequestsTemplate() {
+  const requests = recordsFromPayload(state.remote.masters);
+  return cardListTemplate("Заявки на мастерский доступ", requests, (request) => `
+    <article class="data-card">
+      <div>
+        <p class="eyebrow">${escapeHtml(request.requestedRole === "admin" ? "Шляпник" : "Мастер")} · ${formatDateTime(request.createdAt)}</p>
+        <h3>${escapeHtml(request.displayName || "Новая заявка")}</h3>
+        <p>${escapeHtml(request.telegramUsername || "")} · ${escapeHtml(request.email || "")}</p>
+      </div>
+      <div class="inline-actions">
+        <button type="button" data-action="approve-master-access" data-id="${escapeHtml(request.publicId)}">Одобрить</button>
+        <button type="button" data-action="reject-master-access" data-id="${escapeHtml(request.publicId)}">Отклонить</button>
+      </div>
+    </article>
+  `);
+}
+
 function profileTemplate() {
   return `
     <section class="profile-layout">
@@ -377,6 +399,184 @@ function profileTemplate() {
         ${metricCard("Режим", sessionLabel(), "активные права")}
       </div>
     </section>
+  `;
+}
+
+function adminGalleryTemplate() {
+  const posts = recordsFromPayload(state.remote.gallery);
+  return cardListTemplate("Публикации галереи", posts, (post) => `
+    <article class="data-card gallery-admin-card">
+      <button type="button" class="gallery-preview" data-action="open-gallery-post" data-id="${escapeHtml(post.publicId)}" aria-label="Открыть публикацию ${escapeHtml(post.title || post.publicId)}">
+        ${post.previewUrl
+          ? `<img src="${escapeHtml(post.previewUrl)}" alt="${escapeHtml(post.title || "Публикация галереи")}" loading="lazy" />`
+          : `<span>Нет фото</span>`}
+      </button>
+      <div>
+        <p class="eyebrow">${escapeHtml(galleryTypeLabel(post.type))} · ${escapeHtml(galleryCategoryLabel(post.category))}</p>
+        <h3>${escapeHtml(post.title || post.publicId)}</h3>
+        <p>${formatDate(post.eventDate || post.publishedAt || post.createdAt)} · ${escapeHtml(post.mediaCount || 0)} фото · ${escapeHtml(post.authorName || "автор не указан")} · ${escapeHtml(post.status)}${post.visible ? "" : " / скрыто"}</p>
+      </div>
+      <div class="inline-actions">
+        <button type="button" data-action="open-gallery-post" data-id="${escapeHtml(post.publicId)}">Открыть</button>
+        <button type="button" data-action="publish-gallery-post" data-id="${escapeHtml(post.publicId)}">Опубликовать</button>
+        <button type="button" data-action="hide-gallery-post" data-id="${escapeHtml(post.publicId)}">Скрыть</button>
+        <button type="button" data-action="delete-gallery-post" data-id="${escapeHtml(post.publicId)}">Удалить</button>
+      </div>
+    </article>
+  `);
+}
+
+function adminRatingTemplate() {
+  const players = recordsFromPayload(state.remote.rating);
+  const summary = players.reduce((acc, player) => {
+    acc.games += Number(player.gamesPlayed || 0);
+    acc.points += Number(player.totalPoints || 0);
+    acc.inspiration += Number(player.inspirationCount || 0);
+    return acc;
+  }, { games: 0, points: 0, inspiration: 0 });
+  return `
+    <div class="metric-grid rating-summary">
+      ${metricCard("Игроки", players.length, "в рейтинге")}
+      ${metricCard("Игры", summary.games, "учтены")}
+      ${metricCard("Очки", summary.points, "общая сумма")}
+      ${metricCard("Вдохновение", summary.inspiration, "всего")}
+    </div>
+    ${cardListTemplate("Список игроков", players, adminRatingCard)}
+  `;
+}
+
+function adminRatingCard(player) {
+  const rankClass = Number(player.rank) <= 3 ? ` rank-${player.rank}` : "";
+  return `
+    <button type="button" class="rating-row${rankClass}" data-action="edit-rating-player" data-id="${escapeHtml(player.publicId)}">
+      <span class="rank">${escapeHtml(player.rank)}</span>
+      <strong>${escapeHtml(player.displayName)}</strong>
+      <em>${escapeHtml(player.nickname || "персонаж не указан")}</em>
+      <span>${escapeHtml(player.gamesPlayed)} игр</span>
+      <span>${escapeHtml(player.totalPoints)} очков</span>
+      <span>${escapeHtml(player.inspirationCount)} вдохновения</span>
+      <span>${escapeHtml(player.averagePointsPerGame ?? "0.00")} среднее</span>
+    </button>
+  `;
+}
+
+function adminProfileTemplate() {
+  const profile = state.remote.profile || {};
+  if (state.profileEditing) return profileEditTemplate(profile);
+  const photo = profile.photoUrl || (state.account?.profileMode === "master" ? "/assets/images/masters/alexander.jpeg" : "./hatter-mark.png");
+  return `
+    <section class="profile-page">
+      <article class="profile-cover">
+        <img src="${escapeHtml(photo)}" alt="Фото профиля ${escapeHtml(profile.displayName || state.account?.displayName || "мастера")}" />
+        <div>
+          <p class="eyebrow">${escapeHtml(profile.statusText || (state.role === "HATTER" ? "Владелец Таверны" : "Мастер Таверны"))}</p>
+          <h2>${escapeHtml(profile.displayName || state.account?.displayName || "Мастер")}</h2>
+          <p>${escapeHtml(profile.bio || "Профиль пока ждёт личную историю мастера.")}</p>
+          <button type="button" data-action="edit-profile">Редактировать профиль</button>
+        </div>
+      </article>
+      <div class="profile-info-grid">
+        ${profileInfoCard("Как проводит игры", profile.style)}
+        ${profileInfoCard("Вдохновение и интересы", profile.interests)}
+        ${profileInfoCard("Системы", profile.systems)}
+        ${profileInfoCard("Опыт", profile.experience)}
+        ${profileInfoCard("Telegram", profile.telegramUsername)}
+        ${profileInfoCard("Контакты", [profile.contactUrl, profile.phone, profile.extraLinks].filter(Boolean).join("\\n"))}
+      </div>
+    </section>
+  `;
+}
+
+function modalTemplate() {
+  if (state.galleryModal) return galleryModalTemplate(state.galleryModal);
+  if (state.selectedRatingId) {
+    const player = recordsFromPayload(state.remote.rating).find((item) => item.publicId === state.selectedRatingId);
+    return player ? ratingEditorModal(player) : "";
+  }
+  return "";
+}
+
+function galleryModalTemplate(post) {
+  const media = Array.isArray(post.media) ? post.media : [];
+  const hero = media[0];
+  return `
+    <div class="cabinet-modal" data-modal-backdrop role="dialog" aria-modal="true" aria-label="Публикация галереи">
+      <article class="cabinet-modal__panel gallery-modal-panel">
+        <button type="button" class="modal-close" data-action="close-modal" aria-label="Закрыть">×</button>
+        ${hero ? `<img class="gallery-modal-image" src="${escapeHtml(hero.mediumUrl || hero.fileUrl || hero.thumbnailUrl)}" alt="${escapeHtml(hero.altText || post.title || "Фото галереи")}" />` : ""}
+        <div class="gallery-modal-body">
+          <p class="eyebrow">${escapeHtml(galleryTypeLabel(post.type))} · ${formatDate(post.eventDate || post.publishedAt || post.createdAt)}</p>
+          <h2>${escapeHtml(post.title || "Публикация")}</h2>
+          <p>${escapeHtml(post.description || "")}</p>
+          ${post.storyHtml ? `<div class="post-story">${post.storyHtml}</div>` : ""}
+          <p class="muted-line">Автор: ${escapeHtml(post.authorName || "не указан")} · статус: ${escapeHtml(post.status || "")}</p>
+          ${media.length > 1 ? `<div class="gallery-modal-thumbs">${media.map((item) => `<img src="${escapeHtml(item.thumbnailUrl || item.mediumUrl || item.fileUrl)}" alt="${escapeHtml(item.altText || post.title || "Фото")}" loading="lazy" />`).join("")}</div>` : ""}
+        </div>
+      </article>
+    </div>
+  `;
+}
+
+function ratingEditorModal(player) {
+  return `
+    <div class="cabinet-modal" data-modal-backdrop role="dialog" aria-modal="true" aria-label="Редактирование рейтинга">
+      <article class="cabinet-modal__panel rating-editor-panel">
+        <button type="button" class="modal-close" data-action="close-modal" aria-label="Закрыть">×</button>
+        <p class="eyebrow">Рейтинг игрока</p>
+        <h2>${escapeHtml(player.displayName)}</h2>
+        <p>${escapeHtml(player.nickname || "персонаж не указан")}</p>
+        <form class="form-grid" data-rating-editor-form>
+          <input type="hidden" name="id" value="${escapeHtml(player.publicId)}" />
+          <label>Игры: изменить на<input name="gamesDelta" type="number" step="1" value="0" /></label>
+          <label>Очки: изменить на<input name="pointsDelta" type="number" step="1" value="0" /></label>
+          <label>Вдохновение: изменить на<input name="inspirationDelta" type="number" step="1" value="0" /></label>
+          <label class="form-wide">Причина<textarea name="reason" rows="3">Правка из кабинета мастера</textarea></label>
+          <div class="form-actions">
+            <button type="button" data-action="save-rating-player">Сохранить рейтинг</button>
+          </div>
+        </form>
+      </article>
+    </div>
+  `;
+}
+
+function profileEditTemplate(profile) {
+  return `
+    <section class="work-panel profile-editor">
+      <div class="panel-head">
+        <div>
+          <p class="eyebrow">Профиль мастера</p>
+          <h2>Редактировать страницу</h2>
+        </div>
+        <button type="button" data-action="cancel-profile-edit">Закрыть</button>
+      </div>
+      <form class="form-grid" data-profile-form>
+        <label>Имя<input name="displayName" type="text" value="${escapeHtml(profile.displayName || "")}" /></label>
+        <label>Telegram<input name="telegramUsername" type="text" value="${escapeHtml(profile.telegramUsername || "")}" /></label>
+        <label>Ссылка для связи<input name="contactUrl" type="text" value="${escapeHtml(profile.contactUrl || "")}" /></label>
+        <label>Телефон<input name="phone" type="text" value="${escapeHtml(profile.phone || "")}" /></label>
+        <label class="form-wide">Короткий статус<input name="status" type="text" value="${escapeHtml(profile.statusText || "")}" /></label>
+        <label class="form-wide">Фото профиля<input name="photo" type="file" accept="image/jpeg,image/png,image/webp" /></label>
+        <label class="form-wide">О мастере<textarea name="bio" rows="5">${escapeHtml(profile.bio || "")}</textarea></label>
+        <label class="form-wide">Как проводит игры<textarea name="style" rows="4">${escapeHtml(profile.style || "")}</textarea></label>
+        <label class="form-wide">Чем вдохновляется<textarea name="interests" rows="4">${escapeHtml(profile.interests || "")}</textarea></label>
+        <label>Игровые системы<input name="systems" type="text" value="${escapeHtml(profile.systems || "")}" /></label>
+        <label>Опыт<input name="experience" type="text" value="${escapeHtml(profile.experience || "")}" /></label>
+        <label class="form-wide">Дополнительные ссылки<textarea name="extraLinks" rows="3">${escapeHtml(profile.extraLinks || "")}</textarea></label>
+        <div class="form-actions">
+          <button type="button" data-action="save-profile">Сохранить профиль</button>
+        </div>
+      </form>
+    </section>
+  `;
+}
+
+function profileInfoCard(title, value) {
+  return `
+    <article class="metric profile-info-card">
+      <span>${escapeHtml(title)}</span>
+      <strong>${escapeHtml(value || "пока не заполнено")}</strong>
+    </article>
   `;
 }
 
@@ -441,6 +641,9 @@ function bindEvents() {
   document.querySelectorAll("[data-action]").forEach((button) => {
     button.addEventListener("click", () => runAction(button.dataset.action, button.closest("form"), button));
   });
+  document.querySelector("[data-modal-backdrop]")?.addEventListener("click", (event) => {
+    if (event.target === event.currentTarget) closeModal();
+  });
 }
 
 async function runAction(action, form, sourceElement = null) {
@@ -459,6 +662,29 @@ async function runAction(action, form, sourceElement = null) {
   }
   if (action === "switch-mode") {
     await switchMode(sourceElement?.dataset.mode);
+    return;
+  }
+  if (action === "close-modal") {
+    closeModal();
+    return;
+  }
+  if (action === "open-gallery-post") {
+    await openGalleryPost(sourceElement?.dataset.id);
+    return;
+  }
+  if (action === "edit-rating-player") {
+    state.selectedRatingId = sourceElement?.dataset.id || "";
+    render();
+    return;
+  }
+  if (action === "edit-profile") {
+    state.profileEditing = true;
+    render();
+    return;
+  }
+  if (action === "cancel-profile-edit") {
+    state.profileEditing = false;
+    render();
     return;
   }
   if (action === "edit-game") {
@@ -514,6 +740,16 @@ async function runAction(action, form, sourceElement = null) {
       await apiDelete(`/api/v1/admin/gallery/posts/${sourceElement?.dataset.id}`);
       state.notice = "Публикация удалена.";
       await loadSectionData("gallery");
+    } else if (action === "save-rating-player") {
+      await apiPost(`/api/v1/admin/rating/players/${body.id}/adjust`, ratingPayload(body), true);
+      state.selectedRatingId = "";
+      state.notice = "Рейтинг игрока сохранён.";
+      await loadSectionData("rating");
+    } else if (action === "save-profile") {
+      const profile = await saveProfile(form);
+      state.remote.profile = profile;
+      state.profileEditing = false;
+      state.notice = "Профиль сохранён.";
     } else if (action === "contact-service-request") {
       const request = await apiPost(`/api/v1/admin/service-requests/${sourceElement?.dataset.id}/contact`, {}, true);
       state.notice = `Заявка взята в работу: ${request.publicId}`;
@@ -529,6 +765,14 @@ async function runAction(action, form, sourceElement = null) {
     } else if (action === "block-master") {
       const master = await apiPost(`/api/v1/admin/masters/${sourceElement?.dataset.id}/block`, {}, true);
       state.notice = `Мастер заблокирован: ${master.title || master.publicId}`;
+      await loadSectionData("masters");
+    } else if (action === "approve-master-access") {
+      const request = await apiPost(`/api/v1/admin/master-access-requests/${sourceElement?.dataset.id}/approve`, {}, true);
+      state.notice = `Доступ одобрен: ${request.displayName || request.publicId}`;
+      await loadSectionData("masters");
+    } else if (action === "reject-master-access") {
+      const request = await apiPost(`/api/v1/admin/master-access-requests/${sourceElement?.dataset.id}/reject`, {}, true);
+      state.notice = `Доступ отклонён: ${request.displayName || request.publicId}`;
       await loadSectionData("masters");
     }
     await loadSectionData("overview");
@@ -567,6 +811,23 @@ async function switchMode(mode) {
     state.notice = error.status === 403 ? "Переключать режим может только Шляпник." : "Не удалось переключить режим.";
     render();
   }
+}
+
+async function openGalleryPost(id) {
+  if (!id) return;
+  try {
+    state.galleryModal = await apiGet(`/api/v1/admin/gallery/posts/${id}`);
+    render();
+  } catch (error) {
+    state.notice = error.status ? `Не удалось открыть публикацию: ${error.status}.` : "Сервер временно недоступен.";
+    render();
+  }
+}
+
+function closeModal() {
+  state.galleryModal = null;
+  state.selectedRatingId = "";
+  render();
 }
 
 async function refreshVisibleData() {
@@ -638,7 +899,8 @@ function sectionEndpoint(section) {
   if (section === "applications") return "/api/v1/admin/data/applications?page=0&size=50";
   if (section === "gallery") return "/api/v1/admin/gallery/posts?page=0&size=50";
   if (section === "rating") return "/api/v1/admin/rating/players?page=0&size=50";
-  if (section === "masters") return "/api/v1/admin/data/masters?page=0&size=50";
+  if (section === "masters") return "/api/v1/admin/master-access-requests?status=pending";
+  if (section === "profile") return "/api/v1/admin/profile";
   return null;
 }
 
@@ -791,6 +1053,56 @@ function gameEditPayload(body) {
   };
 }
 
+function ratingPayload(body) {
+  return {
+    gamesDelta: optionalNumber(body.gamesDelta) || 0,
+    pointsDelta: optionalNumber(body.pointsDelta) || 0,
+    inspirationDelta: optionalNumber(body.inspirationDelta) || 0,
+    reason: optionalText(body.reason) || "Правка из кабинета мастера"
+  };
+}
+
+async function saveProfile(form) {
+  const body = formJson(form);
+  let photoUrl = state.remote.profile?.photoUrl || "";
+  const file = form?.elements?.photo?.files?.[0];
+  if (file) {
+    const payload = new FormData();
+    payload.append("file", file);
+    const uploaded = await apiMultipart("/api/v1/admin/profile/photo", payload);
+    photoUrl = uploaded.photoUrl || photoUrl;
+  }
+  return apiPut("/api/v1/admin/profile", {
+    displayName: optionalText(body.displayName),
+    telegramUsername: optionalText(body.telegramUsername),
+    contactUrl: optionalText(body.contactUrl),
+    photoUrl,
+    status: optionalText(body.status),
+    bio: optionalText(body.bio),
+    style: optionalText(body.style),
+    interests: optionalText(body.interests),
+    systems: optionalText(body.systems),
+    experience: optionalText(body.experience),
+    phone: optionalText(body.phone),
+    extraLinks: optionalText(body.extraLinks)
+  }, true);
+}
+
+async function apiMultipart(path, body) {
+  const response = await fetch(`${API_BASE}${path}`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      Accept: "application/json",
+      "X-XSRF-TOKEN": await ensureCsrf()
+    },
+    body
+  });
+  if (!response.ok) throw httpError("POST", path, response.status);
+  const text = await response.text();
+  return text ? JSON.parse(text) : {};
+}
+
 function optionalNumber(value) {
   return value === null || value === undefined || String(value).trim() === "" ? null : Number(value);
 }
@@ -903,3 +1215,9 @@ function escapeHtml(value) {
 
 render();
 restoreSession();
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && (state.galleryModal || state.selectedRatingId)) {
+    closeModal();
+  }
+});

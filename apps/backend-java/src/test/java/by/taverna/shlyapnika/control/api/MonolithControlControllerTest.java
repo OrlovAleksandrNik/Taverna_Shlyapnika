@@ -12,6 +12,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import by.taverna.shlyapnika.audit.AuditService;
+import by.taverna.shlyapnika.media.MediaStorage;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -48,6 +49,9 @@ class MonolithControlControllerTest {
 
   @MockBean
   private AuditService auditService;
+
+  @MockBean
+  private MediaStorage mediaStorage;
 
   @Test
   void returnsMonolithIntegrationStatus() throws Exception {

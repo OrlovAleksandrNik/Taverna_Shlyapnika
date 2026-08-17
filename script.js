@@ -1,6 +1,6 @@
 const rootPath = document.body.dataset.root || "";
 const apiRoot = window.location.protocol === "file:" ? "http://localhost:4177/" : rootPath;
-const masters = window.TAVERNA_MASTERS || [];
+let masters = window.TAVERNA_MASTERS || [];
 const hatterDiaryEntries = window.TAVERNA_HATTER_DIARY || [];
 const siteSettings = {
   ADDRESS: "Могилёв, улица Ленинская, 29, третий этаж, направо от входа",
@@ -831,6 +831,43 @@ function renderMastersList() {
   settleHashScroll("masters");
 }
 
+async function loadMasterProfiles() {
+  try {
+    const response = await fetch(`${apiRoot}api/masters`, { headers: { Accept: "application/json" } });
+    if (!response.ok) return;
+    const payload = await response.json();
+    const remoteMasters = Array.isArray(payload?.masters) ? payload.masters : [];
+    if (!remoteMasters.length) return;
+    masters = masters.map((local) => {
+      const remote = remoteMasters.find((item) => masterNamesMatch(local.name, item.displayName));
+      if (!remote) return local;
+      return {
+        ...local,
+        name: remote.displayName || local.name,
+        image: remote.photoUrl || local.image,
+        photo: remote.photoUrl || local.photo,
+        shortDescription: remote.status || local.shortDescription,
+        description: remote.bio || local.description,
+        fullDescription: remote.bio || local.fullDescription,
+        bio: remote.bio ? String(remote.bio).split(/\n{2,}/).filter(Boolean) : local.bio,
+        style: remote.style || local.style,
+        experience: remote.experience || local.experience,
+        systems: remote.systems ? String(remote.systems).split(/[,;]\s*/).filter(Boolean) : local.systems
+      };
+    });
+    renderMastersList();
+    renderMasterPage();
+  } catch (error) {
+    console.warn("Не удалось обновить профили мастеров", error);
+  }
+}
+
+function masterNamesMatch(localName, remoteName) {
+  const local = String(localName || "").toLowerCase();
+  const remote = String(remoteName || "").toLowerCase();
+  return local && remote && (remote.includes(local) || local.includes(remote.replace(/^мастер\s+/, "")));
+}
+
 function settleHashScroll(id) {
   if (window.location.hash !== `#${id}`) return;
   const target = document.getElementById(id);
@@ -1524,6 +1561,7 @@ renderSchedule();
 renderRatingPage();
 renderMastersList();
 renderMasterPage();
+loadMasterProfiles();
 renderContactBlock();
 renderGalleryPage();
 initDiaryAccess();

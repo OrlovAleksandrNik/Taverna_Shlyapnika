@@ -29,6 +29,33 @@ public class MasterEntity {
   @Column(name = "\"contactUrl\"", nullable = false)
   private String contactUrl;
 
+  @Column(name = "\"profilePhotoUrl\"")
+  private String profilePhotoUrl;
+
+  @Column(name = "\"profileStatus\"")
+  private String profileStatus;
+
+  @Column(name = "\"profileBio\"")
+  private String profileBio;
+
+  @Column(name = "\"profileStyle\"")
+  private String profileStyle;
+
+  @Column(name = "\"profileInterests\"")
+  private String profileInterests;
+
+  @Column(name = "\"profileSystems\"")
+  private String profileSystems;
+
+  @Column(name = "\"profileExperience\"")
+  private String profileExperience;
+
+  @Column(name = "\"phone\"")
+  private String phone;
+
+  @Column(name = "\"extraLinks\"")
+  private String extraLinks;
+
   @Column(name = "\"role\"", nullable = false)
   @ColumnTransformer(write = "?::\"MasterRole\"")
   private String role = "master";
@@ -123,6 +150,42 @@ public class MasterEntity {
 
   public String getContactUrl() {
     return contactUrl;
+  }
+
+  public String getProfilePhotoUrl() {
+    return profilePhotoUrl;
+  }
+
+  public String getProfileStatus() {
+    return profileStatus;
+  }
+
+  public String getProfileBio() {
+    return profileBio;
+  }
+
+  public String getProfileStyle() {
+    return profileStyle;
+  }
+
+  public String getProfileInterests() {
+    return profileInterests;
+  }
+
+  public String getProfileSystems() {
+    return profileSystems;
+  }
+
+  public String getProfileExperience() {
+    return profileExperience;
+  }
+
+  public String getPhone() {
+    return phone;
+  }
+
+  public String getExtraLinks() {
+    return extraLinks;
   }
 
   public String getRole() {

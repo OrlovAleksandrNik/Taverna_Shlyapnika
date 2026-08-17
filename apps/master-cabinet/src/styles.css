@@ -132,8 +132,8 @@ textarea {
 .overview-hero h2,
 .work-panel h2,
 .card-list h2 {
-  font-family: Betina, Georgia, "Times New Roman", serif;
-  font-weight: 400;
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 700;
   letter-spacing: 0;
 }
 
@@ -304,7 +304,7 @@ textarea {
 .cabinet-topbar h1 {
   margin: 0;
   color: var(--paper);
-  font-size: clamp(36px, 5vw, 64px);
+  font-size: clamp(30px, 4vw, 48px);
 }
 
 .cabinet-topbar p,
@@ -437,6 +437,29 @@ textarea {
   padding: 16px;
 }
 
+.gallery-admin-card {
+  grid-template-columns: 96px minmax(0, 1fr) auto;
+}
+
+.gallery-preview {
+  display: grid;
+  width: 96px;
+  height: 72px;
+  min-height: 72px;
+  place-items: center;
+  overflow: hidden;
+  border-radius: var(--radius);
+  padding: 0;
+  color: var(--muted);
+  background: rgba(2, 6, 9, 0.58);
+}
+
+.gallery-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
 .data-card h3 {
   margin: 0 0 6px;
   color: var(--paper);
@@ -466,6 +489,9 @@ textarea {
   border-radius: var(--radius);
   background: rgba(16, 13, 10, 0.7);
   padding: 12px 14px;
+  width: 100%;
+  color: inherit;
+  text-align: left;
 }
 
 .rating-row .rank {
@@ -512,6 +538,128 @@ textarea {
   margin: 0;
   padding: 22px;
   text-align: center;
+}
+
+.cabinet-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  background: rgba(1, 5, 8, 0.76);
+  padding: clamp(12px, 3vw, 32px);
+}
+
+.cabinet-modal__panel {
+  position: relative;
+  width: min(920px, 100%);
+  max-height: min(88vh, 920px);
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-strong);
+  box-shadow: 0 34px 110px rgba(0, 0, 0, 0.58);
+  scrollbar-width: none;
+}
+
+.cabinet-modal__panel::-webkit-scrollbar {
+  display: none;
+}
+
+.modal-close {
+  position: sticky;
+  top: 12px;
+  z-index: 2;
+  float: right;
+  width: 42px;
+  min-height: 42px;
+  margin: 12px 12px 0 0;
+  border-radius: 999px;
+  background: rgba(4, 10, 14, 0.76);
+}
+
+.gallery-modal-image {
+  width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+  background: rgba(0, 0, 0, 0.32);
+}
+
+.gallery-modal-body,
+.rating-editor-panel {
+  padding: clamp(18px, 3vw, 32px);
+}
+
+.gallery-modal-body h2,
+.rating-editor-panel h2,
+.profile-cover h2 {
+  margin: 8px 0 10px;
+  color: var(--paper);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(28px, 4vw, 44px);
+}
+
+.post-story {
+  color: var(--text);
+  line-height: 1.7;
+}
+
+.muted-line {
+  color: var(--muted);
+}
+
+.gallery-modal-thumbs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.gallery-modal-thumbs img {
+  width: 100%;
+  height: 96px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  object-fit: contain;
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.profile-page {
+  display: grid;
+  gap: 18px;
+}
+
+.profile-cover {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: clamp(18px, 4vw, 34px);
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: 0 24px 70px var(--shadow);
+  padding: clamp(18px, 3vw, 34px);
+}
+
+.profile-cover img {
+  width: 180px;
+  height: 180px;
+  border-radius: 18px;
+  object-fit: cover;
+  box-shadow: 0 0 44px rgba(96, 210, 194, 0.25);
+}
+
+.profile-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.profile-info-card strong {
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1.55;
+  white-space: pre-line;
 }
 
 .cabinet-gate {
@@ -603,6 +751,22 @@ textarea {
     grid-template-columns: 1fr;
   }
 
+  .gallery-admin-card {
+    grid-template-columns: 92px minmax(0, 1fr);
+  }
+
+  .gallery-admin-card .inline-actions {
+    grid-column: 1 / -1;
+  }
+
+  .profile-cover {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-info-grid {
+    grid-template-columns: 1fr;
+  }
+
   .topbar-actions,
   .inline-actions {
     justify-content: flex-start;
@@ -640,5 +804,19 @@ textarea {
 
   .rating-row {
     grid-template-columns: 36px minmax(0, 1fr);
+  }
+
+  .gallery-admin-card {
+    grid-template-columns: 1fr;
+  }
+
+  .gallery-preview {
+    width: 100%;
+    height: 170px;
+  }
+
+  .profile-cover img {
+    width: 128px;
+    height: 128px;
   }
 }

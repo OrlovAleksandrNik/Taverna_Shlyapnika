@@ -22,9 +22,33 @@ public class MasterController {
   public record MastersResponse(List<MasterDto> masters) {
   }
 
-  public record MasterDto(String id, String displayName, String contactUrl) {
+  public record MasterDto(
+      String id,
+      String displayName,
+      String contactUrl,
+      String telegramUsername,
+      String photoUrl,
+      String status,
+      String bio,
+      String style,
+      String interests,
+      String systems,
+      String experience
+  ) {
     static MasterDto from(MasterEntity master) {
-      return new MasterDto(master.getId(), master.getDisplayName(), master.getContactUrl());
+      return new MasterDto(
+          master.getId(),
+          master.getDisplayName(),
+          master.getContactUrl(),
+          master.getTelegramUsername(),
+          master.getProfilePhotoUrl(),
+          master.getProfileStatus(),
+          master.getProfileBio(),
+          master.getProfileStyle(),
+          master.getProfileInterests(),
+          master.getProfileSystems(),
+          master.getProfileExperience()
+      );
     }
   }
 }
