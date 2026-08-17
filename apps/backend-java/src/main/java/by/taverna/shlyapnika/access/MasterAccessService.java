@@ -186,6 +186,10 @@ public class MasterAccessService {
     );
   }
 
+  public static String normalizeTelegramUsernamePublic(String value) {
+    return normalizeTelegramUsername(value);
+  }
+
   private static String normalizeTelegramUsername(String value) {
     var trimmed = trimToNull(value);
     if (trimmed == null) return null;

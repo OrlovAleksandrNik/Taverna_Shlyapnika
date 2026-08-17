@@ -38,6 +38,11 @@ public class MasterAccessController {
       session.setAttribute("taverna.master.profileMode", isHatter(response.role()) ? "hatter" : "master");
       session.setAttribute("taverna.master.telegramUsername", request.telegramUsername());
       session.setAttribute("taverna.master.email", request.email());
+      session.setAttribute("taverna.auth.accountId", response.requestId());
+      session.setAttribute("taverna.auth.accountType", isHatter(response.role()) ? "hatter" : "master");
+      session.setAttribute("taverna.auth.status", "active");
+      session.setAttribute("taverna.auth.systemRole", isHatter(response.role()) ? "HATTER" : "MASTER");
+      session.setAttribute("taverna.auth.activeProfile", isHatter(response.role()) ? "hatter" : "master");
     }
     return response;
   }
@@ -55,15 +60,24 @@ public class MasterAccessController {
     if (baseRole != null) {
       session.setAttribute("taverna.master.baseRole", baseRole);
     }
+    var profileMode = stringAttribute(session, "taverna.master.profileMode", isHatter(stringAttribute(session, "taverna.master.role")) ? "hatter" : stringAttribute(session, "taverna.auth.accountType", "master"));
+    var accountType = stringAttribute(session, "taverna.auth.accountType", isHatter(baseRole) ? "hatter" : profileMode);
+    var systemRole = stringAttribute(session, "taverna.auth.systemRole", isHatter(baseRole) ? "HATTER" : systemRole(accountType));
+    var activeProfile = stringAttribute(session, "taverna.auth.activeProfile", profileMode);
     return new MasterSessionResponse(
         true,
         stringAttribute(session, "taverna.master.displayName"),
         stringAttribute(session, "taverna.master.role"),
         baseRole,
-        stringAttribute(session, "taverna.master.profileMode", isHatter(stringAttribute(session, "taverna.master.role")) ? "hatter" : "master"),
+        profileMode,
         isHatter(baseRole),
         stringAttribute(session, "taverna.master.telegramUsername"),
-        stringAttribute(session, "taverna.master.email")
+        stringAttribute(session, "taverna.master.email"),
+        stringAttribute(session, "taverna.auth.accountId"),
+        accountType,
+        stringAttribute(session, "taverna.auth.status", "active"),
+        systemRole,
+        activeProfile
     );
   }
 
@@ -82,11 +96,16 @@ public class MasterAccessController {
       session.setAttribute("taverna.master.role", "admin");
       session.setAttribute("taverna.master.profileMode", "hatter");
       session.setAttribute("taverna.master.displayName", "Шляпник");
+      session.setAttribute("taverna.auth.activeProfile", "hatter");
     } else {
       session.setAttribute("taverna.master.role", "master");
       session.setAttribute("taverna.master.profileMode", "master");
       session.setAttribute("taverna.master.displayName", "Мастер Александр");
+      session.setAttribute("taverna.auth.activeProfile", "alexander");
     }
+    session.setAttribute("taverna.auth.accountType", "hatter");
+    session.setAttribute("taverna.auth.status", "active");
+    session.setAttribute("taverna.auth.systemRole", "HATTER");
     return ResponseEntity.ok(session(servletRequest));
   }
 
@@ -111,5 +130,14 @@ public class MasterAccessController {
 
   private static boolean isHatter(String role) {
     return "admin".equalsIgnoreCase(String.valueOf(role)) || "hatter".equalsIgnoreCase(String.valueOf(role));
+  }
+
+  private static String systemRole(String accountType) {
+    return switch (String.valueOf(accountType).toLowerCase()) {
+      case "hatter" -> "HATTER";
+      case "master" -> "MASTER";
+      case "player" -> "PLAYER";
+      default -> "GUEST";
+    };
   }
 }

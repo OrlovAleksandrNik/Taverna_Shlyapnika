@@ -104,7 +104,8 @@ class MasterAccessControllerTest {
     mvc.perform(get("/api/auth/session"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.accessGranted").value(false))
-        .andExpect(jsonPath("$.role").value("master"));
+        .andExpect(jsonPath("$.role").value("guest"))
+        .andExpect(jsonPath("$.systemRole").value("GUEST"));
   }
 
   @Test
@@ -121,6 +122,8 @@ class MasterAccessControllerTest {
         .andExpect(jsonPath("$.accessGranted").value(true))
         .andExpect(jsonPath("$.displayName").value("Александр"))
         .andExpect(jsonPath("$.role").value("admin"))
+        .andExpect(jsonPath("$.systemRole").value("HATTER"))
+        .andExpect(jsonPath("$.activeProfile").value("hatter"))
         .andExpect(jsonPath("$.telegramUsername").value("@MisterHatter"))
         .andExpect(jsonPath("$.email").value("master@example.com"));
   }
@@ -144,6 +147,8 @@ class MasterAccessControllerTest {
         .andExpect(jsonPath("$.role").value("master"))
         .andExpect(jsonPath("$.baseRole").value("admin"))
         .andExpect(jsonPath("$.profileMode").value("master"))
+        .andExpect(jsonPath("$.systemRole").value("HATTER"))
+        .andExpect(jsonPath("$.activeProfile").value("alexander"))
         .andExpect(jsonPath("$.canSwitchProfile").value(true));
   }
 
@@ -160,6 +165,8 @@ class MasterAccessControllerTest {
             .content("{\"mode\":\"master\"}"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.baseRole").value("admin"))
+        .andExpect(jsonPath("$.systemRole").value("HATTER"))
+        .andExpect(jsonPath("$.activeProfile").value("alexander"))
         .andExpect(jsonPath("$.canSwitchProfile").value(true));
 
     mvc.perform(put("/api/auth/session-mode").session(session)
@@ -167,7 +174,9 @@ class MasterAccessControllerTest {
             .content("{\"mode\":\"hatter\"}"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.role").value("admin"))
-        .andExpect(jsonPath("$.profileMode").value("hatter"));
+        .andExpect(jsonPath("$.profileMode").value("hatter"))
+        .andExpect(jsonPath("$.systemRole").value("HATTER"))
+        .andExpect(jsonPath("$.activeProfile").value("hatter"));
   }
 
   @Test
@@ -178,6 +187,21 @@ class MasterAccessControllerTest {
     session.setAttribute("taverna.master.role", "master");
     session.setAttribute("taverna.master.baseRole", "master");
     session.setAttribute("taverna.master.profileMode", "master");
+
+    mvc.perform(put("/api/auth/session-mode").session(session)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"mode\":\"hatter\"}"))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  void playerCannotSwitchSessionMode() throws Exception {
+    var session = new MockHttpSession();
+    session.setAttribute("taverna.master.accessGranted", true);
+    session.setAttribute("taverna.master.displayName", "Игрок");
+    session.setAttribute("taverna.master.role", "player");
+    session.setAttribute("taverna.master.baseRole", "player");
+    session.setAttribute("taverna.master.profileMode", "player");
 
     mvc.perform(put("/api/auth/session-mode").session(session)
             .contentType(MediaType.APPLICATION_JSON)

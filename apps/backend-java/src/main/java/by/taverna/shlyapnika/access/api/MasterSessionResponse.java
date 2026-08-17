@@ -8,9 +8,14 @@ public record MasterSessionResponse(
     String profileMode,
     boolean canSwitchProfile,
     String telegramUsername,
-    String email
+    String email,
+    String accountId,
+    String accountType,
+    String status,
+    String systemRole,
+    String activeProfile
 ) {
   public static MasterSessionResponse anonymous() {
-    return new MasterSessionResponse(false, null, "master", "master", "master", false, null, null);
+    return new MasterSessionResponse(false, null, "guest", "guest", "guest", false, null, null, null, "guest", "anonymous", "GUEST", "guest");
   }
 }

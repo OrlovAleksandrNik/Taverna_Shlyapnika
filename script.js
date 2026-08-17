@@ -79,6 +79,30 @@ function ensureRatingNavLinks() {
   });
 }
 
+async function ensureCabinetNavLink() {
+  let session = null;
+  try {
+    const response = await fetch(`${apiRoot}api/auth/session`, {
+      credentials: "include",
+      headers: { Accept: "application/json" }
+    });
+    session = response.ok ? await response.json() : null;
+  } catch (error) {
+    console.warn("Auth session check failed", error);
+  }
+
+  document.querySelectorAll(".main-nav").forEach((menu) => {
+    menu.querySelectorAll("[data-auth-cabinet-link]").forEach((link) => link.remove());
+    if (!session?.accessGranted) return;
+    const link = document.createElement("a");
+    link.href = assetPath("cabinet/");
+    link.textContent = "Личный кабинет";
+    link.dataset.authCabinetLink = "";
+    const contacts = Array.from(menu.querySelectorAll("a")).find((item) => item.getAttribute("href")?.includes("contacts"));
+    menu.insertBefore(link, contacts || null);
+  });
+}
+
 function sanitizePhone(value) {
   return String(value || "").replace(/[^\d+]/g, "");
 }
@@ -483,12 +507,13 @@ function openDiaryLoginModal() {
   openModal(`
     <button class="modal-close" type="button" data-modal-close aria-label="Закрыть">×</button>
     <div class="diary-auth-modal">
-      <p class="eyebrow">Вход мастера</p>
+      <p class="eyebrow">Вход в Таверну</p>
       <h2>Откройте дневник</h2>
-      <p>Укажите Telegram или e-mail, который уже подтверждён Шляпником.</p>
+      <p>Для нового аккаунта используйте e-mail и пароль. Для старого мастерского доступа пока можно войти через подтверждённый Telegram или e-mail.</p>
       <form class="request-form diary-auth-form" data-diary-login-form>
+        <label class="form-wide">E-mail<input name="email" type="email" autocomplete="email" placeholder="master@example.com"></label>
+        <label class="form-wide">Пароль<input name="password" type="password" autocomplete="current-password" minlength="8"></label>
         <label>Telegram<input name="telegramUsername" autocomplete="username" placeholder="@MisterHatter"></label>
-        <label>E-mail<input name="email" type="email" autocomplete="email" placeholder="master@example.com"></label>
         <button class="button primary" type="submit">Войти</button>
         <p class="form-status" data-form-status></p>
       </form>
@@ -500,16 +525,21 @@ function openDiaryRegisterModal() {
   openModal(`
     <button class="modal-close" type="button" data-modal-close aria-label="Закрыть">×</button>
     <div class="diary-auth-modal">
-      <p class="eyebrow">Заявка мастера</p>
+      <p class="eyebrow">Новый аккаунт</p>
       <h2>Зарегистрироваться</h2>
-      <p>Заявка попадёт Шляпнику в Telegram. Доступ появится только после подтверждения владельцем Таверны.</p>
+      <p>Игрок получает доступ сразу. Мастерская регистрация отправляется Шляпнику на подтверждение.</p>
       <form class="request-form diary-auth-form" data-master-access-request-form>
-        <label>Имя мастера<input name="displayName" autocomplete="name" minlength="2" maxlength="80" required></label>
-        <label>Telegram<input name="telegramUsername" autocomplete="username" placeholder="@username" minlength="3" maxlength="80" required></label>
+        <label>Имя<input name="displayName" autocomplete="name" minlength="2" maxlength="80" required></label>
+        <label>Тип аккаунта<select name="accountType" required>
+          <option value="player">Игрок</option>
+          <option value="master">Мастер</option>
+        </select></label>
         <label class="form-wide">E-mail<input name="email" type="email" autocomplete="email" maxlength="160" required></label>
-        <label class="form-wide">Код Шляпника<input name="accessCode" autocomplete="one-time-code" maxlength="120" placeholder="Код мастера или администратора откроет доступ сразу"></label>
-        ${consentField("master-registration")}
-        <button class="button primary" type="submit">Отправить Шляпнику</button>
+        <label>Пароль<input name="password" type="password" autocomplete="new-password" minlength="8" maxlength="160" required></label>
+        <label>Повторите пароль<input name="passwordConfirmation" type="password" autocomplete="new-password" minlength="8" maxlength="160" required></label>
+        <label class="form-wide">Telegram<input name="telegramUsername" autocomplete="username" placeholder="@username" minlength="3" maxlength="80"></label>
+        ${consentField("account-registration")}
+        <button class="button primary" type="submit">Создать аккаунт</button>
         <p class="form-status" data-form-status></p>
       </form>
     </div>
@@ -520,15 +550,22 @@ async function submitDiaryLogin(form) {
   const status = form.querySelector("[data-form-status]");
   const button = form.querySelector("button[type='submit']");
   const payload = Object.fromEntries(new FormData(form).entries());
+  const hasPassword = Boolean(String(payload.password || "").trim());
   if (!String(payload.telegramUsername || "").trim() && !String(payload.email || "").trim()) {
-    status.textContent = "Укажите Telegram или e-mail.";
+    status.textContent = "Укажите e-mail или Telegram.";
     form.querySelector("input")?.focus();
+    return;
+  }
+  if (hasPassword && !String(payload.email || "").trim()) {
+    status.textContent = "Для входа по паролю нужен e-mail.";
+    form.querySelector("input[name='email']")?.focus();
     return;
   }
   button.disabled = true;
   status.textContent = "Проверяем доступ...";
   try {
-    const response = await fetch(`${apiRoot}api/auth/master-login`, {
+    const authPath = hasPassword ? "api/auth/login" : "api/auth/master-login";
+    const response = await fetch(`${apiRoot}${authPath}`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
@@ -540,6 +577,10 @@ async function submitDiaryLogin(form) {
       accessGranted: true,
       displayName: result.displayName || "мастера",
       role: result.role || "master",
+      baseRole: result.baseRole || result.role || "master",
+      accountType: result.accountType || "master",
+      systemRole: result.systemRole || "",
+      activeProfile: result.activeProfile || result.profileMode || "master",
       telegramUsername: payload.telegramUsername || "",
       email: payload.email || "",
       grantedAt: new Date().toISOString()
@@ -560,12 +601,17 @@ async function submitMasterAccessRequest(form) {
   const status = form.querySelector("[data-form-status]");
   const button = form.querySelector("button[type='submit']");
   const payload = Object.fromEntries(new FormData(form).entries());
-  const consent = form.querySelector("input[name='consent']");
+  const consent = form.querySelector("input[name='consentGiven']");
   if (consent instanceof HTMLInputElement) payload.consentGiven = consent.checked;
+  if (payload.password !== payload.passwordConfirmation) {
+    status.textContent = "Пароли не совпадают.";
+    form.querySelector("input[name='passwordConfirmation']")?.focus();
+    return;
+  }
   button.disabled = true;
   status.textContent = "Отправляем...";
   try {
-    const response = await fetch(`${apiRoot}api/auth/master-access-requests`, {
+    const response = await fetch(`${apiRoot}api/auth/register`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
@@ -574,12 +620,18 @@ async function submitMasterAccessRequest(form) {
     const result = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(result.error || result.message || "Не удалось отправить заявку.");
 
-    status.textContent = result.message || "Заявка сохранена.";
-    if (result.status === "approved" || result.accessGranted) {
+    status.textContent = result.accessGranted
+      ? "Аккаунт создан. Дверь в кабинет открыта."
+      : "Заявка на регистрацию мастера отправлена Шляпнику. После подтверждения вам будет доступен кабинет мастера.";
+    if (result.accessGranted) {
       localStorage.setItem(DIARY_ACCESS_STORAGE_KEY, JSON.stringify({
         accessGranted: true,
         displayName: payload.displayName || result.displayName || "мастера",
         role: result.role || "master",
+        baseRole: result.baseRole || result.role || "master",
+        accountType: result.accountType || payload.accountType || "player",
+        systemRole: result.systemRole || "",
+        activeProfile: result.activeProfile || result.profileMode || payload.accountType || "player",
         telegramUsername: payload.telegramUsername || "",
         email: payload.email || "",
         grantedAt: new Date().toISOString()
@@ -1557,6 +1609,7 @@ function initReveal() {
 
 removeMasterCabinetNavLinks();
 ensureRatingNavLinks();
+ensureCabinetNavLink();
 renderSchedule();
 renderRatingPage();
 renderMastersList();

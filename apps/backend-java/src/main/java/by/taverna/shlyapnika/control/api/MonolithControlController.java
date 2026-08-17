@@ -412,11 +412,27 @@ public class MonolithControlController {
       @RequestParam(defaultValue = "pending") String status
   ) {
     var safeStatus = List.of("pending", "approved", "rejected").contains(status) ? status : "pending";
+    var accountStatus = switch (safeStatus) {
+      case "approved" -> "active";
+      case "rejected" -> "rejected";
+      default -> "pending_approval";
+    };
     var items = jdbcTemplate.query("""
         select "id", "displayName", "email", "telegramUsername", "requestedRole",
                "status"::text as "status", "createdAt", "updatedAt"
         from "MasterAccessRequest"
         where "status" = ?::"MasterAccessRequestStatus"
+        union all
+        select "id", "displayName", "email", coalesce("telegramUsername", ''), 'master',
+               case "status"
+                 when 'pending_approval' then 'pending'
+                 when 'active' then 'approved'
+                 else "status"
+               end as "status",
+               "createdAt", "updatedAt"
+        from "SiteAccount"
+        where "role" = 'master'
+          and "status" = ?
         order by "createdAt" asc
         limit 100
         """, (rs, rowNum) -> new MasterAccessRequestRowDto(
@@ -428,12 +444,23 @@ public class MonolithControlController {
             rs.getString("status"),
             instant(rs, "createdAt"),
             instant(rs, "updatedAt")
-        ), safeStatus);
+        ), safeStatus, accountStatus);
     return new ItemsResponse<>(items, 0, 100);
   }
 
   @PostMapping("/api/v1/admin/master-access-requests/{id}/approve")
   public MasterAccessRequestRowDto approveMasterAccessRequest(@PathVariable String id) {
+    var accountUpdated = jdbcTemplate.update("""
+        update "SiteAccount"
+        set "status" = 'active',
+            "updatedAt" = current_timestamp
+        where "id" = ?
+          and "role" = 'master'
+        """, id);
+    if (accountUpdated > 0) {
+      auditService.write("master-cabinet", "site_account.master_approved_from_cabinet", "SiteAccount", id, null);
+      return masterAccessRequestById(id);
+    }
     jdbcTemplate.update("""
         update "MasterAccessRequest"
         set "status" = 'approved'::"MasterAccessRequestStatus",
@@ -448,6 +475,17 @@ public class MonolithControlController {
 
   @PostMapping("/api/v1/admin/master-access-requests/{id}/reject")
   public MasterAccessRequestRowDto rejectMasterAccessRequest(@PathVariable String id) {
+    var accountUpdated = jdbcTemplate.update("""
+        update "SiteAccount"
+        set "status" = 'rejected',
+            "updatedAt" = current_timestamp
+        where "id" = ?
+          and "role" = 'master'
+        """, id);
+    if (accountUpdated > 0) {
+      auditService.write("master-cabinet", "site_account.master_rejected_from_cabinet", "SiteAccount", id, null);
+      return masterAccessRequestById(id);
+    }
     jdbcTemplate.update("""
         update "MasterAccessRequest"
         set "status" = 'rejected'::"MasterAccessRequestStatus",
@@ -981,6 +1019,29 @@ public class MonolithControlController {
   }
 
   private MasterAccessRequestRowDto masterAccessRequestById(String id) {
+    var accountRows = jdbcTemplate.query("""
+        select "id", "displayName", "email", coalesce("telegramUsername", '') as "telegramUsername",
+               'master' as "requestedRole",
+               case "status"
+                 when 'pending_approval' then 'pending'
+                 when 'active' then 'approved'
+                 else "status"
+               end as "status",
+               "createdAt", "updatedAt"
+        from "SiteAccount"
+        where "id" = ?
+          and "role" = 'master'
+        """, (rs, rowNum) -> new MasterAccessRequestRowDto(
+            rs.getString("id"),
+            rs.getString("displayName"),
+            rs.getString("email"),
+            rs.getString("telegramUsername"),
+            rs.getString("requestedRole"),
+            rs.getString("status"),
+            instant(rs, "createdAt"),
+            instant(rs, "updatedAt")
+        ), id);
+    if (!accountRows.isEmpty()) return accountRows.get(0);
     return jdbcTemplate.queryForObject("""
         select "id", "displayName", "email", "telegramUsername", "requestedRole",
                "status"::text as "status", "createdAt", "updatedAt"

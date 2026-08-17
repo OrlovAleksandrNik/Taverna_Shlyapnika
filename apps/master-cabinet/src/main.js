@@ -5,7 +5,8 @@ const NOTIFICATIONS_SEEN_KEY = "tavernaCabinetLastSeenAction";
 
 const roles = {
   HATTER: ["overview", "games", "applications", "gallery", "rating", "masters", "profile"],
-  MASTER: ["overview", "games", "applications", "gallery", "rating", "profile"]
+  MASTER: ["overview", "games", "applications", "gallery", "rating", "profile"],
+  PLAYER: ["player"]
 };
 
 const sections = {
@@ -15,15 +16,16 @@ const sections = {
   gallery: ["Галерея", "Фотографии и истории"],
   rating: ["Рейтинг", "Игроки и очки"],
   masters: ["Доступ", "Мастера и заявки"],
-  profile: ["Профиль", "Данные мастерского аккаунта"]
+  profile: ["Профиль", "Данные мастерского аккаунта"],
+  player: ["Личный кабинет", "Профиль игрока и будущие записи"]
 };
 
 const app = document.querySelector("#app");
 
 const state = {
   account: loadAccessAccount(),
-  role: normalizeRole(loadAccessAccount()?.role),
-  section: initialSection(normalizeRole(loadAccessAccount()?.role)),
+  role: normalizeRole(loadAccessAccount()?.systemRole || loadAccessAccount()?.role),
+  section: initialSection(normalizeRole(loadAccessAccount()?.systemRole || loadAccessAccount()?.role)),
   loadingSection: null,
   selectedGameId: "",
   selectedProfileId: "",
@@ -47,6 +49,7 @@ function loadAccessAccount() {
 
 function normalizeRole(role) {
   const value = String(role || "").toLowerCase();
+  if (value === "player") return "PLAYER";
   return value === "admin" || value === "hatter" ? "HATTER" : "MASTER";
 }
 
@@ -61,14 +64,14 @@ function render() {
     return;
   }
 
-  const visible = roles[state.role] || roles.MASTER;
+  const visible = roles[state.role] || roles.PLAYER;
   app.innerHTML = `
     <div class="cabinet-shell">
       <aside class="cabinet-sidebar" aria-label="Разделы кабинета">
         <a class="cabinet-brand" href="/" aria-label="Вернуться на сайт Таверны">
           <img src="./hatter-mark.png" alt="" />
           <span>
-            <b>${state.role === "HATTER" ? "Кабинет Шляпника" : "Кабинет мастера"}</b>
+            <b>${state.role === "HATTER" ? "Кабинет Шляпника" : state.role === "PLAYER" ? "Кабинет игрока" : "Кабинет мастера"}</b>
             <small>Таверна Шляпника</small>
           </span>
         </a>
@@ -87,7 +90,7 @@ function render() {
       <main class="cabinet-workspace">
         <header class="cabinet-topbar">
           <div>
-            <p class="eyebrow">${state.role === "HATTER" ? "Полный доступ" : "Мастерский доступ"}</p>
+            <p class="eyebrow">${state.role === "HATTER" ? "Полный доступ" : state.role === "PLAYER" ? "Игровой доступ" : "Мастерский доступ"}</p>
             <h1>${sections[state.section][0]}</h1>
             <p>${sections[state.section][1]}</p>
           </div>
@@ -127,6 +130,18 @@ function renderGate() {
 }
 
 function profileSwitchTemplate() {
+  if (state.role === "PLAYER") {
+    return `
+      <section class="active-master-card">
+        <img src="./hatter-mark.png" alt="" />
+        <div>
+          <span>Игрок Таверны</span>
+          <strong>${escapeHtml(state.account?.displayName || "Гость у стола")}</strong>
+          <small>личный профиль</small>
+        </div>
+      </section>
+    `;
+  }
   const mode = state.account?.profileMode || (state.role === "HATTER" ? "hatter" : "master");
   const canSwitch = Boolean(state.account?.canSwitchProfile);
   return `
@@ -167,6 +182,7 @@ function notificationsTemplate() {
 }
 
 function sectionTemplate(section) {
+  if (section === "player") return playerTemplate();
   if (section === "overview") return overviewTemplate();
   if (section === "games") return gamesTemplate();
   if (section === "applications") return applicationsTemplate();
@@ -175,6 +191,40 @@ function sectionTemplate(section) {
   if (section === "masters") return accessRequestsTemplate();
   if (section === "profile") return adminProfileTemplate();
   return `<p class="empty-state">Раздел пока готовится.</p>`;
+}
+
+function playerTemplate() {
+  return `
+    <section class="overview-hero">
+      <div class="overview-portrait">
+        <img src="./hatter-mark.png" alt="" />
+      </div>
+      <div>
+        <p class="eyebrow">Игрок Таверны</p>
+        <h2>${escapeHtml(state.account?.displayName || "Гость у стола")}</h2>
+        <p>Здесь будет личная страница игрока: профиль, записи на игры, рейтинг и история приключений. Основа аккаунта уже работает через серверную сессию.</p>
+      </div>
+    </section>
+    <div class="metric-grid">
+      ${metricCard("E-mail", state.account?.email || "не указан", "для входа")}
+      ${metricCard("Telegram", state.account?.telegramUsername || "можно добавить позже", "контакт")}
+      ${metricCard("Записи", "скоро", "игры")}
+      ${metricCard("Рейтинг", "скоро", "очки")}
+    </div>
+    <div class="card-list">
+      <article class="data-card">
+        <div>
+          <p class="eyebrow">Следующий шаг</p>
+          <h3>Выберите игру в афише</h3>
+          <p>Пока личные записи игрока готовятся, расписание доступно в общей афише Таверны.</p>
+        </div>
+        <div class="inline-actions">
+          <a class="ghost-link" href="/#games">Открыть афишу</a>
+          <a class="ghost-link" href="/rating.html">Посмотреть рейтинг</a>
+        </div>
+      </article>
+    </div>
+  `;
 }
 
 function overviewTemplate() {
@@ -831,6 +881,7 @@ function closeModal() {
 }
 
 async function refreshVisibleData() {
+  if (state.role === "PLAYER") return;
   await loadSectionData("overview");
   if (state.section !== "overview") await loadSectionData(state.section);
   if (state.role === "HATTER") await loadSectionData("masters");
@@ -855,7 +906,7 @@ async function restoreSession() {
       return;
     }
     applySession(session);
-    if (!roles[state.role].includes(state.section)) state.section = "overview";
+    if (!roles[state.role]?.includes(state.section)) state.section = initialSection(state.role);
     render();
     await refreshVisibleData();
   } catch {
@@ -864,6 +915,7 @@ async function restoreSession() {
 }
 
 function applySession(session) {
+  const role = session.systemRole || session.role || "player";
   state.account = {
     accessGranted: true,
     displayName: session.displayName || "Мастер Таверны",
@@ -873,9 +925,15 @@ function applySession(session) {
     canSwitchProfile: Boolean(session.canSwitchProfile),
     telegramUsername: session.telegramUsername || "",
     email: session.email || "",
+    accountId: session.accountId || "",
+    accountType: session.accountType || session.role || "",
+    status: session.status || "active",
+    systemRole: session.systemRole || "",
+    activeProfile: session.activeProfile || session.profileMode || "",
     grantedAt: new Date().toISOString()
   };
-  state.role = normalizeRole(state.account.role);
+  state.role = normalizeRole(role);
+  if (!roles[state.role]?.includes(state.section)) state.section = initialSection(state.role);
   localStorage.setItem(ACCESS_STORAGE_KEY, JSON.stringify(state.account));
 }
 
@@ -1193,6 +1251,7 @@ function galleryCategoryLabel(category) {
 
 function sessionLabel() {
   if (!state.account) return "доступ не открыт";
+  if (state.role === "PLAYER") return "личный профиль";
   return state.role === "HATTER" ? "полный доступ" : "мастерский режим";
 }
 

@@ -55,14 +55,19 @@ public class MasterSessionAuthenticationFilter extends OncePerRequestFilter {
 
     private static List<SimpleGrantedAuthority> authorities(String role, String baseRole) {
       var authorities = new ArrayList<SimpleGrantedAuthority>();
-      var normalized = String.valueOf(role).equalsIgnoreCase("admin") || String.valueOf(role).equalsIgnoreCase("hatter")
-          ? "HATTER"
-          : "MASTER";
+      var normalized = normalizeRole(role);
       authorities.add(new SimpleGrantedAuthority("ROLE_" + normalized));
       if (String.valueOf(baseRole).equalsIgnoreCase("admin") || String.valueOf(baseRole).equalsIgnoreCase("hatter")) {
         authorities.add(new SimpleGrantedAuthority("ROLE_HATTER"));
       }
       return authorities;
+    }
+
+    private static String normalizeRole(String role) {
+      var value = String.valueOf(role);
+      if (value.equalsIgnoreCase("admin") || value.equalsIgnoreCase("hatter")) return "HATTER";
+      if (value.equalsIgnoreCase("player")) return "PLAYER";
+      return "MASTER";
     }
   }
 }
