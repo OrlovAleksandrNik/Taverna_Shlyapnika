@@ -18,11 +18,9 @@ import org.springframework.stereotype.Service;
 public class TelegramNotificationService {
   private static final Logger log = LoggerFactory.getLogger(TelegramNotificationService.class);
   private final TavernaProperties properties;
-  private final HttpClient httpClient;
 
   public TelegramNotificationService(TavernaProperties properties) {
     this.properties = properties;
-    this.httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
   }
 
   public void notifyAdmins(String text) {
@@ -34,6 +32,7 @@ public class TelegramNotificationService {
   public void notifyTelegram(Long chatId, String text) {
     if (chatId == null || !tokenConfigured()) return;
     try {
+      var httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
       var request = HttpRequest.newBuilder()
           .uri(URI.create("https://api.telegram.org/bot" + properties.telegram().botToken() + "/sendMessage"))
           .timeout(Duration.ofSeconds(10))

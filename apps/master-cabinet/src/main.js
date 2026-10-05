@@ -536,7 +536,47 @@ function profileTemplate() {
 
 function adminGalleryTemplate() {
   const posts = recordsFromPayload(state.remote.gallery);
-  return cardListTemplate("Публикации галереи", posts, (post) => `
+  const createForm = `
+    <section class="work-panel gallery-create-panel">
+      <div>
+        <p class="eyebrow">Новая публикация</p>
+        <h2>Добавить фото или историю</h2>
+        <p>Материал сразу попадёт в галерею после сохранения. Для истории можно добавить большую картинку и полный текст.</p>
+      </div>
+      <form class="form-grid" data-gallery-create-form>
+        <label>Тип публикации
+          <select name="type">
+            <option value="photo">Фото</option>
+            <option value="story">История</option>
+            <option value="character_sheet">Герой</option>
+          </select>
+        </label>
+        <label>Категория
+          <select name="category">
+            <option value="tavern">Таверна</option>
+            <option value="games">Игры</option>
+            <option value="events">События</option>
+            <option value="heroes">Герои</option>
+            <option value="miniatures">Миниатюры</option>
+            <option value="other">Другое</option>
+          </select>
+        </label>
+        <label>Статус
+          <select name="status">
+            <option value="published">Опубликовать сразу</option>
+            <option value="draft">Черновик</option>
+          </select>
+        </label>
+        <label>Дата события<input name="eventDate" type="date" /></label>
+        <label class="form-wide">Название<input name="title" type="text" placeholder="Например: Прощание Либе" required /></label>
+        <label class="form-wide">Короткое описание<textarea name="description" rows="2" placeholder="Одна-две строки для карточки"></textarea></label>
+        <label class="form-wide">История<textarea name="storyContent" rows="6" placeholder="Текст можно писать абзацами, как пост в Telegram."></textarea></label>
+        <label class="form-wide">Изображения<input name="media" type="file" accept="image/*" multiple /></label>
+        <button type="button" data-action="create-gallery-post">Сохранить публикацию</button>
+      </form>
+    </section>
+  `;
+  return createForm + cardListTemplate("Публикации галереи", posts, (post) => `
     <article class="data-card gallery-admin-card">
       <button type="button" class="gallery-preview" data-action="open-gallery-post" data-id="${escapeHtml(post.publicId)}" aria-label="Открыть публикацию ${escapeHtml(post.title || post.publicId)}">
         ${post.previewUrl
@@ -890,6 +930,11 @@ async function runAction(action, form, sourceElement = null) {
     } else if (action === "delete-gallery-post") {
       await apiDelete(`/api/v1/admin/gallery/posts/${sourceElement?.dataset.id}`);
       state.notice = "Публикация удалена.";
+      await loadSectionData("gallery");
+    } else if (action === "create-gallery-post") {
+      const post = await saveGalleryPost(form);
+      state.notice = `Публикация сохранена: ${post.title || post.publicId}`;
+      form?.reset();
       await loadSectionData("gallery");
     } else if (action === "save-rating-player") {
       await apiPost(`/api/v1/admin/rating/players/${body.id}/adjust`, ratingPayload(body), true);
@@ -1329,6 +1374,48 @@ async function saveProfile(form) {
   }, true);
 }
 
+async function saveGalleryPost(form) {
+  if (!form?.reportValidity?.()) {
+    const error = new Error("Заполните обязательные поля публикации.");
+    error.userMessage = "Заполните обязательные поля публикации.";
+    throw error;
+  }
+  const body = formJson(form);
+  const files = Array.from(form?.elements?.media?.files || []);
+  if ((body.type || "photo") === "photo" && files.length === 0) {
+    const error = new Error("Для фотопубликации добавьте хотя бы одно изображение.");
+    error.userMessage = "Для фотопубликации добавьте хотя бы одно изображение.";
+    throw error;
+  }
+  const media = [];
+  for (let index = 0; index < files.length; index++) {
+    const payload = new FormData();
+    payload.append("file", files[index]);
+    payload.append("altText", body.title || files[index].name || "Публикация галереи");
+    const uploaded = await apiMultipart("/api/v1/admin/gallery/media", payload);
+    media.push({
+      fileUrl: uploaded.fileUrl,
+      thumbnailUrl: uploaded.thumbnailUrl || uploaded.mediumUrl || uploaded.fileUrl,
+      mediumUrl: uploaded.mediumUrl || uploaded.fileUrl,
+      width: uploaded.width || null,
+      height: uploaded.height || null,
+      mimeType: uploaded.mimeType || files[index].type || "image/jpeg",
+      altText: uploaded.altText || body.title || files[index].name,
+      sortOrder: index
+    });
+  }
+  return apiPost("/api/v1/admin/gallery/posts", {
+    type: body.type || "photo",
+    title: body.title,
+    description: optionalText(body.description),
+    storyContent: optionalText(body.storyContent),
+    category: body.category || "tavern",
+    eventDate: optionalText(body.eventDate),
+    status: body.status || "published",
+    media
+  }, true);
+}
+
 async function apiMultipart(path, body) {
   const response = await fetch(`${API_BASE}${path}`, {
     method: "POST",
@@ -1377,6 +1464,7 @@ function confirmMessage(action) {
 }
 
 function actionErrorMessage(action, error) {
+  if (error.userMessage) return error.userMessage;
   if (!error.status) return `${action}: сервер временно недоступен.`;
   if (error.status === 401 || error.status === 403) return "Недостаточно прав для этого действия.";
   return `${action}: сервер ответил ${error.status}.`;

@@ -3,6 +3,7 @@ package by.taverna.shlyapnika.control.api;
 import by.taverna.shlyapnika.audit.AuditService;
 import by.taverna.shlyapnika.common.Ids;
 import by.taverna.shlyapnika.config.TavernaProperties;
+import by.taverna.shlyapnika.gallery.GalleryTextFormatter;
 import by.taverna.shlyapnika.media.MediaStorage;
 import by.taverna.shlyapnika.media.MediaUpload;
 import jakarta.servlet.http.HttpServletRequest;
@@ -11,6 +12,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -217,6 +220,102 @@ public class MonolithControlController {
     if (deleted > 0) {
       auditService.write("master-cabinet", "gallery.post_deleted_from_cabinet", "GalleryPost", publicId, null);
     }
+  }
+
+  @PostMapping(value = "/api/v1/admin/gallery/media", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  @ResponseStatus(HttpStatus.CREATED)
+  public AdminGalleryMediaUploadDto uploadGalleryMedia(
+      @RequestPart("file") MultipartFile file,
+      @RequestParam(required = false) String altText
+  ) throws Exception {
+    // Загруженное из кабинета изображение сразу проходит через общий MediaStorage,
+    // поэтому сайт, бот и кабинет получают одинаковые URL для оригинала, medium и thumbnail.
+    var stored = mediaStorage.store(new MediaUpload(
+        file.getBytes(),
+        file.getOriginalFilename(),
+        file.getContentType(),
+        "gallery/cabinet",
+        trimToNull(altText)
+    ));
+    return new AdminGalleryMediaUploadDto(
+        stored.originalUrl(),
+        stored.thumbnailUrl(),
+        stored.mediumUrl(),
+        stored.width(),
+        stored.height(),
+        stored.mimeType(),
+        stored.altText()
+    );
+  }
+
+  @PostMapping("/api/v1/admin/gallery/posts")
+  @ResponseStatus(HttpStatus.CREATED)
+  public GalleryPostRowDto createGalleryPost(@RequestBody AdminGalleryPostRequest request) {
+    var title = required(request.title(), "title");
+    var type = allowed(request.type(), List.of("photo", "story", "character_sheet"), "photo");
+    var category = allowed(request.category(), List.of("games", "events", "heroes", "tavern", "miniatures", "other"), "tavern");
+    var status = allowed(request.status(), List.of("draft", "published", "hidden"), "draft");
+    var visible = !"hidden".equals(status);
+    var postId = Ids.newId("gpo");
+    var publicId = Ids.newId("gal");
+    var authorMasterId = trimToNull(request.masterPublicId()) == null ? null : findMaster(request.masterPublicId()).id();
+    var eventDate = trimToNull(request.eventDate()) == null
+        ? null
+        : LocalDate.parse(request.eventDate().trim()).atStartOfDay(ZoneId.of(properties.timezone())).toInstant();
+    var storyContent = trimToNull(request.storyContent());
+    var storyHtml = GalleryTextFormatter.sanitizeStoryHtml(request.storyHtml());
+    if (storyHtml == null) storyHtml = GalleryTextFormatter.formatStory(storyContent);
+    var now = Instant.now();
+
+    jdbcTemplate.update("""
+        insert into "GalleryPost" ("id", "publicId", "type", "title", "description", "storyContent", "storyHtml",
+                                   "category", "eventDate", "authorMasterId", "status", "isVisible", "sortOrder",
+                                   "publishedAt", "createdAt", "updatedAt")
+        values (?, ?, ?::"GalleryPostType", ?, ?, ?, ?, ?::"GalleryCategory", ?, ?, ?::"GalleryPostStatus",
+                ?, 0, ?, ?, ?)
+        """,
+        postId,
+        publicId,
+        type,
+        title,
+        trimToNull(request.description()),
+        storyContent,
+        storyHtml,
+        category,
+        eventDate == null ? null : Timestamp.from(eventDate),
+        authorMasterId,
+        status,
+        visible,
+        "published".equals(status) ? Timestamp.from(now) : null,
+        Timestamp.from(now),
+        Timestamp.from(now)
+    );
+
+    var media = request.media() == null ? List.<AdminGalleryMediaRequest>of() : request.media();
+    for (int index = 0; index < media.size(); index++) {
+      var item = media.get(index);
+      jdbcTemplate.update("""
+          insert into "GalleryMedia" ("id", "galleryPostId", "fileUrl", "thumbnailUrl", "mediumUrl", "width",
+                                      "height", "mimeType", "altText", "sortOrder", "createdAt")
+          values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          """,
+          Ids.newId("gme"),
+          postId,
+          required(item.fileUrl(), "fileUrl"),
+          required(item.thumbnailUrl(), "thumbnailUrl"),
+          required(item.mediumUrl(), "mediumUrl"),
+          item.width(),
+          item.height(),
+          textOrDefault(item.mimeType(), "image/jpeg"),
+          trimToNull(item.altText()),
+          item.sortOrder() == null ? index : item.sortOrder(),
+          Timestamp.from(now)
+      );
+    }
+
+    auditService.write("master-cabinet", "gallery.post_created_from_cabinet", "GalleryPost", publicId,
+        "{\"status\":\"" + status + "\"}");
+    return galleryPostByPublicId(publicId);
   }
 
   @PostMapping("/api/v1/admin/service-requests/{id}/contact")
@@ -1188,6 +1287,12 @@ public class MonolithControlController {
     return value == null || value.isBlank() ? null : value.trim();
   }
 
+  private static String allowed(String value, List<String> allowed, String fallback) {
+    var candidate = value == null || value.isBlank() ? fallback : value.trim();
+    if (!allowed.contains(candidate)) throw new IllegalArgumentException("Unsupported value: " + candidate);
+    return candidate;
+  }
+
   private static Integer positiveOrDefault(Integer value, int fallback) {
     return value == null || value < 1 ? fallback : value;
   }
@@ -1329,6 +1434,43 @@ public class MonolithControlController {
 
   public record GalleryMediaDto(
       String id,
+      String fileUrl,
+      String thumbnailUrl,
+      String mediumUrl,
+      Integer width,
+      Integer height,
+      String mimeType,
+      String altText
+  ) {
+  }
+
+  public record AdminGalleryPostRequest(
+      String type,
+      String title,
+      String description,
+      String storyContent,
+      String storyHtml,
+      String category,
+      String eventDate,
+      String masterPublicId,
+      String status,
+      List<AdminGalleryMediaRequest> media
+  ) {
+  }
+
+  public record AdminGalleryMediaRequest(
+      String fileUrl,
+      String thumbnailUrl,
+      String mediumUrl,
+      Integer width,
+      Integer height,
+      String mimeType,
+      String altText,
+      Integer sortOrder
+  ) {
+  }
+
+  public record AdminGalleryMediaUploadDto(
       String fileUrl,
       String thumbnailUrl,
       String mediumUrl,

@@ -23,6 +23,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -234,6 +235,47 @@ class MonolithControlControllerTest {
         eq("gallery-test"),
         contains("\"status\":\"published\"")
     );
+  }
+
+  @Test
+  @SuppressWarnings({"unchecked", "rawtypes"})
+  void createsGalleryPostFromMasterCabinet() throws Exception {
+    when(jdbcTemplate.queryForObject(contains("where p.\"publicId\" = ?"), any(RowMapper.class), contains("gal_")))
+        .thenReturn(new MonolithControlController.GalleryPostRowDto(
+            "gal_created",
+            "story",
+            "Прощание Либе",
+            "tavern",
+            "published",
+            true,
+            0,
+            null,
+            null,
+            Instant.parse("2026-07-26T21:00:00Z"),
+            Instant.parse("2026-07-26T21:00:00Z"),
+            Instant.parse("2026-07-26T21:00:00Z"),
+            Instant.parse("2026-07-26T21:00:00Z")
+        ));
+
+    mvc.perform(post("/api/v1/admin/gallery/posts")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "type": "story",
+                  "title": "Прощание Либе",
+                  "description": "История со стола",
+                  "storyContent": "Первая строка\\n\\nВторая строка",
+                  "category": "tavern",
+                  "eventDate": "2026-07-26",
+                  "status": "published",
+                  "media": []
+                }
+                """))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.publicId").value("gal_created"))
+        .andExpect(jsonPath("$.type").value("story"))
+        .andExpect(jsonPath("$.title").value("Прощание Либе"))
+        .andExpect(jsonPath("$.status").value("published"));
   }
 
   @Test
